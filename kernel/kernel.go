@@ -1,18 +1,20 @@
 package main
 
 import (
-	"utils"
+	"fmt"
 	"net/http"
+	"utils"
 )
 
 func main() {
 	utils.ConfigurarLogger("log_KERNEL")
+	config := utils.CargarConfiguracion[utils.ConfigKernel]("config.json")
 	mux := http.NewServeMux()
 
 	// mux.HandleFunc("/procesos", utils.RecibirPaquetes)
 	mux.HandleFunc("/interrupciones", utils.RecibirMensaje)
 
-	err := http.ListenAndServe(":8001", mux)
+	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortKernel), mux)
 	if err != nil {
 		panic(err)
 	}
