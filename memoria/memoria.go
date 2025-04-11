@@ -1,5 +1,10 @@
 package main
 
-func main() {
+import (
+	"utils"
+)
 
+func main() {
+	utils.ConfigurarLogger("log_MEMORIA")
+	
 }
