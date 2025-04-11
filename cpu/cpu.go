@@ -16,7 +16,10 @@ func main() {
 
 	log.Printf("Configuracion de CPU cargada correctamente: %+v", CPUConfig)
 
-	utils.EnviarMensaje(CPUConfig.IPKernel, CPUConfig.PortKernel, "Hola desde CPU")
+	utils.EnviarMensaje(CPUConfig.IPKernel, CPUConfig.PortKernel,"interrupciones","Hola desde CPU")
+	utils.EnviarMensaje(CPUConfig.IPMemory, CPUConfig.PortMemory,"peticiones", "Hola desde CPU")
 
 
 }
+
+//CPÜ a kernel y cpu a memoria

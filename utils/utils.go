@@ -39,14 +39,14 @@ func CargarConfiguracion[T any](filePath string) *T {
 	return &config
 }
 
-func EnviarMensaje(ip string, puerto int, mensajeTxt string) {
+func EnviarMensaje(ip string, puerto int, endpoint string, mensajeTxt string) {
 	mensaje := Mensaje{Mensaje: mensajeTxt}
 	body, err := json.Marshal(mensaje)
 	if err != nil {
 		log.Printf("error codificando mensaje: %s", err.Error())
 	}
 
-	url := fmt.Sprintf("http://%s:%d/interrupciones", ip, puerto)
+	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		log.Printf("error enviando mensaje a ip:%s puerto:%d", ip, puerto)

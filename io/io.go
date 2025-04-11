@@ -16,7 +16,7 @@ func main() {
 
 	log.Printf("Configuracion de IO cargada correctamente: %+v", IOConfig)
 
-	utils.EnviarMensaje(IOConfig.IPKernel, IOConfig.PortKernel, "Hola desde IO")
+	utils.EnviarMensaje(IOConfig.IPKernel, IOConfig.PortKernel,"interrupciones", "Hola desde IO")
 
 	
 }
