@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"utils"
 	"net/http"
+	"utils"
 )
 
 func main() {
 	utils.ConfigurarLogger("log_MEMORIA")
+
 	config := utils.CargarConfiguracion[utils.ConfigMemory]("config.json")
 	mux := http.NewServeMux()
 

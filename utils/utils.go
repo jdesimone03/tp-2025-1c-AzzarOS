@@ -1,12 +1,13 @@
 package utils
 
 import (
-	"encoding/json"
-	"log"
-	"os"
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
+	"log/slog"
 	"net/http"
+	"os"
 )
 
 type Mensaje struct {
@@ -15,11 +16,12 @@ type Mensaje struct {
 
 // CREA ARCHIVO .LOG
 func ConfigurarLogger(nombreArchivoLog string) {
-	logFile, err := os.OpenFile(nombreArchivoLog + ".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	logFile, err := os.OpenFile(nombreArchivoLog+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
 	log.SetOutput(logFile)
+	slog.Info("Logger " + nombreArchivoLog + ".log configurado")
 }
 
 func CargarConfiguracion[T any](filePath string) *T {
@@ -27,15 +29,18 @@ func CargarConfiguracion[T any](filePath string) *T {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalf("No se pudo abrir el archivo de configuración: %v", err)
+		slog.Error(fmt.Sprintf("No se pudo abrir el archivo de configuración  (%v)", err))
+		panic(err)
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&config); err != nil {
-		log.Fatalf("No se pudo decodificar el archivo JSON: %v", err)
+		slog.Error(fmt.Sprintf("No se pudo decodificar el archivo JSON (%v)", err))
+		panic(err)
 	}
 
+	slog.Info(fmt.Sprintf("Configuración cargada correctamente: %+v", config))
 	return &config
 }
 
@@ -43,16 +48,19 @@ func EnviarMensaje(ip string, puerto int, endpoint string, mensajeTxt string) {
 	mensaje := Mensaje{Mensaje: mensajeTxt}
 	body, err := json.Marshal(mensaje)
 	if err != nil {
-		log.Printf("error codificando mensaje: %s", err.Error())
+		slog.Error(fmt.Sprintf("No se pudo codificar el mensaje (%v)", err))
+		return
 	}
 
 	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		log.Printf("error enviando mensaje a ip:%s puerto:%d", ip, puerto)
+		slog.Error(fmt.Sprintf("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err))
+		return
 	}
 
-	log.Printf("respuesta del servidor: %s", resp.Status)
+	// log.Printf("respuesta del servidor: %s", resp.Status)
+	slog.Info(fmt.Sprintf("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resp.Status))
 }
 
 func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
@@ -60,14 +68,13 @@ func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 	var mensaje Mensaje
 	err := decoder.Decode(&mensaje)
 	if err != nil {
-		log.Printf("Error al decodificar mensaje: %s\n", err.Error())
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Error al decodificar mensaje"))
 		return
 	}
 
-	log.Println("Me llego un mensaje de un cliente")
-	log.Printf("%+v\n", mensaje)
+	slog.Info(fmt.Sprintf("Me llego un mensaje: %+v",mensaje))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
