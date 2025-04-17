@@ -2,6 +2,7 @@ package utils
 
 type ConfigCPU struct {
 	PortCPU          int    `json:"port_cpu"`
+	IPCPU		  	 string `json:"ip_cpu"`
 	IPMemory         string `json:"ip_memory"`
 	PortMemory       int    `json:"port_memory"`
 	IPKernel         string `json:"ip_kernel"`
@@ -18,12 +19,14 @@ type ConfigIO struct {
 	IPKernel   string `json:"ip_kernel"`
 	PortKernel int    `json:"port_kernel"`
 	PortIo     int    `json:"port_io"`
+	IPIo	  string `json:"ip_io"`
 	LogLevel   string `json:"log_level"`
 }
 
 type ConfigKernel struct {
 	IPMemory           string `json:"ip_memory"`
 	PortMemory         int    `json:"port_memory"`
+	IPKernel           string `json:"ip_kernel"`
 	PortKernel         int    `json:"port_kernel"`
 	SchedulerAlgorithm string `json:"scheduler_algorithm"`
 	NewAlgorithm       string `json:"new_algorithm"`
@@ -34,6 +37,7 @@ type ConfigKernel struct {
 
 type ConfigMemory struct {
 	PortMemory     int    `json:"port_memory"`
+	IPMemory       string `json:"ip_memory"`
 	MemorySize     int    `json:"memory_size"`
 	PageSize       int    `json:"page_size"`
 	EntriesPerPage int    `json:"entries_per_page"`

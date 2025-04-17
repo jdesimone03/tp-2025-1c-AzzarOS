@@ -20,7 +20,7 @@ func ConfigurarLogger(nombreArchivoLog string) {
 	if err != nil {
 		panic(err)
 	}
-	log.SetOutput(logFile)
+	log.SetOutput(logFile) // FALTO CAMBIAR A SLOG, TE LO DEJO A VOS FABRI
 	slog.Info("Logger " + nombreArchivoLog + ".log configurado")
 }
 
