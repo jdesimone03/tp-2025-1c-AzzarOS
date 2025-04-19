@@ -1,5 +1,6 @@
 package utils
 
+//----------------------------------- CONFIGS --------------------------------------------------
 type ConfigCPU struct {
 	PortCPU          int    `json:"port_cpu"`
 	IPCPU            string `json:"ip_cpu"`
@@ -48,11 +49,11 @@ type ConfigMemory struct {
 	LogLevel       string `json:"log_level"`
 	DumpPath       string `json:"dump_path"`
 }
+//------------------------------------------------------------------------------------------------
 
 type PCB struct {
 	PID             uint
 	PC              uint
-	Estado          string
 	MetricasConteo  map[string]int
 	MetricasTiempo  map[string]int64
 }
@@ -67,36 +68,8 @@ const (
 	EstadoRunning = "RUNNING"
 )
 
-func NuevoPCB(pid uint) *PCB {
-	return &PCB{
-		PID:            pid,
-		PC:             0,
-		Estado:         EstadoNew,
-		MetricasConteo: inicializarConteo(),
-		MetricasTiempo: inicializarTiempo(),
-	}
-}
-
-func inicializarConteo() map[string]int {
-	return map[string]int{
-		EstadoNew:     0,
-		EstadoReady:   0,
-		EstadoExec:    0,
-		EstadoBlocked: 0,
-		EstadoExit:    0,
-		EstadoWaiting: 0,
-		EstadoRunning: 0,
-	}
-}
-
-func inicializarTiempo() map[string]int64 {
-	return map[string]int64{
-		EstadoNew:     0,
-		EstadoReady:   0,
-		EstadoExec:    0,
-		EstadoBlocked: 0,
-		EstadoExit:    0,
-		EstadoWaiting: 0,
-		EstadoRunning: 0,
-	}
+type Interfaz struct {
+	Nombre	string
+	IP		string
+	Puerto	int
 }

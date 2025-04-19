@@ -15,7 +15,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// mux.HandleFunc("/procesos", utils.RecibirPaquetes)
-	mux.HandleFunc("/interrupciones", utils.RecibirMensaje)
+	mux.HandleFunc("/interrupciones", utils.RecibirInterfaz)
 
 	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortKernel), mux)
 	if err != nil {

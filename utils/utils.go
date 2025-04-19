@@ -63,9 +63,7 @@ func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) {
 }
 
 func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	var mensaje any // TODO hacer que tome structs
-	err := decoder.Decode(&mensaje)
+	mensaje, err := DecodificarMensaje[string](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -77,4 +75,45 @@ func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
+}
+
+func RecibirPCB(w http.ResponseWriter, r *http.Request) {
+	mensaje, err := DecodificarMensaje[PCB](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error al decodificar mensaje"))
+		return
+	}
+
+	slog.Info(fmt.Sprintf("Me llego un mensaje: %+v",mensaje))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+func RecibirInterfaz(w http.ResponseWriter, r *http.Request) {
+	mensaje, err := DecodificarMensaje[Interfaz](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error al decodificar mensaje"))
+		return
+	}
+
+	slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v",mensaje))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+// Función genérica para decodificar un mensaje del body
+func DecodificarMensaje[T any](r *http.Request) (*T, error) {
+	var mensaje T
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&mensaje)
+	if err != nil {
+		return nil, err
+	}
+	return &mensaje, nil
 }
