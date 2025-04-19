@@ -44,8 +44,7 @@ func CargarConfiguracion[T any](filePath string) *T {
 	return &config
 }
 
-func EnviarMensaje(ip string, puerto int, endpoint string, mensajeTxt string) {
-	mensaje := Mensaje{Mensaje: mensajeTxt}
+func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) {
 	body, err := json.Marshal(mensaje)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo codificar el mensaje (%v)", err))
@@ -65,7 +64,7 @@ func EnviarMensaje(ip string, puerto int, endpoint string, mensajeTxt string) {
 
 func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	var mensaje Mensaje
+	var mensaje any // TODO hacer que tome structs
 	err := decoder.Decode(&mensaje)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))

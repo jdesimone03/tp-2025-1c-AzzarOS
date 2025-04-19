@@ -2,7 +2,7 @@ package utils
 
 type ConfigCPU struct {
 	PortCPU          int    `json:"port_cpu"`
-	IPCPU		  	 string `json:"ip_cpu"`
+	IPCPU            string `json:"ip_cpu"`
 	IPMemory         string `json:"ip_memory"`
 	PortMemory       int    `json:"port_memory"`
 	IPKernel         string `json:"ip_kernel"`
@@ -19,7 +19,7 @@ type ConfigIO struct {
 	IPKernel   string `json:"ip_kernel"`
 	PortKernel int    `json:"port_kernel"`
 	PortIo     int    `json:"port_io"`
-	IPIo	  string `json:"ip_io"`
+	IPIo       string `json:"ip_io"`
 	LogLevel   string `json:"log_level"`
 }
 
@@ -47,4 +47,56 @@ type ConfigMemory struct {
 	SwapDelay      int    `json:"swap_delay"`
 	LogLevel       string `json:"log_level"`
 	DumpPath       string `json:"dump_path"`
+}
+
+type PCB struct {
+	PID             uint
+	PC              uint
+	Estado          string
+	MetricasConteo  map[string]int
+	MetricasTiempo  map[string]int64
+}
+
+const (
+	EstadoNew     = "NEW"
+	EstadoReady   = "READY"
+	EstadoExec    = "EXEC"
+	EstadoBlocked = "BLOCKED"
+	EstadoExit    = "EXIT"
+	EstadoWaiting = "WAITING"
+	EstadoRunning = "RUNNING"
+)
+
+func NuevoPCB(pid uint) *PCB {
+	return &PCB{
+		PID:            pid,
+		PC:             0,
+		Estado:         EstadoNew,
+		MetricasConteo: inicializarConteo(),
+		MetricasTiempo: inicializarTiempo(),
+	}
+}
+
+func inicializarConteo() map[string]int {
+	return map[string]int{
+		EstadoNew:     0,
+		EstadoReady:   0,
+		EstadoExec:    0,
+		EstadoBlocked: 0,
+		EstadoExit:    0,
+		EstadoWaiting: 0,
+		EstadoRunning: 0,
+	}
+}
+
+func inicializarTiempo() map[string]int64 {
+	return map[string]int64{
+		EstadoNew:     0,
+		EstadoReady:   0,
+		EstadoExec:    0,
+		EstadoBlocked: 0,
+		EstadoExit:    0,
+		EstadoWaiting: 0,
+		EstadoRunning: 0,
+	}
 }
