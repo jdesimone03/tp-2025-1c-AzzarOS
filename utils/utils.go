@@ -92,21 +92,6 @@ func RecibirPCB(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-func RecibirInterfaz(w http.ResponseWriter, r *http.Request) {
-	mensaje, err := DecodificarMensaje[Interfaz](r)
-	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error al decodificar mensaje"))
-		return
-	}
-
-	slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v",mensaje))
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
-
 // Función genérica para decodificar un mensaje del body
 func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 	var mensaje T

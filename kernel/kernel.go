@@ -4,29 +4,40 @@ import (
 	"fmt"
 	"net/http"
 	"utils"
+	"log/slog"
 )
 
+var interfazActual = utils.Interfaz{}
+
+// TODO crear variable global que guarde la interfaz actual
 func main() {
 	utils.ConfigurarLogger("log_KERNEL")
 	config := utils.CargarConfiguracion[utils.ConfigKernel]("config.json")
 
-	// estructura de prueba (reciclando la interfaz de io) para enviar mensajes a memoria
-
-	interfaz := utils.Interfaz {
-		Nombre: "socotroco",
-		IP: config.IPMemory,
-		Puerto: config.PortMemory,
-	}
-
-
-	utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones",interfaz)
-
-
-	// mux.HandleFunc("/procesos", utils.RecibirPaquetes)
-	http.HandleFunc("/interrupciones", utils.RecibirInterfaz)
+	http.HandleFunc("/interrupciones", recibirInterfaz)
 
 	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortKernel), nil)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func recibirInterfaz(w http.ResponseWriter, r *http.Request) {
+	interfaz, err := utils.DecodificarMensaje[utils.Interfaz](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error al decodificar mensaje"))
+		return
+	}
+
+	setInterfaz(interfaz)
+	slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v",interfaz))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+func setInterfaz(interfaz *utils.Interfaz){
+	interfazActual = *interfaz
 }
