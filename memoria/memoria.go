@@ -10,11 +10,11 @@ func main() {
 	utils.ConfigurarLogger("log_MEMORIA")
 
 	config := utils.CargarConfiguracion[utils.ConfigMemory]("config.json")
-	mux := http.NewServeMux()
 
-	mux.HandleFunc("/peticiones", utils.RecibirMensaje)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortMemory), mux)
+	http.HandleFunc("/peticiones", utils.RecibirInterfaz)
+
+	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortMemory), nil)
 	if err != nil {
 		panic(err)
 	}
