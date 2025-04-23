@@ -102,3 +102,11 @@ func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 	}
 	return &mensaje, nil
 }
+
+func IniciarServidor(puerto int) error {
+	err := http.ListenAndServe(fmt.Sprintf(":%d",puerto), nil)
+	if err != nil {
+		panic(err)
+	}
+	return err
+}

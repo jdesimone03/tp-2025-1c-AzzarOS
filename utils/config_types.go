@@ -73,3 +73,8 @@ type Interfaz struct {
 	IP		string
 	Puerto	int
 }
+
+type PeticionKernel struct {
+	PID            uint
+	SuspensionTime int
+}
