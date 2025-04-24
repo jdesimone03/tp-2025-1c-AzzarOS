@@ -15,7 +15,7 @@ var Config = config.CargarConfiguracion[config.ConfigKernel]("config.json")
 // scheduler_algorithm: LARGO plazo
 // ready_ingress_algorithm: CORTO plazo
 
-var Interfaces map[string]structs.Interfaz
+var Interfaces = make(map[string]structs.Interfaz)
 
 // Handlers de endpoints
 func RecibirInterfaz(w http.ResponseWriter, r *http.Request) {
