@@ -58,25 +58,6 @@ type ConfigMemory struct {
 }
 
 //------------------------------------------------------------------------------------------------
-
-type PCB struct {
-	PID            uint
-	PC             uint
-	Estado         string
-	MetricasConteo map[string]int
-	MetricasTiempo map[string]int64
-}
-
-const (
-	EstadoNew     = "NEW"
-	EstadoReady   = "READY"
-	EstadoExec    = "EXEC"
-	EstadoBlocked = "BLOCKED"
-	EstadoExit    = "EXIT"
-	EstadoWaiting = "WAITING"
-	EstadoRunning = "RUNNING"
-)
-
 func CargarConfiguracion[T any](filePath string) *T {
 	var config T
 

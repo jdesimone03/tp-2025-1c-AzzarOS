@@ -15,3 +15,21 @@ type PeticionKernel struct {
 	NombreIfaz		string
 	SuspensionTime 	int
 }
+
+type PCB struct {
+	PID            uint
+	PC             uint
+	Estado         string
+	MetricasConteo map[string]int
+	MetricasTiempo map[string]int64
+}
+
+const (
+	EstadoNew     = "NEW"
+	EstadoReady   = "READY"
+	EstadoExec    = "EXEC"
+	EstadoBlocked = "BLOCKED"
+	EstadoExit    = "EXIT"
+	EstadoWaiting = "SUSP_BLOCKED"
+	EstadoRunning = "SUSP_READY"
+)

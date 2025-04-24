@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"utils/config"
+	"utils/structs"
 )
 
 // CREA ARCHIVO .LOG
@@ -55,7 +55,7 @@ func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecibirPCB(w http.ResponseWriter, r *http.Request) {
-	mensaje, err := DecodificarMensaje[config.PCB](r)
+	mensaje, err := DecodificarMensaje[structs.PCB](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -86,4 +86,10 @@ func IniciarServidor(puerto int) error {
 		panic(err)
 	}
 	return err
+}
+
+
+// log obligatorio para cuando se crea un nuevo proceso (1)
+func NuevoProceso(nuevoPCB structs.PCB) {
+	log.Printf("Se crea el proceso %d en estado %s", nuevoPCB.PID, nuevoPCB.Estado)
 }
