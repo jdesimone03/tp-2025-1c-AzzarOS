@@ -1,21 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"memoria/utilsMemoria"
 	"utils"
 )
 
 func main() {
 	utils.ConfigurarLogger("log_MEMORIA")
 
-	config := utils.CargarConfiguracion[utils.ConfigMemory]("config.json")
 
-
-	http.HandleFunc("/peticiones", utils.RecibirInterfaz)
-
-	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortMemory), nil)
-	if err != nil {
-		panic(err)
-	}
+	// http.HandleFunc("/peticiones", utils.RecibirInterfaz)
+	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
 }

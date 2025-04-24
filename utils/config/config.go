@@ -1,6 +1,13 @@
-package utils
+package config
 
-//----------------------------------- CONFIGS --------------------------------------------------
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+)
+
+// ----------------------------------- CONFIGS --------------------------------------------------
 type ConfigCPU struct {
 	PortCPU          int    `json:"port_cpu"`
 	IPCPU            string `json:"ip_cpu"`
@@ -49,13 +56,15 @@ type ConfigMemory struct {
 	LogLevel       string `json:"log_level"`
 	DumpPath       string `json:"dump_path"`
 }
+
 //------------------------------------------------------------------------------------------------
 
 type PCB struct {
-	PID             uint
-	PC              uint
-	MetricasConteo  map[string]int
-	MetricasTiempo  map[string]int64
+	PID            uint
+	PC             uint
+	Estado         string
+	MetricasConteo map[string]int
+	MetricasTiempo map[string]int64
 }
 
 const (
@@ -68,13 +77,22 @@ const (
 	EstadoRunning = "RUNNING"
 )
 
-type Interfaz struct {
-	Nombre	string
-	IP		string
-	Puerto	int
-}
+func CargarConfiguracion[T any](filePath string) *T {
+	var config T
 
-type PeticionKernel struct {
-	PID            uint
-	SuspensionTime int
+	file, err := os.Open(filePath)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo abrir el archivo de configuración  (%v)", err))
+		panic(err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&config); err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el archivo JSON (%v)", err))
+		panic(err)
+	}
+
+	slog.Info(fmt.Sprintf("Configuración cargada correctamente: %+v", config))
+	return &config
 }

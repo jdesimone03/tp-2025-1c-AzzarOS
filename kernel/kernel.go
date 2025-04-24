@@ -1,56 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"kernel/utilsKernel"
 	"net/http"
 	"utils"
-	"log/slog"
 )
-
-var interfazActual = utils.Interfaz{}
 
 // TODO crear variable global que guarde la interfaz actual
 func main() {
+	//pseudocodigo := os.Args[1] // el pseudocodigo no va dentro de la memoria
+	//tam_proceso := os.Args[2]
+	//esto se manda a memoria
 	utils.ConfigurarLogger("log_KERNEL")
-	config := utils.CargarConfiguracion[utils.ConfigKernel]("config.json")
 
-	http.HandleFunc("/handshakeIO", recibirInterfaz)
-	http.HandleFunc("/peticionIO", enviarSleep)
+	http.HandleFunc("/handshakeIO", utilsKernel.RecibirInterfaz)
+	http.HandleFunc("/syscall", utilsKernel.HandleSyscall) // podria ser handlerSyscall
 
-	utils.IniciarServidor(config.PortKernel)
-}
-
-func recibirInterfaz(w http.ResponseWriter, r *http.Request) {
-	interfaz, err := utils.DecodificarMensaje[utils.Interfaz](r)
-	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error al decodificar mensaje"))
-		return
-	}
-
-	setInterfaz(interfaz)
-	slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v",interfaz))
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
-
-func enviarSleep(w http.ResponseWriter, r *http.Request){
-	peticion, err := utils.DecodificarMensaje[utils.PeticionKernel](r)
-	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error al decodificar mensaje"))
-		return
-	}
-
-	utils.EnviarMensaje(interfazActual.IP,interfazActual.Puerto,"peticionKernel",peticion)
-	
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
-
-func setInterfaz(interfaz *utils.Interfaz){
-	interfazActual = *interfaz
+	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

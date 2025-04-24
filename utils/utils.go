@@ -8,11 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"utils/config"
 )
-
-type Mensaje struct {
-	Mensaje string `json:"mensaje"`
-}
 
 // CREA ARCHIVO .LOG
 func ConfigurarLogger(nombreArchivoLog string) {
@@ -22,26 +19,6 @@ func ConfigurarLogger(nombreArchivoLog string) {
 	}
 	log.SetOutput(logFile) // FALTO CAMBIAR A SLOG, TE LO DEJO A VOS FABRI
 	slog.Info("Logger " + nombreArchivoLog + ".log configurado")
-}
-
-func CargarConfiguracion[T any](filePath string) *T {
-	var config T
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo abrir el archivo de configuración  (%v)", err))
-		panic(err)
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el archivo JSON (%v)", err))
-		panic(err)
-	}
-
-	slog.Info(fmt.Sprintf("Configuración cargada correctamente: %+v", config))
-	return &config
 }
 
 func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) {
@@ -78,7 +55,7 @@ func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecibirPCB(w http.ResponseWriter, r *http.Request) {
-	mensaje, err := DecodificarMensaje[PCB](r)
+	mensaje, err := DecodificarMensaje[config.PCB](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
