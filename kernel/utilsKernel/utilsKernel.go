@@ -95,34 +95,6 @@ func HandleSyscall(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-
-//NOSE NI POR QUE HICE ESTA FUNCION LA VERDAD
-/*
-func AdministrarColas(pcb structs.PCB) {
-	switch pcb.Estado {
-	case "NEW":
-		utils.NuevoProceso(pcb)
-		ColaNew = append(ColaNew, pcb)
-	case "READY":
-		//TODO: Agregar a la cola de READY
-	case "EXEC":
-		//TODO: Agregar a la cola de EXEC
-	case "BLOCKED":
-		//TODO: Agregar a la cola de BLOCKED
-	case "EXIT":
-		//TODO: Agregar a la cola de EXIT
-	case "SUSP_BLOCKED":
-		//TODO: Agregar a la cola de SUSP_BLOCKED
-	case "SUSP_READY":
-		//TODO: Agregar a la cola de SUSP_READY
-	default:
-		slog.Error(fmt.Sprintf("Estado de PCB no reconocido: %s", pcb.Estado))
-	}
-}*/
-
-
-
-
 func PlanificadorLargoPlazo(pcb structs.PCB) {
 	if ColaNew == nil {
 		//SE ENVIA PEDIDO A MEMORIA, SI ES OK SE MANDA A READY
@@ -132,28 +104,60 @@ func PlanificadorLargoPlazo(pcb structs.PCB) {
 	}else {
 		switch Config.SchedulerAlgorithm {
 		case "FIFO":
-			//ejecutar FIFO
+			FIFO()
 		case "SJF":
-			//ejecutar SJF
+			//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
 		default:
 			slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.SchedulerAlgorithm))
 		}
 	}
 }
 
+func FIFO() {
+	if ColaNew != nil {
+		firstPCB := ColaNew[0]
+		MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
+	}
+}
+
+func PlanificadorCortoPlazo() {
+	if ColaReady != nil {
+		switch Config.ReadyIngressAlgorithm {
+		case "FIFO":
+			FIFO()
+		case "SJF":
+			//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
+		case "SJF-SD":
+			//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
+		default:
+			slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.ReadyIngressAlgorithm))
+		}
+	}
+}
+
+
+/*
+func init() {
+	go planificadorLargoPlazo()
+	go planificadorCortoPlazo()
+}
+*/
 
 //Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado 
 func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB,estadoNuevo string) {
     for i, pcb := range *origen {
         if pcb.PID == pid {
 			pcb.Estado = estadoNuevo // cambiar el estado del PCB
-			slog.Info(fmt.Sprintf("## %d pasa del estado %s al estado %s", pid,(*origen)[i].Estado, estadoNuevo))
+			slog.Info(fmt.Sprintf("## (%d) pasa del estado %s al estado %s", pid,(*origen)[i].Estado, estadoNuevo))
             *destino = append(*destino, pcb) // mover a la cola destino
             *origen = append((*origen)[:i], (*origen)[i+1:]...) // eliminar del origen
             return
         }
     }
 }
+
+
+
 
 
 

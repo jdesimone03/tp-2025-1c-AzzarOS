@@ -32,15 +32,15 @@ type ConfigIO struct {
 }
 
 type ConfigKernel struct {
-	IPMemory           string `json:"ip_memory"`
-	PortMemory         int    `json:"port_memory"`
-	IPKernel           string `json:"ip_kernel"`
-	PortKernel         int    `json:"port_kernel"`
-	SchedulerAlgorithm string `json:"scheduler_algorithm"`
-	NewAlgorithm       string `json:"new_algorithm"`
-	Alpha              string `json:"alpha"`
-	SuspensionTime     int    `json:"suspension_time"`
-	LogLevel           string `json:"log_level"`
+	IPMemory           		string `json:"ip_memory"`
+	PortMemory         		int    `json:"port_memory"`
+	IPKernel           		string `json:"ip_kernel"`
+	PortKernel         		int    `json:"port_kernel"`
+	SchedulerAlgorithm 		string `json:"scheduler_algorithm"`
+	ReadyIngressAlgorithm	string `json:"ready_ingress_algorithm"`
+	Alpha              		string `json:"alpha"`
+	SuspensionTime     		int    `json:"suspension_time"`
+	LogLevel           		string `json:"log_level"`
 }
 
 type ConfigMemory struct {

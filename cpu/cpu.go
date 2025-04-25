@@ -3,6 +3,7 @@ package main
 import (
 	"cpu/utilsCPU"
 	"fmt"
+	"net/http"
 	"os"
 	"utils"
 	"utils/structs"
@@ -24,5 +25,9 @@ func main() {
 	}
 	
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel,"handshakeCPU",peticion)
+
+	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
+	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
+
 	//utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones", "Hola desde CPU")
 }
