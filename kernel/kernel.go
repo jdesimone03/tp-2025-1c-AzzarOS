@@ -13,7 +13,10 @@ func main() {
 	//esto se manda a memoria
 	utils.ConfigurarLogger("log_KERNEL")
 
+	// Handshakes
+	http.HandleFunc("/handshakeCPU", utilsKernel.RecibirCPU)
 	http.HandleFunc("/handshakeIO", utilsKernel.RecibirInterfaz)
+
 	http.HandleFunc("/syscall", utilsKernel.HandleSyscall) // podria ser handlerSyscall
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)

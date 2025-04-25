@@ -1,19 +1,15 @@
 package structs
 
+// Estructuras generales
+
 type Interfaz struct {
 	IP		string
 	Puerto	int
 }
 
-type PeticionIO struct {
-	Nombre		string
-	Interfaz	Interfaz
-}
-
-type PeticionKernel struct {
-	PID            	uint
-	NombreIfaz		string
-	SuspensionTime 	int
+type CPU struct {
+	IP		string
+	Puerto	int
 }
 
 type PCB struct {
@@ -23,6 +19,26 @@ type PCB struct {
 	MetricasConteo map[string]int
 	MetricasTiempo map[string]int64
 }
+
+// Peticiones
+
+type PeticionIO struct {
+	Nombre		string
+	Interfaz	Interfaz
+}
+
+type PeticionCPU struct {
+	Identificador	string
+	CPU				CPU
+}
+
+type PeticionKernel struct {
+	PID            	uint
+	NombreIfaz		string
+	SuspensionTime 	int
+}
+
+// Utilidades
 
 const (
 	EstadoNew     = "NEW"
