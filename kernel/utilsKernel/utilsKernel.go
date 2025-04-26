@@ -96,11 +96,10 @@ func HandleSyscall(w http.ResponseWriter, r *http.Request) {
 }
 
 func PlanificadorLargoPlazo(pcb structs.PCB) {
-	if ColaNew == nil {
+	if ColaNew == nil { // usar chanels, ni idea que onda eso pero me lo dijo el ayudante
 		//SE ENVIA PEDIDO A MEMORIA, SI ES OK SE MANDA A READY
 		//ASUMIMOS EL CAMINO LINDO POR QUE NO ESTA HECHO LO DE MEMORIA
 		MoverPCB(pcb.PID, &ColaNew, &ColaReady, structs.EstadoReady)		
-		
 	}else {
 		switch Config.SchedulerAlgorithm {
 		case "FIFO":

@@ -21,7 +21,10 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Solicitar a memoria la siguiente instruccion para la ejecución
+	// InstruccionCodificada = FETCH(PCB.ProgramCounter)
 
+	// Decodificamos la instruccion
 
 	w.WriteHeader(http.StatusOK)
 }
+
