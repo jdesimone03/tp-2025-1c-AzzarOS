@@ -13,20 +13,20 @@ func main() {
 	utils.ConfigurarLogger("log_IO")
 
 	nombre := os.Args[1]
-	
+
 	interfaz := structs.Interfaz{
 		IP:     utilsIO.Config.IPIo,
 		Puerto: utilsIO.Config.PortIo,
 	}
-	
-	peticion := structs.PeticionIO{
-		Nombre: nombre,
+
+	peticion := structs.HandshakeIO{
+		Nombre:   nombre,
 		Interfaz: interfaz,
 	}
 
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshakeIO", peticion)
 
-	http.HandleFunc("/peticionKernel", utilsIO.RecibirPeticion)
+	http.HandleFunc("/peticionIO", utilsIO.RecibirPeticion)
 
 	utils.IniciarServidor(utilsIO.Config.PortIo)
 }

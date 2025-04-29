@@ -14,10 +14,10 @@ func main() {
 	utils.ConfigurarLogger("log_KERNEL")
 
 	// Handshakes
-	http.HandleFunc("/handshakeCPU", utilsKernel.RecibirCPU)
-	http.HandleFunc("/handshakeIO", utilsKernel.RecibirInterfaz)
+	http.HandleFunc("/handshakeCPU", utilsKernel.HandleHandshake("CPU"))
+	http.HandleFunc("/handshakeIO", utilsKernel.HandleHandshake("IO"))
 
-	http.HandleFunc("/syscall", utilsKernel.HandleSyscall) // podria ser handlerSyscall
+	http.HandleFunc("/syscallIO", utilsKernel.HandleSyscall("IO")) // podria ser handlerSyscall
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

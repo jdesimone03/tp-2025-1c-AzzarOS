@@ -28,6 +28,7 @@ func main() {
 
 	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
 	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
+	//http.HandleFunc("/fetch", utilsCPU.DecodificarInstruccion)
 
 	//utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones", "Hola desde CPU")
 }
