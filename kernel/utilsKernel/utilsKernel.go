@@ -7,6 +7,7 @@ import (
 	"utils"
 	"utils/config"
 	"utils/structs"
+	"slices"
 )
 
 // variables Config
@@ -24,7 +25,7 @@ var ColaExit []structs.PCB
 
 var InstanciasCPU = make(map[string]structs.CPU)
 
-var ListaExecIO = make(map[string]uint) // nombre de io: PID
+var ListaExecIO = make(map[string][]structs.EsperaIO) // nombre de io: PID
 var ListaWaitIO = make(map[string][]structs.EsperaIO)
 var Interfaces = make(map[string]structs.Interfaz)
 
@@ -41,27 +42,15 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 				return
 			}
 
+			// Inicializa la interfaz y el planificador
 			Interfaces[interfaz.Nombre] = interfaz.Interfaz
+			go PlanificadorIO(interfaz.Nombre)
+			// MoverAExecIO(interfaz.Nombre)
 
-			aux, encontrado := ListaWaitIO[interfaz.Nombre]
-			if encontrado {
-				// Borra el primer elemento en la lista de espera
-				aEjecutar := aux[0]
-				aux := append(aux[:0], aux[1:]...)
-				ListaWaitIO[interfaz.Nombre] = aux
-
-				peticion := structs.PeticionIO{
-					PID:            aEjecutar.PID,
-					NombreIfaz:     interfaz.Nombre,
-					SuspensionTime: aEjecutar.TiempoMs,
-				}
-				utils.EnviarMensaje(interfaz.Interfaz.IP, interfaz.Interfaz.Puerto, "/peticionIO", peticion)
-				ListaExecIO[interfaz.Nombre] = aEjecutar.PID
-			}
 			slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v", interfaz))
 
 		case "CPU":
-			instancia, err := utils.DecodificarMensaje[structs.PeticionCPU](r)
+			instancia, err := utils.DecodificarMensaje[structs.HandshakeCPU](r)
 			if err != nil {
 				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 				w.WriteHeader(http.StatusBadRequest)
@@ -71,7 +60,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 			InstanciasCPU[instancia.Identificador] = instancia.CPU
 			slog.Info(fmt.Sprintf("Me llego la siguiente cpu: %+v", instancia))
-			
+
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un modulo valido.", tipo))
 			w.WriteHeader(http.StatusBadRequest)
@@ -84,46 +73,9 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch tipo {
 		case "IO":
-			peticion, err := utils.DecodificarMensaje[structs.PeticionIO](r)
-			if err != nil {
-				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Error al decodificar mensaje"))
+			err := SyscallIO(r, w)
+			if err {
 				return
-			}
-
-			pid := peticion.PID
-			nombre := peticion.NombreIfaz
-			tiempoMs := peticion.SuspensionTime
-
-			interfaz, encontrada := Interfaces[nombre]
-			if encontrada {
-				_, isExec := ListaExecIO[nombre]
-				if isExec {
-					// Enviar proceso a BLOCKED
-					MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
-
-					// Enviar proceso a ListaWaitIO
-					espera := structs.EsperaIO{
-						PID:      pid,
-						TiempoMs: tiempoMs,
-					}
-					ListaWaitIO[nombre] = append(ListaWaitIO[nombre], espera)
-				} else {
-					// Enviar al IO el PID y el tiempo en ms
-					peticion := structs.PeticionIO{
-						PID:            pid,
-						NombreIfaz:     nombre,
-						SuspensionTime: tiempoMs,
-					}
-					ListaExecIO[nombre] = pid
-					utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "peticionIO", peticion)
-				}
-			} else {
-				slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
-
-				// Enviar proceso a EXIT
-				MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoBlocked)
 			}
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un tipo de syscall valida.", tipo))
@@ -133,6 +85,79 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 
 	}
 	// Despues le hacemos un case switch para cada syscall diferente
+}
+
+// No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
+func SyscallIO(r *http.Request, w http.ResponseWriter) bool {
+	peticion, err := utils.DecodificarMensaje[structs.PeticionIO](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return true
+	}
+
+	pid := peticion.PID
+	nombre := peticion.NombreIfaz
+	tiempoMs := peticion.SuspensionTime
+
+	_, encontrada := Interfaces[nombre]
+	if encontrada {
+		espera := structs.EsperaIO{
+			PID:      pid,
+			TiempoMs: tiempoMs,
+		}
+		_, isExec := ListaExecIO[nombre]
+		if isExec {
+			// Enviar proceso a BLOCKED
+			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
+
+			// Enviar proceso a ListaWaitIO
+			ListaWaitIO[nombre] = append(ListaWaitIO[nombre], espera)
+		} else {
+			// Enviar al proceso a ejecutar el IO
+			ListaExecIO[nombre] = append(ListaExecIO[nombre], espera)
+		}
+	} else {
+		slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
+
+		// Enviar proceso a EXIT
+		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoBlocked)
+	}
+	return false
+}
+
+func PlanificadorIO(nombre string) {
+	for {
+		interfaz, encontrada := Interfaces[nombre]
+		if encontrada {
+			lista, hayExec := ListaExecIO[nombre]
+			if hayExec {
+				// Enviar al IO el PID y el tiempo en ms
+				proc := lista[0]
+				peticion := structs.PeticionIO{
+					PID:            proc.PID,
+					NombreIfaz:     nombre,
+					SuspensionTime: proc.TiempoMs,
+				}
+				utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "peticionIO", peticion)
+				// Borro el proceso de la lista de ejecucion
+				aux := slices.Delete(ListaExecIO[nombre], 0, 1 )
+				ListaExecIO[nombre] = aux
+			}
+			aux, hayEsperando := ListaWaitIO[nombre]
+			if hayEsperando {
+				// Borra el primer elemento en la lista de espera
+				aEjecutar := aux[0]
+				aux := slices.Delete(aux, 0, 1)
+				ListaWaitIO[nombre] = aux
+				ListaExecIO[nombre] = append(ListaExecIO[nombre], aEjecutar)
+			}
+		} else {
+			// Si se llega a desconectar el IO, se desconecta el planificador
+			// Tengo que ver como hacer para que se borre la interfaz de la lista de interfaces al momento que se desconecta
+			break
+		}
+	}
 }
 
 func PlanificadorLargoPlazo(pcb structs.PCB) {
@@ -196,17 +221,17 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 // ---------------------------- Funciones de prueba ----------------------------//
 func NuevoProceso(pid uint) structs.PCB {
-	var pcb = CrearPCB(pid, 0, structs.EstadoNew)
+	var pcb = CrearPCB(pid, structs.EstadoNew)
 	ColaNew = append(ColaNew, pcb)
 	slog.Info(fmt.Sprintf("Se agregó el proceso %d a la cola de new", pcb.PID))
 	return pcb
 }
 
-func CrearPCB(pid uint, pc uint, estado string) structs.PCB {
+func CrearPCB(pid uint, estado string) structs.PCB {
 	slog.Info(fmt.Sprintf("Se ha creado el proceso %d", pid))
 	return structs.PCB{
 		PID:            pid,
-		PC:             pc,
+		PC:             0,
 		Estado:         estado,
 		MetricasConteo: nil,
 		MetricasTiempo: nil,

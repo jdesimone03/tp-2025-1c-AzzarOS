@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
-	"utils/structs"	
 	"strconv"
 	"strings"
+	"utils/structs"
 )
 
 // CREA ARCHIVO .LOG
@@ -19,26 +20,39 @@ func ConfigurarLogger(nombreArchivoLog string) {
 	if err != nil {
 		panic(err)
 	}
-	log.SetOutput(logFile) // FALTO CAMBIAR A SLOG, TE LO DEJO A VOS FABRI
+	log.SetOutput(logFile)
 	slog.Info("Logger " + nombreArchivoLog + ".log configurado")
 }
 
-func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) {
+func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
 	body, err := json.Marshal(mensaje)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo codificar el mensaje (%v)", err))
-		return
+		return ""
 	}
 
 	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err))
-		return
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var resData structs.Respuesta
+	respuesta, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	err = json.Unmarshal(respuesta, &resData)
+	if err != nil {
+		return ""
 	}
 
 	// log.Printf("respuesta del servidor: %s", resp.Status)
-	slog.Info(fmt.Sprintf("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resp.Status))
+	slog.Info(fmt.Sprintf("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resData))
+	return resData.Mensaje
 }
 
 func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
@@ -52,8 +66,13 @@ func RecibirMensaje(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info(fmt.Sprintf("Me llego un mensaje: %+v",mensaje))
 
+	respuesta := structs.Respuesta {
+		Mensaje: fmt.Sprint(http.StatusOK),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	json.NewEncoder(w).Encode(respuesta)
 }
 
 func RecibirPCB(w http.ResponseWriter, r *http.Request) {
@@ -110,54 +129,112 @@ var instructionMap = map[string]structs.InstructionType{
     "EXIT":        structs.INST_EXIT,
 }
 
-//Tengo que cambiar los logs
-func ParsearInstruccion(line string) (interface{}, error) {
+func Decode(line string) (interface{}) {
     parts := strings.Fields(line) // Divide por espacios
     if len(parts) == 0 {
-        return nil, slog.Error(fmt.Sprintf("línea vacía"))
+		slog.Error("línea vacía")
+        return nil
     }
 
     cmd := parts[0]
     params := parts[1:]
 
     instType, ok := instructionMap[cmd]
-    if !ok {
-        return nil, slog.Error(fmt.Sprintf("comando desconocido: %s", cmd))
+    if (!ok) {
+		slog.Error(fmt.Sprintf("comando desconocido: %s", cmd))
+        return nil
     }
 
     switch instType {
     case structs.INST_NOOP:
-        if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("NOOP no espera parámetros")) }
-        return structs.NoopInstruction{}, nil
+        if len(params) != 0 { 
+			slog.Error("NOOP no espera parámetros")
+			return nil
+		}
+        return structs.NoopInstruction{}
 
     case structs.INST_WRITE:
-        if len(params) != 2 { return nil, slog.Error(fmt.Sprintf("WRITE espera 2 parámetros (Dirección, Datos)")) }
+        if len(params) != 2 { 
+			slog.Error("WRITE espera 2 parámetros (Dirección, Datos)")
+			return nil
+		}
         addr, err := strconv.Atoi(params[0])
-        if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Dirección inválido para WRITE: %v", err)) }
-        return structs.WriteInstruction{Address: addr, Data: params[1]}, nil
+        if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Dirección inválido para WRITE: %v", err))
+			return nil
+		}
+        return structs.WriteInstruction{Address: addr, Data: params[1]}
 
      case structs.INST_READ:
-         if len(params) != 2 { return nil, slog.Error(fmt.Sprintf("READ espera 2 parámetros (Dirección, Tamaño)")) }
+         if len(params) != 2 { 
+			slog.Error("READ espera 2 parámetros (Dirección, Tamaño)")
+			return nil
+		}
          addr, err := strconv.Atoi(params[0])
-         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Dirección inválido para READ: %v", err)) }
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Dirección inválido para READ: %v", err))
+			return nil
+		}
          size, err := strconv.Atoi(params[1])
-         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Tamaño inválido para READ: %v", err)) }
-         return structs.ReadInstruction{Address: addr, Size: size}, nil
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Tamaño inválido para READ: %v", err)) 	
+			return nil
+		}
+         return structs.ReadInstruction{Address: addr, Size: size}
 
      case structs.INST_GOTO:
-         if len(params) != 1 { return nil, slog.Error(fmt.Sprintf("GOTO espera 1 parámetro (Valor)")) }
+         if len(params) != 1 { 
+			slog.Error("GOTO espera 1 parámetro (Valor)")
+			return nil
+		}
          target, err := strconv.Atoi(params[0])
-         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Valor inválido para GOTO: %v", err)) }
-         return structs.GotoInstruction{TargetAddress: target}, nil
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Valor inválido para GOTO: %v", err)) 
+			return nil
+		}
+         return structs.GotoInstruction{TargetAddress: target}
+
+	
+    case structs.INST_IO:
+        if len(params) != 2 {
+            slog.Error("IO espera 2 parámetros (Duración, Nombre)")
+            return nil
+        }
+        duration, err := strconv.Atoi(params[0])
+        if err != nil {
+            slog.Error(fmt.Sprintf("parámetro Duración inválido para IO: %v", err))
+            return nil
+        }
+        return structs.IoInstruction{Duration: duration, Nombre: params[1]}
+
+    case structs.INST_INIT_PROC:
+        if len(params) != 2 {
+            slog.Error("INIT_PROC espera 2 parámetros (NombreProceso, TamañoMemoria)")
+            return nil
+        }
+        memorySize, err := strconv.Atoi(params[1])
+        if err != nil {
+            slog.Error(fmt.Sprintf("parámetro TamañoMemoria inválido para INIT_PROC: %v", err))
+            return nil
+        }
+        return structs.InitProcInstruction{ProcessName: params[0], MemorySize: memorySize}
 
      case structs.INST_DUMP_MEMORY:
-         if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("DUMP_MEMORY no espera parámetros")) }
-         return structs.DumpMemoryInstruction{}, nil
+         if len(params) != 0 { 
+			slog.Error("DUMP_MEMORY no espera parámetros")
+			return nil
+		}
+         return structs.DumpMemoryInstruction{}
 
      case structs.INST_EXIT:
-        if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("EXIT no espera parámetros")) }
-        return structs.ExitInstruction{}, nil
+        if len(params) != 0 { 
+			slog.Error("EXIT no espera parámetros")
+			return nil
+		}
+        return structs.ExitInstruction{}
+
     default:
-        return nil, slog.Error(fmt.Sprintf("parsing no implementado para: %s", cmd))
+		slog.Error(fmt.Sprintf("parsing no implementado para: %s", cmd))
+        return nil
     }
 }

@@ -1,6 +1,7 @@
 package utilsIO
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -29,5 +30,11 @@ func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 	// Log obligatorio 2
 	slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", peticion.PID))
 
+	respuesta := structs.Respuesta{
+		Mensaje: "IO_END",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(respuesta)
 }

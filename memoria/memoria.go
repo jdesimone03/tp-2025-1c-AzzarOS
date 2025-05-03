@@ -2,6 +2,7 @@ package main
 
 import (
 	"memoria/utilsMemoria"
+	"net/http"
 	"utils"
 )
 
@@ -11,4 +12,6 @@ func main() {
 
 	// http.HandleFunc("/peticiones", utils.RecibirInterfaz)
 	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
+
+	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
 }

@@ -1,5 +1,64 @@
 package utilsMemoria
 
-import "utils/config"
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	// "strconv"
+	"strings"
+	"utils"
+	"utils/config"
+    "utils/structs"
+)
 
 var Config = config.CargarConfiguracion[config.ConfigMemory]("config.json")
+
+
+func EjecutarArchivo(path string) []string {
+    contenido, err := os.ReadFile(path)
+    if err != nil {
+        slog.Error("error leyendo el archivo de instrucciones")
+		return nil
+    }
+
+    lineas := strings.Split(string(contenido), "\n")
+
+    for _, linea := range lineas {
+        linea = strings.TrimSpace(linea)
+        if linea == "" {
+            continue // ignorar líneas vacías
+        }
+    }
+    return lineas
+}
+
+func BuscarLineaInstruccion(lineas []string,pc uint) string {
+    return lineas[pc]
+}
+
+func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
+    pc, err := utils.DecodificarMensaje[structs.PeticionMemoria](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+    lineas := EjecutarArchivo("instrucciones.txt") // Cambiar a la ruta correcta del archivo de instrucciones, hardcodeado por ahora
+    linea := BuscarLineaInstruccion(lineas, pc.PC)
+
+	respuesta := structs.Respuesta{
+		Mensaje: linea,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(respuesta)
+}
+
+func BuscarPseudocodigoAsociadoAlPID(pid uint) string {
+	
+	return ""
+}

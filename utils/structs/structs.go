@@ -20,6 +20,12 @@ type PCB struct {
 	MetricasTiempo map[string]int64
 }
 
+type Proceso struct {
+	PID             uint
+	Instrucciones   string //path al archivo de instrucciones
+	Tamanio			int
+}
+
 // Peticiones
 
 type HandshakeIO struct {
@@ -27,7 +33,7 @@ type HandshakeIO struct {
 	Interfaz	Interfaz
 }
 
-type PeticionCPU struct {
+type HandshakeCPU struct {
 	Identificador	string
 	CPU				CPU
 }
@@ -38,7 +44,16 @@ type PeticionIO struct {
 	SuspensionTime 	int
 }
 
+type PeticionMemoria struct {
+	PID            	uint
+	PC			 	uint
+}
+
 // Utilidades
+
+type Respuesta struct {
+	Mensaje	string
+}
 
 const (
 	EstadoNew     = "NEW"
@@ -55,35 +70,6 @@ type EsperaIO struct {
 	TiempoMs	int
 }
 
-
-
-
-
-
-//------------------------- IDEAS AGARRADAS DE LOS PELOS (NI IDEA QUE HICIMOS) -------------------------
-type Instruccion struct {
-	Instruccion	string
-	Argumentos	[]string
-}
-
-func DecodificarInstruccion(instruccion string) (string, error) {
-	//leo primera instruccion
-	//listaDeInstrucciones []Instruccion
-	//leo noop -> ListaDeInstrucciones[0]
-	return "", nil
-}
-
-
-/*
-type PCB struct {
-	PID            uint
-	PC             uint
-	Estado         string
-	Instrucciones  []Instruccion
-	MetricasConteo map[string]int
-	MetricasTiempo map[string]int64
-}
-*/
 
 //--------------------------------- PROPUESTA TOMI P ----------------------------------------------------
 type InstructionType int

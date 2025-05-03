@@ -19,7 +19,7 @@ func main() {
 		Puerto: utilsCPU.Config.PortCPU,
 	}
 	
-	peticion := structs.PeticionCPU{
+	peticion := structs.HandshakeCPU{
 		Identificador: identificador,
 		CPU: cpu,
 	}
@@ -28,7 +28,6 @@ func main() {
 
 	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
 	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
-	//http.HandleFunc("/fetch", utilsCPU.DecodificarInstruccion)
 
 	//utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones", "Hola desde CPU")
 }
