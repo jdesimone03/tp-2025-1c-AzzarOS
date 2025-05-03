@@ -111,10 +111,10 @@ var instructionMap = map[string]structs.InstructionType{
 }
 
 //Tengo que cambiar los logs
-func parseLine(line string) (interface{}, error) {
+func ParsearInstruccion(line string) (interface{}, error) {
     parts := strings.Fields(line) // Divide por espacios
     if len(parts) == 0 {
-        return nil, fmt.Errorf("línea vacía")
+        return nil, slog.Error(fmt.Sprintf("línea vacía"))
     }
 
     cmd := parts[0]
@@ -122,42 +122,42 @@ func parseLine(line string) (interface{}, error) {
 
     instType, ok := instructionMap[cmd]
     if !ok {
-        return nil, fmt.Errorf("comando desconocido: %s", cmd)
+        return nil, slog.Error(fmt.Sprintf("comando desconocido: %s", cmd))
     }
 
     switch instType {
     case structs.INST_NOOP:
-        if len(params) != 0 { return nil, fmt.Errorf("NOOP no espera parámetros") }
+        if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("NOOP no espera parámetros")) }
         return structs.NoopInstruction{}, nil
 
     case structs.INST_WRITE:
-        if len(params) != 2 { return nil, fmt.Errorf("WRITE espera 2 parámetros (Dirección, Datos)") }
+        if len(params) != 2 { return nil, slog.Error(fmt.Sprintf("WRITE espera 2 parámetros (Dirección, Datos)")) }
         addr, err := strconv.Atoi(params[0])
-        if err != nil { return nil, fmt.Errorf("parámetro Dirección inválido para WRITE: %v", err) }
+        if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Dirección inválido para WRITE: %v", err)) }
         return structs.WriteInstruction{Address: addr, Data: params[1]}, nil
 
      case structs.INST_READ:
-         if len(params) != 2 { return nil, fmt.Errorf("READ espera 2 parámetros (Dirección, Tamaño)") }
+         if len(params) != 2 { return nil, slog.Error(fmt.Sprintf("READ espera 2 parámetros (Dirección, Tamaño)")) }
          addr, err := strconv.Atoi(params[0])
-         if err != nil { return nil, fmt.Errorf("parámetro Dirección inválido para READ: %v", err) }
+         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Dirección inválido para READ: %v", err)) }
          size, err := strconv.Atoi(params[1])
-         if err != nil { return nil, fmt.Errorf("parámetro Tamaño inválido para READ: %v", err) }
+         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Tamaño inválido para READ: %v", err)) }
          return structs.ReadInstruction{Address: addr, Size: size}, nil
 
      case structs.INST_GOTO:
-         if len(params) != 1 { return nil, fmt.Errorf("GOTO espera 1 parámetro (Valor)") }
+         if len(params) != 1 { return nil, slog.Error(fmt.Sprintf("GOTO espera 1 parámetro (Valor)")) }
          target, err := strconv.Atoi(params[0])
-         if err != nil { return nil, fmt.Errorf("parámetro Valor inválido para GOTO: %v", err) }
+         if err != nil { return nil, slog.Error(fmt.Sprintf("parámetro Valor inválido para GOTO: %v", err)) }
          return structs.GotoInstruction{TargetAddress: target}, nil
 
      case structs.INST_DUMP_MEMORY:
-         if len(params) != 0 { return nil, fmt.Errorf("DUMP_MEMORY no espera parámetros") }
+         if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("DUMP_MEMORY no espera parámetros")) }
          return structs.DumpMemoryInstruction{}, nil
 
      case structs.INST_EXIT:
-        if len(params) != 0 { return nil, fmt.Errorf("EXIT no espera parámetros") }
+        if len(params) != 0 { return nil, slog.Error(fmt.Sprintf("EXIT no espera parámetros")) }
         return structs.ExitInstruction{}, nil
     default:
-        return nil, fmt.Errorf("parsing no implementado para: %s", cmd)
+        return nil, slog.Error(fmt.Sprintf("parsing no implementado para: %s", cmd))
     }
 }
