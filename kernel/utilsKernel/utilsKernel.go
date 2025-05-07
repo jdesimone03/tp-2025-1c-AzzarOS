@@ -20,6 +20,8 @@ var ColaExecute []structs.PCB
 var ColaBlocked []structs.PCB
 var ColaExit []structs.PCB
 
+var contadorProcesos uint = 0
+
 // scheduler_algorithm: LARGO plazo
 // ready_ingress_algorithm: CORTO plazo
 
@@ -220,22 +222,96 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 }
 
 // ---------------------------- Funciones de prueba ----------------------------//
-func NuevoProceso(pid uint) structs.PCB {
-	var pcb = CrearPCB(pid, structs.EstadoNew)
+func NuevoProceso() structs.PCB {
+	var pcb = CrearPCB(contadorProcesos)
 	ColaNew = append(ColaNew, pcb)
 	slog.Info(fmt.Sprintf("Se agregó el proceso %d a la cola de new", pcb.PID))
+	contadorProcesos++
 	return pcb
 }
 
-func CrearPCB(pid uint, estado string) structs.PCB {
+func CrearPCB(pid uint) structs.PCB {
 	slog.Info(fmt.Sprintf("Se ha creado el proceso %d", pid))
 	return structs.PCB{
 		PID:            pid,
 		PC:             0,
-		Estado:         estado,
+		Estado:         structs.EstadoNew,
 		MetricasConteo: nil,
 		MetricasTiempo: nil,
 	}
 }
 
 //-------------------------------------------------------------------------------//
+
+// ---------------------------- Funciones de test ----------------------------//
+func TestCrearPCB() {
+	// Crear múltiples PCBs para probar la variable global contadorProcesos
+	pcb1 := NuevoProceso()
+	if pcb1.PID != 0 {
+		slog.Error("TestCrearPCB: El PID del primer proceso debería ser 0")
+	}
+
+	pcb2 := NuevoProceso()
+	if pcb2.PID != 1 {
+		slog.Error("TestCrearPCB: El PID del segundo proceso debería ser 1")
+	}
+
+	pcb3 := NuevoProceso()
+	if pcb3.PID != 2 {
+		slog.Error("TestCrearPCB: El PID del tercer proceso debería ser 2")
+	}
+
+	// Verificar otros atributos para cada PCB
+	for _, pcb := range []structs.PCB{pcb1, pcb2, pcb3} {
+		if pcb.PC != 0 {
+			slog.Error(fmt.Sprintf("TestCrearPCB: El PC del proceso %d debería iniciar en 0", pcb.PID))
+		}
+		if pcb.Estado != structs.EstadoNew {
+			slog.Error(fmt.Sprintf("TestCrearPCB: El estado inicial del proceso %d debería ser NEW", pcb.PID))
+		}
+	}
+
+	slog.Info("TestCrearPCB completado")
+}
+
+func TestMoverAReady() {
+
+	// Verificar que los procesos estén en NEW
+	if len(ColaNew) != 3 {
+		slog.Error("TestMoverAReady: Deberían haber 3 procesos en NEW")
+	}
+
+	// Mover procesos a READY
+	MoverPCB(2, &ColaNew, &ColaReady, structs.EstadoReady)
+
+
+	// Verificar que los procesos se movieron correctamente
+	if len(ColaNew) != 2 {
+		slog.Error("TestMoverAReady: La cola NEW debería haber 2 procesos")
+	}
+
+	if len(ColaReady) != 1 {
+		slog.Error("TestMoverAReady: Deberían haber 1 procesos en READY")
+	}
+
+	// Verificar el estado de los procesos
+	for _, pcb := range ColaReady {
+		if pcb.Estado != structs.EstadoReady {
+			slog.Error(fmt.Sprintf("TestMoverAReady: El proceso %d debería estar en estado READY", pcb.PID))
+		}
+	}
+
+	slog.Info("TestMoverAReady completado")
+}
+
+
+
+func RunTests() {
+	slog.Info("Iniciando tests...")
+	TestCrearPCB()
+	TestMoverAReady()
+	slog.Info("Estado final de las colas:")
+	slog.Info(fmt.Sprintf("Cola NEW: %+v", ColaNew))
+	slog.Info(fmt.Sprintf("Cola READY: %+v", ColaReady))
+	slog.Info("Tests completados")
+}
