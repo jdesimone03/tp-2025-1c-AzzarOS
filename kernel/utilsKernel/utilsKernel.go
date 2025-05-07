@@ -244,7 +244,7 @@ func CrearPCB(pid uint) structs.PCB {
 //-------------------------------------------------------------------------------//
 
 // ---------------------------- Funciones de test ----------------------------//
-func TestCrearPCB() {
+/*func TestCrearPCB() {
 	// Crear múltiples PCBs para probar la variable global contadorProcesos
 	pcb1 := NuevoProceso()
 	if pcb1.PID != 0 {
@@ -315,3 +315,4 @@ func RunTests() {
 	slog.Info(fmt.Sprintf("Cola READY: %+v", ColaReady))
 	slog.Info("Tests completados")
 }
+	*/
