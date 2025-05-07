@@ -1,13 +1,15 @@
 package utilsKernel
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
+	"time"
 	"utils"
 	"utils/config"
 	"utils/structs"
-	"slices"
 )
 
 // variables Config
@@ -108,8 +110,7 @@ func SyscallIO(r *http.Request, w http.ResponseWriter) bool {
 			PID:      pid,
 			TiempoMs: tiempoMs,
 		}
-		_, isExec := ListaExecIO[nombre]
-		if isExec {
+		if len(ListaExecIO[nombre]) > 0 {
 			// Enviar proceso a BLOCKED
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 
@@ -123,7 +124,7 @@ func SyscallIO(r *http.Request, w http.ResponseWriter) bool {
 		slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
 
 		// Enviar proceso a EXIT
-		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoBlocked)
+		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 	}
 	return false
 }
@@ -132,8 +133,8 @@ func PlanificadorIO(nombre string) {
 	for {
 		interfaz, encontrada := Interfaces[nombre]
 		if encontrada {
-			lista, hayExec := ListaExecIO[nombre]
-			if hayExec {
+			lista := ListaExecIO[nombre]
+			if len(lista) > 0 {
 				// Enviar al IO el PID y el tiempo en ms
 				proc := lista[0]
 				peticion := structs.PeticionIO{
@@ -141,23 +142,52 @@ func PlanificadorIO(nombre string) {
 					NombreIfaz:     nombre,
 					SuspensionTime: proc.TiempoMs,
 				}
-				utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "peticionIO", peticion)
-				// Borro el proceso de la lista de ejecucion
-				aux := slices.Delete(ListaExecIO[nombre], 0, 1 )
-				ListaExecIO[nombre] = aux
+
+				// Manejo del timeout
+				timeoutMax := proc.TiempoMs + (proc.TiempoMs / 50) // Tiempo de espera maximo, es medio arbitrario que tiene que ser 50% mas del pedido. Se podria ajustar
+				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMax)*time.Millisecond)
+				defer cancel()
+
+				// Crea un canal que marca si termino la ejecución de IO
+				done := make(chan bool, 1)
+				go func() {
+					utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "peticionIO", peticion)
+					done <- true
+				}()
+
+				select {
+				case <-done:
+					// SI TERMINA LA EJECUCION (FIN DE IO)
+					// Borro el proceso de la lista de ejecucion
+					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
+					ListaExecIO[nombre] = aux
+
+				case <-ctx.Done():
+					// SI HAY DESCONEXION DE IO
+					slog.Error(fmt.Sprintf("Timeout excedido para el proceso %d en la interfaz %s", proc.PID, nombre))
+					MoverPCB(proc.PID,&ColaExecute,&ColaExit,structs.EstadoExit)
+					delete(Interfaces,nombre)
+
+					// Borro el proceso de la lista de ejecución
+					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
+					ListaExecIO[nombre] = aux
+					return // Si se desconecta el io hay que desconectar el planificador
+				}
 			}
-			aux, hayEsperando := ListaWaitIO[nombre]
-			if hayEsperando {
+			aux := ListaWaitIO[nombre]
+			if len(aux) > 0 {
 				// Borra el primer elemento en la lista de espera
 				aEjecutar := aux[0]
 				aux := slices.Delete(aux, 0, 1)
 				ListaWaitIO[nombre] = aux
+
+				MoverPCB(aEjecutar.PID, &ColaBlocked, &ColaExecute, structs.EstadoExec)
 				ListaExecIO[nombre] = append(ListaExecIO[nombre], aEjecutar)
 			}
 		} else {
 			// Si se llega a desconectar el IO, se desconecta el planificador
 			// Tengo que ver como hacer para que se borre la interfaz de la lista de interfaces al momento que se desconecta
-			break
+			return
 		}
 	}
 }
@@ -315,4 +345,4 @@ func RunTests() {
 	slog.Info(fmt.Sprintf("Cola READY: %+v", ColaReady))
 	slog.Info("Tests completados")
 }
-	*/
+*/
