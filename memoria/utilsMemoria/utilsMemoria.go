@@ -58,7 +58,20 @@ func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(respuesta)
 }
 
-func BuscarPseudocodigoAsociadoAlPID(pid uint) string {
-	
-	return ""
+func RecibirInstrucciones(w http.ResponseWriter, r *http.Request) {
+	mensaje, err := utils.DecodificarMensaje[structs.Proceso](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Error al decodificar mensaje"))
+		return
+	}
+
+
+	slog.Info(fmt.Sprintf("Me llego un mensaje: %+v",mensaje))
+
+
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
 }

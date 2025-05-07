@@ -252,12 +252,22 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 }
 
 // ---------------------------- Funciones de prueba ----------------------------//
-func NuevoProceso() structs.PCB {
+func NuevoProceso(rutaArchInstrucciones string, tamanio int) structs.PCB {
 	var pcb = CrearPCB(contadorProcesos)
+	var proceso = configurarProceso(pcb.PID, rutaArchInstrucciones, tamanio)
 	ColaNew = append(ColaNew, pcb)
 	slog.Info(fmt.Sprintf("Se agregó el proceso %d a la cola de new", pcb.PID))
+	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevoProceso", proceso) //checkear endpo
 	contadorProcesos++
 	return pcb
+}
+
+func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
+	return structs.Proceso{
+		PID: pid,
+		Instrucciones: rutaArchInstrucciones,
+		Tamanio: tamanio,
+	}
 }
 
 func CrearPCB(pid uint) structs.PCB {

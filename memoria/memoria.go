@@ -14,4 +14,5 @@ func main() {
 	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
 
 	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
+	http.HandleFunc("/nuevoProceso", utilsMemoria.RecibirInstrucciones)
 }
