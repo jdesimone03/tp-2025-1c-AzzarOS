@@ -8,7 +8,6 @@ import (
 	"utils/structs"
 )
 
-// TODO levantar servidor de IO despues del handshake
 func main() {
 	utils.ConfigurarLogger("log_IO")
 
@@ -24,9 +23,9 @@ func main() {
 		Interfaz: interfaz,
 	}
 
-	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshakeIO", peticion)
+	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
-	http.HandleFunc("/peticionIO", utilsIO.RecibirPeticion)
+	http.HandleFunc("/ejecutarIO", utilsIO.RecibirPeticion)
 
 	utils.IniciarServidor(utilsIO.Config.PortIo)
 }

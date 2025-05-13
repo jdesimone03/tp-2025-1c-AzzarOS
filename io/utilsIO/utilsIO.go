@@ -14,7 +14,7 @@ import (
 var Config = config.CargarConfiguracion[config.ConfigIO]("config.json")
 
 func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
-	peticion, err := utils.DecodificarMensaje[structs.PeticionIO](r)
+	peticion, err := utils.DecodificarMensaje[structs.EsperaIO](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -23,9 +23,9 @@ func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log obligatorio 1
-	slog.Info(fmt.Sprintf("## PID: %d - Inicio de IO - Tiempo: %d", peticion.PID, peticion.SuspensionTime))
+	slog.Info(fmt.Sprintf("## PID: %d - Inicio de IO - Tiempo: %d", peticion.PID, peticion.TiempoMs))
 	
-	time.Sleep(time.Duration(peticion.SuspensionTime) * time.Millisecond)
+	time.Sleep(time.Duration(peticion.TiempoMs) * time.Millisecond)
 	
 	// Log obligatorio 2
 	slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", peticion.PID))

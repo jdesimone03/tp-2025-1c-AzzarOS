@@ -58,20 +58,36 @@ func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(respuesta)
 }
 
-func RecibirInstrucciones(w http.ResponseWriter, r *http.Request) {
-	mensaje, err := utils.DecodificarMensaje[structs.Proceso](r)
+func NuevoProceso(w http.ResponseWriter, r *http.Request) {
+	mensaje, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error al decodificar mensaje"))
 		return
 	}
 
+	ok := "false"
+	if MemoriaDisponible(mensaje.MemorySize) {
+		ok = "true"
+		// TODO manejar la lógica de la ejecucion a la cpu
+	}
 
-	slog.Info(fmt.Sprintf("Me llego un mensaje: %+v",mensaje))
+	respuesta := structs.Respuesta {
+		Mensaje: ok,
+	}
 
 
-
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	json.NewEncoder(w).Encode(respuesta)
+}
+
+func MemoriaDisponible(MemoriaSolicitada int) bool{
+	if Config.MemorySize >= MemoriaSolicitada {
+		slog.Info(fmt.Sprintf("Memoria disponible: %d bytes", Config.MemorySize))
+		return true
+	}else {
+		slog.Info(fmt.Sprintf("Memoria no disponible, me quedan: %d bytes", Config.MemorySize))
+		return false
+	}
 }

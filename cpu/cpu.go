@@ -24,10 +24,9 @@ func main() {
 		CPU: cpu,
 	}
 	
-	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel,"handshakeCPU",peticion)
+	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel,"handshake/CPU",peticion)
 
 	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
 	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
 
-	//utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones", "Hola desde CPU")
 }

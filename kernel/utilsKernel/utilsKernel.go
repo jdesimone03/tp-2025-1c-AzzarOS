@@ -28,10 +28,10 @@ var contadorProcesos uint = 0
 // ready_ingress_algorithm: CORTO plazo
 
 var InstanciasCPU = make(map[string]structs.CPU)
-
-var ListaExecIO = make(map[string][]structs.EsperaIO) // nombre de io: PID
-var ListaWaitIO = make(map[string][]structs.EsperaIO)
 var Interfaces = make(map[string]structs.Interfaz)
+
+var ListaExecIO = make(map[string][]structs.EsperaIO)
+var ListaWaitIO = make(map[string][]structs.EsperaIO)
 
 // Handlers de endpoints
 func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
@@ -76,11 +76,32 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch tipo {
-		case "IO":
-			err := SyscallIO(r, w)
-			if err {
+		case "INIT_PROC":
+			proceso, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			SyscallInitProc(*proceso)
+		case "DUMP_MEMORY":
+			return // No implementado
+		case "IO":
+			peticion, err := utils.DecodificarMensaje[structs.IOInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallIO(*peticion)
+		case "EXIT":
+			proceso, err := utils.DecodificarMensaje[structs.ExitInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallExit(*proceso)
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un tipo de syscall valida.", tipo))
 			w.WriteHeader(http.StatusBadRequest)
@@ -88,18 +109,11 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 	}
-	// Despues le hacemos un case switch para cada syscall diferente
 }
 
+// Syscalls
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
-func SyscallIO(r *http.Request, w http.ResponseWriter) bool {
-	peticion, err := utils.DecodificarMensaje[structs.PeticionIO](r)
-	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-		w.WriteHeader(http.StatusBadRequest)
-		return true
-	}
-
+func SyscallIO(peticion structs.IOInstruction) {
 	pid := peticion.PID
 	nombre := peticion.NombreIfaz
 	tiempoMs := peticion.SuspensionTime
@@ -126,9 +140,20 @@ func SyscallIO(r *http.Request, w http.ResponseWriter) bool {
 		// Enviar proceso a EXIT
 		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 	}
-	return false
 }
 
+func SyscallInitProc(inst structs.InitProcInstruction) {
+	// TODO capaz habría que guardar esto en el PCB en lugar de en otro struct
+	instrucciones := inst.ProcessPath
+	tamanio := inst.MemorySize
+	NuevoProceso(instrucciones,tamanio)
+}
+
+func SyscallExit(proceso structs.ExitInstruction) {
+	// Seguir la logica de "Finalizacion de procesos"
+}
+
+// Planificadores
 func PlanificadorIO(nombre string) {
 	for {
 		interfaz, encontrada := Interfaces[nombre]
@@ -137,11 +162,6 @@ func PlanificadorIO(nombre string) {
 			if len(lista) > 0 {
 				// Enviar al IO el PID y el tiempo en ms
 				proc := lista[0]
-				peticion := structs.PeticionIO{
-					PID:            proc.PID,
-					NombreIfaz:     nombre,
-					SuspensionTime: proc.TiempoMs,
-				}
 
 				// Manejo del timeout
 				timeoutMax := proc.TiempoMs + (proc.TiempoMs / 50) // Tiempo de espera maximo, es medio arbitrario que tiene que ser 50% mas del pedido. Se podria ajustar
@@ -151,7 +171,7 @@ func PlanificadorIO(nombre string) {
 				// Crea un canal que marca si termino la ejecución de IO
 				done := make(chan bool, 1)
 				go func() {
-					utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "peticionIO", peticion)
+					utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", proc)
 					done <- true
 				}()
 
@@ -162,11 +182,15 @@ func PlanificadorIO(nombre string) {
 					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
 					ListaExecIO[nombre] = aux
 
+					// Log obligatorio 5/8
+					slog.Info(fmt.Sprintf("## (%d) finalizó IO y pasa a READY", proc.PID))
+					MoverPCB(proc.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
+
 				case <-ctx.Done():
 					// SI HAY DESCONEXION DE IO
 					slog.Error(fmt.Sprintf("Timeout excedido para el proceso %d en la interfaz %s", proc.PID, nombre))
-					MoverPCB(proc.PID,&ColaExecute,&ColaExit,structs.EstadoExit)
-					delete(Interfaces,nombre)
+					MoverPCB(proc.PID, &ColaExecute, &ColaExit, structs.EstadoExit)
+					delete(Interfaces, nombre)
 
 					// Borro el proceso de la lista de ejecución
 					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
@@ -187,40 +211,52 @@ func PlanificadorIO(nombre string) {
 		} else {
 			// Si se llega a desconectar el IO, se desconecta el planificador
 			// Tengo que ver como hacer para que se borre la interfaz de la lista de interfaces al momento que se desconecta
+			slog.Error(fmt.Sprintf("Interfaz %s no encontrada, desconectando el planificador", nombre))
 			return
 		}
 	}
 }
 
-func PlanificadorLargoPlazo(pcb structs.PCB) {
-	if ColaNew == nil { // usar chanels, ni idea que onda eso pero me lo dijo el ayudante
-		//SE ENVIA PEDIDO A MEMORIA, SI ES OK SE MANDA A READY
-		//ASUMIMOS EL CAMINO LINDO POR QUE NO ESTA HECHO LO DE MEMORIA
-		MoverPCB(pcb.PID, &ColaNew, &ColaReady, structs.EstadoReady)
-	} else {
-		switch Config.SchedulerAlgorithm {
-		case "FIFO":
-			FIFO()
-		case "PMCP":
-			//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
-		default:
-			slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.SchedulerAlgorithm))
+// Los procesos son creados con la syscall de INIT_PROC.
+// Esta función solo los manda a ejecutar según el algoritmo de planificación.
+func PlanificadorLargoPlazo() {
+	for {
+		if ColaNew != nil {
+			switch Config.SchedulerAlgorithm {
+			case "FIFO":
+				firstPCB := ColaNew[0]
+				respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", firstPCB)
+				if respuesta == "true" {
+					MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
+				}
+				// Si no, no hace nada. Sigue con el bucle hasta que se libere
+			case "PMCP":
+				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
+			default:
+				slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.SchedulerAlgorithm))
+			}
 		}
 	}
+
 }
 
-func FIFO() {
+// Medio que no sirve una funcion asi ya que funcionan distinto en los dos planificadores
+/* func FIFO() {
 	if ColaNew != nil {
 		firstPCB := ColaNew[0]
-		MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
+		Inicializar(firstPCB)
 	}
-}
+} */
 
 func PlanificadorCortoPlazo() {
 	if ColaReady != nil {
 		switch Config.ReadyIngressAlgorithm {
 		case "FIFO":
-			FIFO()
+			// FIFO()
+			if ColaExecute == nil {
+				firstPCB := ColaReady[0]
+				MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+			}
 		case "SJF":
 			//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
 		case "SJF-SD":
@@ -243,6 +279,7 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 	for i, pcb := range *origen {
 		if pcb.PID == pid {
 			pcb.Estado = estadoNuevo // cambiar el estado del PCB
+			// Log obligatorio 3/8
 			slog.Info(fmt.Sprintf("## (%d) pasa del estado %s al estado %s", pid, (*origen)[i].Estado, estadoNuevo))
 			*destino = append(*destino, pcb)                    // mover a la cola destino
 			*origen = append((*origen)[:i], (*origen)[i+1:]...) // eliminar del origen
@@ -252,28 +289,28 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 }
 
 // ---------------------------- Funciones de prueba ----------------------------//
-func NuevoProceso(rutaArchInstrucciones string, tamanio int) structs.PCB {
-	var pcb = CrearPCB(contadorProcesos)
-	var proceso = configurarProceso(pcb.PID, rutaArchInstrucciones, tamanio)
+func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
+	// Crea el proceso y lo inserta en NEW
+	pcb := CrearPCB()
+	configurarProceso(pcb.PID, rutaArchInstrucciones, tamanio)
 	ColaNew = append(ColaNew, pcb)
-	slog.Info(fmt.Sprintf("Se agregó el proceso %d a la cola de new", pcb.PID))
-	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevoProceso", proceso) //checkear endpo
 	contadorProcesos++
-	return pcb
+
+	// Log obligatorio 2/8
+	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
 }
 
 func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
 	return structs.Proceso{
-		PID: pid,
+		PID:           pid,
 		Instrucciones: rutaArchInstrucciones,
-		Tamanio: tamanio,
+		Tamanio:       tamanio,
 	}
 }
 
-func CrearPCB(pid uint) structs.PCB {
-	slog.Info(fmt.Sprintf("Se ha creado el proceso %d", pid))
+func CrearPCB() structs.PCB {
 	return structs.PCB{
-		PID:            pid,
+		PID:            contadorProcesos,
 		PC:             0,
 		Estado:         structs.EstadoNew,
 		MetricasConteo: nil,

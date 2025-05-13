@@ -9,10 +9,8 @@ import (
 func main() {
 	utils.ConfigurarLogger("log_MEMORIA")
 
-
-	// http.HandleFunc("/peticiones", utils.RecibirInterfaz)
 	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
 
 	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
-	http.HandleFunc("/nuevoProceso", utilsMemoria.RecibirInstrucciones)
+	http.HandleFunc("/nuevo-proceso", utilsMemoria.NuevoProceso)
 }

@@ -22,13 +22,15 @@ func main() {
 
 	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)//esto se manda a memoria
 
-
 	// Handshakes
-	http.HandleFunc("/handshakeCPU", utilsKernel.HandleHandshake("CPU"))
-	http.HandleFunc("/handshakeIO", utilsKernel.HandleHandshake("IO"))
+	http.HandleFunc("/handshake/CPU", utilsKernel.HandleHandshake("CPU"))
+	http.HandleFunc("/handshake/IO", utilsKernel.HandleHandshake("IO"))
 
-	http.HandleFunc("/syscallIO", utilsKernel.HandleSyscall("IO"))
-	http.HandleFunc("/syscallInitProc", utilsKernel.HandleSyscall("INIT_PROC"))
+	// Syscalls
+	http.HandleFunc("/syscall/IO", utilsKernel.HandleSyscall("IO"))
+	http.HandleFunc("/syscall/INIT_PROC", utilsKernel.HandleSyscall("INIT_PROC"))
+	http.HandleFunc("/syscall/DUMP_MEMORY", utilsKernel.HandleSyscall("DUMP_MEMORY"))
+	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

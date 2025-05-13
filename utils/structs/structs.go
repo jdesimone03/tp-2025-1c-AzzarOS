@@ -38,12 +38,6 @@ type HandshakeCPU struct {
 	CPU				CPU
 }
 
-type PeticionIO struct {
-	PID            	uint
-	NombreIfaz		string
-	SuspensionTime 	int
-}
-
 type PeticionMemoria struct {
 	PID            	uint
 	PC			 	uint
@@ -102,16 +96,19 @@ type GotoInstruction struct {
     TargetAddress int
 }
 
-type IoInstruction struct {
-    Duration int 
-	Nombre   string
+type IOInstruction struct {
+	PID            	uint
+	NombreIfaz		string
+	SuspensionTime 	int
 }
 
 type InitProcInstruction struct {
-    ProcessName string
+    ProcessPath string
     MemorySize  int 
 }
 
 type DumpMemoryInstruction struct{}
 
-type ExitInstruction struct{}
+type ExitInstruction struct{
+	PID	uint
+}
