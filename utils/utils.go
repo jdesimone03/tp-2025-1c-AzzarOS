@@ -205,7 +205,7 @@ func Decode(line string) (interface{}) {
             slog.Error(fmt.Sprintf("parámetro Duración inválido para IO: %v", err))
             return nil
         }
-        return structs.IoInstruction{Duration: duration, Nombre: params[1]}
+        return structs.IOInstruction{NombreIfaz: params[1],SuspensionTime: duration}
 
     case structs.INST_INIT_PROC:
         if len(params) != 2 {
@@ -217,7 +217,7 @@ func Decode(line string) (interface{}) {
             slog.Error(fmt.Sprintf("parámetro TamañoMemoria inválido para INIT_PROC: %v", err))
             return nil
         }
-        return structs.InitProcInstruction{ProcessName: params[0], MemorySize: memorySize}
+        return structs.InitProcInstruction{ProcessPath: params[0], MemorySize: memorySize}
 
      case structs.INST_DUMP_MEMORY:
          if len(params) != 0 { 

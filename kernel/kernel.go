@@ -20,7 +20,8 @@ func main() {
 
 	utils.ConfigurarLogger("log_KERNEL")
 
-	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)//esto se manda a memoria
+	// memoria debe estar iniciada
+	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)
 
 	// Handshakes
 	http.HandleFunc("/handshake/CPU", utilsKernel.HandleHandshake("CPU"))

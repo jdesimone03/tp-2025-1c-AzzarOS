@@ -114,7 +114,7 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 // Syscalls
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(peticion structs.IOInstruction) {
-	pid := peticion.PID
+	pid := ColaExecute[0].PID
 	nombre := peticion.NombreIfaz
 	tiempoMs := peticion.SuspensionTime
 
@@ -143,10 +143,9 @@ func SyscallIO(peticion structs.IOInstruction) {
 }
 
 func SyscallInitProc(inst structs.InitProcInstruction) {
-	// TODO capaz habría que guardar esto en el PCB en lugar de en otro struct
 	instrucciones := inst.ProcessPath
 	tamanio := inst.MemorySize
-	NuevoProceso(instrucciones,tamanio)
+	NuevoProceso(instrucciones, tamanio)
 }
 
 func SyscallExit(proceso structs.ExitInstruction) {
@@ -225,10 +224,7 @@ func PlanificadorLargoPlazo() {
 			switch Config.SchedulerAlgorithm {
 			case "FIFO":
 				firstPCB := ColaNew[0]
-				respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", firstPCB)
-				if respuesta == "true" {
-					MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
-				}
+				MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
 				// Si no, no hace nada. Sigue con el bucle hasta que se libere
 			case "PMCP":
 				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
@@ -290,23 +286,36 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 // ---------------------------- Funciones de prueba ----------------------------//
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
+	if respuesta != "true" {
+		slog.Error(fmt.Sprintf("No hay suficiente espacio en memoria. Esperando a que termine el proceso PID (%d)...",ColaExecute[0].PID))
+		for(ColaExecute != nil ){
+			// Espera a que termine el proceso ejecutando actualmente
+		}
+	}
 	// Crea el proceso y lo inserta en NEW
 	pcb := CrearPCB()
-	configurarProceso(pcb.PID, rutaArchInstrucciones, tamanio)
 	ColaNew = append(ColaNew, pcb)
 	contadorProcesos++
 
 	// Log obligatorio 2/8
 	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
-}
 
-func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
+	proceso := structs.Proceso{
+		PID: pcb.PID,
+		Instrucciones: rutaArchInstrucciones,
+		Tamanio: tamanio,
+	}
+
+	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
+}
+/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
 	return structs.Proceso{
 		PID:           pid,
 		Instrucciones: rutaArchInstrucciones,
 		Tamanio:       tamanio,
 	}
-}
+} */
 
 func CrearPCB() structs.PCB {
 	return structs.PCB{

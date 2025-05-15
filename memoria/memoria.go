@@ -13,4 +13,5 @@ func main() {
 
 	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
 	http.HandleFunc("/nuevo-proceso", utilsMemoria.NuevoProceso)
+	http.HandleFunc("/check-memoria", utilsMemoria.CheckMemoria)
 }

@@ -13,11 +13,11 @@ type CPU struct {
 }
 
 type PCB struct {
-	PID            uint
-	PC             uint
-	Estado         string
-	MetricasConteo map[string]int
-	MetricasTiempo map[string]int64
+	PID            	uint
+	PC             	uint
+	Estado         	string
+	MetricasConteo 	map[string]int
+	MetricasTiempo 	map[string]int64
 }
 
 type Proceso struct {
@@ -97,7 +97,6 @@ type GotoInstruction struct {
 }
 
 type IOInstruction struct {
-	PID            	uint
 	NombreIfaz		string
 	SuspensionTime 	int
 }

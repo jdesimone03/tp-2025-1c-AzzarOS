@@ -59,7 +59,20 @@ func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
 }
 
 func NuevoProceso(w http.ResponseWriter, r *http.Request) {
-	mensaje, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
+	_, err := utils.DecodificarMensaje[structs.Proceso](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// TODO Implementar
+	
+	w.WriteHeader(http.StatusOK)
+}
+
+func CheckMemoria(w http.ResponseWriter, r *http.Request) {
+	tam, err := utils.DecodificarMensaje[int](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -67,20 +80,19 @@ func NuevoProceso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok := "false"
-	if MemoriaDisponible(mensaje.MemorySize) {
+	if MemoriaDisponible(*tam) {
 		ok = "true"
-		// TODO manejar la lógica de la ejecucion a la cpu
 	}
 
 	respuesta := structs.Respuesta {
 		Mensaje: ok,
 	}
 
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(respuesta)
 }
+
 
 func MemoriaDisponible(MemoriaSolicitada int) bool{
 	if Config.MemorySize >= MemoriaSolicitada {
