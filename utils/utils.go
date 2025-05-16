@@ -129,7 +129,7 @@ var instructionMap = map[string]structs.InstructionType{
     "EXIT":        structs.INST_EXIT,
 }
 
-func Decode(line string) (interface{}) {
+func Decode(line string) any {
     parts := strings.Fields(line) // Divide por espacios
     if len(parts) == 0 {
 		slog.Error("línea vacía")

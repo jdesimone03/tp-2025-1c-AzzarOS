@@ -236,19 +236,10 @@ func PlanificadorLargoPlazo() {
 
 }
 
-// Medio que no sirve una funcion asi ya que funcionan distinto en los dos planificadores
-/* func FIFO() {
-	if ColaNew != nil {
-		firstPCB := ColaNew[0]
-		Inicializar(firstPCB)
-	}
-} */
-
 func PlanificadorCortoPlazo() {
 	if ColaReady != nil {
 		switch Config.ReadyIngressAlgorithm {
 		case "FIFO":
-			// FIFO()
 			if ColaExecute == nil {
 				firstPCB := ColaReady[0]
 				MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
@@ -286,31 +277,36 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 // ---------------------------- Funciones de prueba ----------------------------//
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
+
+	// Verifica si hay lugar disponible en memoria
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
-	if respuesta != "true" {
+	if respuesta != "OK" {
 		slog.Error(fmt.Sprintf("No hay suficiente espacio en memoria. Esperando a que termine el proceso PID (%d)...",ColaExecute[0].PID))
 		for(ColaExecute != nil ){
 			// Espera a que termine el proceso ejecutando actualmente
 		}
 	}
-	// Crea el proceso y lo inserta en NEW
-	pcb := CrearPCB()
-	ColaNew = append(ColaNew, pcb)
-	contadorProcesos++
 
-	// Log obligatorio 2/8
-	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
-
+	// Reserva el tamaño para memoria
 	proceso := structs.Proceso{
-		PID: pcb.PID,
+		PID: contadorProcesos, // PID actual
 		Instrucciones: rutaArchInstrucciones,
 		Tamanio: tamanio,
 	}
 
 	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
+
+	// Crea el PCB y lo inserta en NEW
+	pcb := CrearPCB()
+	ColaNew = append(ColaNew, pcb)
+	contadorProcesos++
+	
+	// Log obligatorio 2/8
+	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
 }
-/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
-	return structs.Proceso{
+	
+	/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
+		return structs.Proceso{
 		PID:           pid,
 		Instrucciones: rutaArchInstrucciones,
 		Tamanio:       tamanio,
@@ -328,77 +324,3 @@ func CrearPCB() structs.PCB {
 }
 
 //-------------------------------------------------------------------------------//
-
-// ---------------------------- Funciones de test ----------------------------//
-/*func TestCrearPCB() {
-	// Crear múltiples PCBs para probar la variable global contadorProcesos
-	pcb1 := NuevoProceso()
-	if pcb1.PID != 0 {
-		slog.Error("TestCrearPCB: El PID del primer proceso debería ser 0")
-	}
-
-	pcb2 := NuevoProceso()
-	if pcb2.PID != 1 {
-		slog.Error("TestCrearPCB: El PID del segundo proceso debería ser 1")
-	}
-
-	pcb3 := NuevoProceso()
-	if pcb3.PID != 2 {
-		slog.Error("TestCrearPCB: El PID del tercer proceso debería ser 2")
-	}
-
-	// Verificar otros atributos para cada PCB
-	for _, pcb := range []structs.PCB{pcb1, pcb2, pcb3} {
-		if pcb.PC != 0 {
-			slog.Error(fmt.Sprintf("TestCrearPCB: El PC del proceso %d debería iniciar en 0", pcb.PID))
-		}
-		if pcb.Estado != structs.EstadoNew {
-			slog.Error(fmt.Sprintf("TestCrearPCB: El estado inicial del proceso %d debería ser NEW", pcb.PID))
-		}
-	}
-
-	slog.Info("TestCrearPCB completado")
-}
-
-func TestMoverAReady() {
-
-	// Verificar que los procesos estén en NEW
-	if len(ColaNew) != 3 {
-		slog.Error("TestMoverAReady: Deberían haber 3 procesos en NEW")
-	}
-
-	// Mover procesos a READY
-	MoverPCB(2, &ColaNew, &ColaReady, structs.EstadoReady)
-
-
-	// Verificar que los procesos se movieron correctamente
-	if len(ColaNew) != 2 {
-		slog.Error("TestMoverAReady: La cola NEW debería haber 2 procesos")
-	}
-
-	if len(ColaReady) != 1 {
-		slog.Error("TestMoverAReady: Deberían haber 1 procesos en READY")
-	}
-
-	// Verificar el estado de los procesos
-	for _, pcb := range ColaReady {
-		if pcb.Estado != structs.EstadoReady {
-			slog.Error(fmt.Sprintf("TestMoverAReady: El proceso %d debería estar en estado READY", pcb.PID))
-		}
-	}
-
-	slog.Info("TestMoverAReady completado")
-}
-
-
-
-func RunTests() {
-	slog.Info("Iniciando tests...")
-	TestCrearPCB()
-	TestMoverAReady()
-	slog.Info("Estado final de las colas:")
-	slog.Info(fmt.Sprintf("Cola NEW: %+v", ColaNew))
-	slog.Info(fmt.Sprintf("Cola READY: %+v", ColaReady))
-	slog.Info("Tests completados")
-}
-*/
