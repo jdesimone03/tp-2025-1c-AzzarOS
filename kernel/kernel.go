@@ -1,24 +1,37 @@
 package main
 
 import (
-	"fmt"
+	"kernel/utilsKernel"
 	"net/http"
+	"os"
+	"strconv"
 	"utils"
+	"log/slog"
 )
 
 func main() {
-	utils.ConfigurarLogger("log_KERNEL")
-	config := utils.CargarConfiguracion[utils.ConfigKernel]("config.json")
+	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 
-	utils.EnviarMensaje(config.IPMemory, config.PortMemory,"peticiones","Hola desde Kernel")
-
-	mux := http.NewServeMux()
-
-	// mux.HandleFunc("/procesos", utils.RecibirPaquetes)
-	mux.HandleFunc("/interrupciones", utils.RecibirMensaje)
-
-	err := http.ListenAndServe(fmt.Sprintf(":%d",config.PortKernel), mux)
+	tamanioProceso, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		panic(err)
+		slog.Error("Error al convertir el tamaño del proceso a int")
+		return
 	}
+
+	utils.ConfigurarLogger("log_KERNEL")
+
+	// memoria debe estar iniciada
+	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)
+
+	// Handshakes
+	http.HandleFunc("/handshake/CPU", utilsKernel.HandleHandshake("CPU"))
+	http.HandleFunc("/handshake/IO", utilsKernel.HandleHandshake("IO"))
+
+	// Syscalls
+	http.HandleFunc("/syscall/IO", utilsKernel.HandleSyscall("IO"))
+	http.HandleFunc("/syscall/INIT_PROC", utilsKernel.HandleSyscall("INIT_PROC"))
+	http.HandleFunc("/syscall/DUMP_MEMORY", utilsKernel.HandleSyscall("DUMP_MEMORY"))
+	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
+
+	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }
