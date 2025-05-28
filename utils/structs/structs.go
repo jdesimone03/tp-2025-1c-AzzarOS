@@ -108,6 +108,4 @@ type InitProcInstruction struct {
 
 type DumpMemoryInstruction struct{}
 
-type ExitInstruction struct{
-	PID	uint
-}
+type ExitInstruction struct{}

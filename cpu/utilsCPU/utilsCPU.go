@@ -4,15 +4,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
 	"utils"
-	"utils/structs"
 	"utils/config"
+	"utils/structs"
 )
 
 var Config = config.CargarConfiguracion[config.ConfigCPU]("config.json")
+var Ejecutando structs.PeticionMemoria
+var InterruptFlag = false
 
 func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
-	_, err := utils.DecodificarMensaje[structs.PCB](r) //despues la variable le pongo pcb para que se pueda manipular, sino llora el lenguaje
+	pcb, err := utils.DecodificarMensaje[structs.PCB](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -21,40 +26,222 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 
 	// Solicitar a memoria la siguiente instruccion para la ejecución
 	// InstruccionCodificada = FETCH(PCB.ProgramCounter)
+	Ejecutando = structs.PeticionMemoria{
+		PID: pcb.PID,
+		PC:  pcb.PC,
+	}
 
-	// Decodificamos la instruccion
+	for {
+		// Decodificamos la instruccion
+		instruccionCodificada, terminoEjecucion := FetchAndDecode(Ejecutando)
+		if terminoEjecucion{
+			break
+		}
+		Execute(instruccionCodificada)
+		if InterruptFlag {
+			// Atiende la interrupcion
+			// Log obligatorio 2/11
+			slog.Info("## Llega interrupción al puerto Interrupt")
+		}
+		Ejecutando.PC++
+	}
+
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func FetchAndDecode(peticion structs.PeticionMemoria) any{
-	instruccion := utils.EnviarMensaje(Config.IPMemory,Config.PortMemory,"fetch",peticion)
-	instruccionDecodificada := utils.Decode(instruccion)
-	return instruccionDecodificada
+func FetchAndDecode(peticion structs.PeticionMemoria) (any, bool) {
+	// Log obligatorio 1/11
+	slog.Info(fmt.Sprintf("## PID: %d - FETCH - Program Counter: %d",peticion.PID, peticion.PC))
+	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "fetch", peticion)
+	if instruccion == "" {
+		return nil, true
+	}
+	instruccionDecodificada := Decode(instruccion)
+	return instruccionDecodificada, false
 }
 
 //AUMENTAR PC NO SE EN QUE MOMENTO SE HACE QUIERO VER LA TEORIA ANTES DE IMPLEMENTARLO
 
-func Execute(instruccion any){
-	switch instruccion.(type){
-		case structs.NoopInstruction:
-			//hace nada
-		case structs.WriteInstruction:
-			//hace lo que tenga quer hacer
-		case structs.ReadInstruction:
-			//hace lo que tenga quer hacer
-		case structs.GotoInstruction:
-			//hace lo que tenga quer hacer
-		case structs.IOInstruction:
-			//hace lo que tenga quer hacer
-		case structs.InitProcInstruction:
-			//hace lo que tenga quer hacer
-		case structs.DumpMemoryInstruction:
-			//hace lo que tenga quer hacer
-		case structs.ExitInstruction:
-			//hace lo que tenga quer hacer
-		default:
-			//si llega algo inesperado
-			slog.Error("Tipo de instrucción desconocido")
+func Execute(decodedInstruction any) {
+	var nombreInstruccion string
+	switch instruccion := decodedInstruction.(type) {
+	case structs.NoopInstruction:
+		nombreInstruccion = "NOOP"
+		//hace nada
+	case structs.WriteInstruction:
+		nombreInstruccion = "WRITE"
+		//hace lo que tenga quer hacer
+	case structs.ReadInstruction:
+		nombreInstruccion = "READ"
+		//hace lo que tenga quer hacer
+	case structs.GotoInstruction:
+		nombreInstruccion = "GOTO"
+		//hace lo que tenga quer hacer
+		Ejecutando.PC = uint(instruccion.TargetAddress) - 1
+	case structs.IOInstruction:
+		nombreInstruccion = "IO"
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/IO", instruccion)
+	case structs.InitProcInstruction:
+		nombreInstruccion = "INIT_PROC"
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/INIT_PROC", instruccion)
+	case structs.DumpMemoryInstruction:
+		nombreInstruccion = "DUMP_MEMORY"
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/DUMP_MEMORY", instruccion)
+	case structs.ExitInstruction:
+		nombreInstruccion = "EXIT"
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/EXIT", instruccion)
+	default:
+		slog.Error(fmt.Sprintf("llego una instruccion desconocida %v ",instruccion))
+		//si llega algo inesperado
 	}
+	// Log obligatorio 3/11
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", Ejecutando.PID,nombreInstruccion,parametrosToString(decodedInstruction)))
+}
+
+func parametrosToString(instruccion any) string {
+	v := reflect.ValueOf(instruccion)
+
+	// Chequeamos que sea un struct
+	if v.Kind() != reflect.Struct {
+		return ""
+	}
+
+	var values []string
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Type().Field(i)
+
+		// Solo accedemos a los campos exportados
+		if field.PkgPath == "" {
+			val := v.Field(i).Interface()
+			values = append(values, fmt.Sprintf("%v", val))
+		}
+	}
+
+	return strings.Join(values, " ")
+}
+
+
+// PROPUESTA FUNCION PARSEO DE COMANDOS
+
+// Mapa para pasar de  string a InstructionType (nos serviria para el parsing)
+var instructionMap = map[string]structs.InstructionType{
+    "NOOP":        structs.INST_NOOP,
+    "WRITE":       structs.INST_WRITE,
+    "READ":        structs.INST_READ,
+    "GOTO":        structs.INST_GOTO,
+    "IO":          structs.INST_IO,
+    "INIT_PROC":   structs.INST_INIT_PROC,
+    "DUMP_MEMORY": structs.INST_DUMP_MEMORY,
+    "EXIT":        structs.INST_EXIT,
+}
+
+func Decode(line string) any {
+    parts := strings.Fields(line) // Divide por espacios
+    if len(parts) == 0 {
+		slog.Error("línea vacía")
+        return nil
+    }
+
+    cmd := parts[0]
+    params := parts[1:]
+
+    instType, ok := instructionMap[cmd]
+    if (!ok) {
+		slog.Error(fmt.Sprintf("comando desconocido: %s", cmd))
+        return nil
+    }
+
+    switch instType {
+    case structs.INST_NOOP:
+        if len(params) != 0 { 
+			slog.Error("NOOP no espera parámetros")
+			return nil
+		}
+        return structs.NoopInstruction{}
+
+    case structs.INST_WRITE:
+        if len(params) != 2 { 
+			slog.Error("WRITE espera 2 parámetros (Dirección, Datos)")
+			return nil
+		}
+        addr, err := strconv.Atoi(params[0])
+        if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Dirección inválido para WRITE: %v", err))
+			return nil
+		}
+        return structs.WriteInstruction{Address: addr, Data: params[1]}
+
+     case structs.INST_READ:
+         if len(params) != 2 { 
+			slog.Error("READ espera 2 parámetros (Dirección, Tamaño)")
+			return nil
+		}
+         addr, err := strconv.Atoi(params[0])
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Dirección inválido para READ: %v", err))
+			return nil
+		}
+         size, err := strconv.Atoi(params[1])
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Tamaño inválido para READ: %v", err)) 	
+			return nil
+		}
+         return structs.ReadInstruction{Address: addr, Size: size}
+
+     case structs.INST_GOTO:
+         if len(params) != 1 { 
+			slog.Error("GOTO espera 1 parámetro (Valor)")
+			return nil
+		}
+         target, err := strconv.Atoi(params[0])
+         if err != nil { 
+			slog.Error(fmt.Sprintf("parámetro Valor inválido para GOTO: %v", err)) 
+			return nil
+		}
+         return structs.GotoInstruction{TargetAddress: target}
+
+	
+    case structs.INST_IO:
+        if len(params) != 2 {
+            slog.Error("IO espera 2 parámetros (Duración, Nombre)")
+            return nil
+        }
+        duration, err := strconv.Atoi(params[0])
+        if err != nil {
+            slog.Error(fmt.Sprintf("parámetro Duración inválido para IO: %v", err))
+            return nil
+        }
+        return structs.IOInstruction{NombreIfaz: params[1],SuspensionTime: duration}
+
+    case structs.INST_INIT_PROC:
+        if len(params) != 2 {
+            slog.Error("INIT_PROC espera 2 parámetros (NombreProceso, TamañoMemoria)")
+            return nil
+        }
+        memorySize, err := strconv.Atoi(params[1])
+        if err != nil {
+            slog.Error(fmt.Sprintf("parámetro TamañoMemoria inválido para INIT_PROC: %v", err))
+            return nil
+        }
+        return structs.InitProcInstruction{ProcessPath: params[0], MemorySize: memorySize}
+
+     case structs.INST_DUMP_MEMORY:
+         if len(params) != 0 { 
+			slog.Error("DUMP_MEMORY no espera parámetros")
+			return nil
+		}
+         return structs.DumpMemoryInstruction{}
+
+     case structs.INST_EXIT:
+        if len(params) != 0 { 
+			slog.Error("EXIT no espera parámetros")
+			return nil
+		}
+        return structs.ExitInstruction{}
+
+    default:
+		slog.Error(fmt.Sprintf("parsing no implementado para: %s", cmd))
+        return nil
+    }
 }

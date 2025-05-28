@@ -219,6 +219,7 @@ func PlanificadorIO(nombre string) {
 // Los procesos son creados con la syscall de INIT_PROC.
 // Esta función solo los manda a ejecutar según el algoritmo de planificación.
 func PlanificadorLargoPlazo() {
+	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s",Config.SchedulerAlgorithm))
 	for {
 		if ColaNew != nil {
 			switch Config.SchedulerAlgorithm {
@@ -229,7 +230,7 @@ func PlanificadorLargoPlazo() {
 			case "PMCP":
 				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
-				slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.SchedulerAlgorithm))
+				slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
 			}
 		}
 	}
@@ -237,6 +238,7 @@ func PlanificadorLargoPlazo() {
 }
 
 func PlanificadorCortoPlazo() {
+	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s",Config.ReadyIngressAlgorithm))
 	if ColaReady != nil {
 		switch Config.ReadyIngressAlgorithm {
 		case "FIFO":
@@ -249,7 +251,7 @@ func PlanificadorCortoPlazo() {
 		case "SJF-SD":
 			//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
 		default:
-			slog.Error(fmt.Sprintf("Algoritmo de planificacion no reconocido: %s", Config.ReadyIngressAlgorithm))
+			slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
 		}
 	}
 }

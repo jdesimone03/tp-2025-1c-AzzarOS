@@ -45,8 +45,13 @@ func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    //lineas := EjecutarArchivo("instrucciones.txt") // Cambiar a la ruta correcta del archivo de instrucciones, hardcodeado por ahora
-    linea := Procesos[proceso.PID][proceso.PC]
+    // Si el program counter supera a la cantidad total de lineas significa que terminó su ejecución
+	var linea string
+	if proceso.PC >= uint(len(Procesos[proceso.PID])){
+		linea = ""
+	} else {
+		linea = Procesos[proceso.PID][proceso.PC]
+	}
 
 	respuesta := structs.Respuesta{
 		Mensaje: linea,
