@@ -2,11 +2,11 @@ package main
 
 import (
 	"kernel/utilsKernel"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
 	"utils"
-	"log/slog"
 )
 
 func main() {
@@ -22,6 +22,9 @@ func main() {
 
 	// memoria debe estar iniciada
 	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)
+	
+	// Enter para iniciar el planificador
+	utilsKernel.IniciarPlanificadores()
 
 	// Handshakes
 	http.HandleFunc("/handshake/CPU", utilsKernel.HandleHandshake("CPU"))
@@ -34,4 +37,5 @@ func main() {
 	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
+
 }

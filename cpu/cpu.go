@@ -29,5 +29,5 @@ func main() {
 	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
 	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
 
+	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }
-

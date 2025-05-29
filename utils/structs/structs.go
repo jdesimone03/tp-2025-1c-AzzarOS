@@ -38,7 +38,7 @@ type HandshakeCPU struct {
 	CPU				CPU
 }
 
-type PeticionMemoria struct {
+type Ejecucion struct {
 	PID            	uint
 	PC			 	uint
 }

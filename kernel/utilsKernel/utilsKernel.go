@@ -1,10 +1,12 @@
 package utilsKernel
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"slices"
 	"time"
 	"utils"
@@ -219,9 +221,9 @@ func PlanificadorIO(nombre string) {
 // Los procesos son creados con la syscall de INIT_PROC.
 // Esta función solo los manda a ejecutar según el algoritmo de planificación.
 func PlanificadorLargoPlazo() {
-	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s",Config.SchedulerAlgorithm))
+	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm))
 	for {
-		if ColaNew != nil {
+		if len(ColaNew) > 0 {
 			switch Config.SchedulerAlgorithm {
 			case "FIFO":
 				firstPCB := ColaNew[0]
@@ -231,37 +233,40 @@ func PlanificadorLargoPlazo() {
 				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
 				slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
+				break
 			}
 		}
 	}
-
 }
 
 func PlanificadorCortoPlazo() {
-	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s",Config.ReadyIngressAlgorithm))
-	if ColaReady != nil {
-		switch Config.ReadyIngressAlgorithm {
-		case "FIFO":
-			if ColaExecute == nil {
-				firstPCB := ColaReady[0]
-				MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm))
+	for {
+		if len(ColaReady) > 0 {
+			switch Config.ReadyIngressAlgorithm {
+			case "FIFO":
+				if len(ColaExecute) == 0 {
+					firstPCB := ColaReady[0]
+					MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+				}
+			case "SJF":
+				//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
+			case "SJF-SD":
+				//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
+			default:
+				slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
+				break
 			}
-		case "SJF":
-			//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
-		case "SJF-SD":
-			//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
-		default:
-			slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
 		}
 	}
 }
 
-/*
-func init() {
-	go planificadorLargoPlazo()
-	go planificadorCortoPlazo()
+func IniciarPlanificadores() {
+	go PlanificadorCortoPlazo()
+
+	bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
+	go PlanificadorLargoPlazo()
 }
-*/
 
 // Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado
 func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNuevo string) {
@@ -283,17 +288,17 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	// Verifica si hay lugar disponible en memoria
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
 	if respuesta != "OK" {
-		slog.Error(fmt.Sprintf("No hay suficiente espacio en memoria. Esperando a que termine el proceso PID (%d)...",ColaExecute[0].PID))
-		for(ColaExecute != nil ){
+		slog.Error(fmt.Sprintf("No hay suficiente espacio en memoria. Esperando a que termine el proceso PID (%d)...", ColaExecute[0].PID))
+		for ColaExecute != nil {
 			// Espera a que termine el proceso ejecutando actualmente
 		}
 	}
 
 	// Reserva el tamaño para memoria
 	proceso := structs.Proceso{
-		PID: contadorProcesos, // PID actual
+		PID:           contadorProcesos, // PID actual
 		Instrucciones: rutaArchInstrucciones,
-		Tamanio: tamanio,
+		Tamanio:       tamanio,
 	}
 
 	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
@@ -302,12 +307,12 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	pcb := CrearPCB()
 	ColaNew = append(ColaNew, pcb)
 	contadorProcesos++
-	
+
 	// Log obligatorio 2/8
 	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
 }
-	
-	/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
+
+/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
 		return structs.Proceso{
 		PID:           pid,
 		Instrucciones: rutaArchInstrucciones,
