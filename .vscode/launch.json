@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Memoria",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go"
+        },
+        {
+            "name": "Debug Kernel",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["instruccion.txt", "256"]
+        },
+        {
+            "name": "Debug CPU",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1"]
+        },
+        {
+            "name": "Debug IO",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["IO1"]
+        }
+    ]
+}
