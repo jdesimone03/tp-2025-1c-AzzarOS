@@ -37,11 +37,11 @@ var contadorProcesos uint = 0
 // scheduler_algorithm: LARGO plazo
 // ready_ingress_algorithm: CORTO plazo
 
-var InstanciasCPU = make(map[string]structs.CPU)
-var Interfaces = make(map[string]structs.Interfaz)
+var InstanciasCPU = make(map[string]structs.InstanciaCPU)
+var Interfaces = make(map[string]structs.InterfazIO)
 
-var ListaExecIO = make(map[string][]structs.EsperaIO)
-var ListaWaitIO = make(map[string][]structs.EsperaIO)
+var ListaExecIO = make(map[string][]structs.EjecucionIO)
+var ListaWaitIO = make(map[string][]structs.EjecucionIO)
 
 // ---------------------------- Handlers de endpoints ----------------------------//
 func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
@@ -124,7 +124,7 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 }
 
 func GuardarContexto(w http.ResponseWriter, r *http.Request) {
-	contexto, err := utils.DecodificarMensaje[structs.Ejecucion](r)
+	contexto, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -133,6 +133,15 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	ColaExecute[0].PC = contexto.PC
 	MoverPCB(contexto.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
+
+	// Función temporal para que desaloje las cpu que se estén usando.
+	// Hay que ver el tema de la cola de execute si tiene que ser con dos cpus distintas.
+	for k, v := range InstanciasCPU {
+		if v.Ejecutando == true {
+			v.Ejecutando = false
+			InstanciasCPU[k] = v
+		}
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -149,7 +158,7 @@ func SyscallIO(peticion structs.IOInstruction) {
 		if HandleIODisconnect(nombre) {
 			return
 		}
-		espera := structs.EsperaIO{
+		espera := structs.EjecucionIO{
 			PID:      pid,
 			TiempoMs: tiempoMs,
 		}
@@ -290,7 +299,7 @@ func PlanificadorCortoPlazo() {
 					firstPCB := ColaReady[0]
 					nombreCPU, hayDisponible := GetCPUDisponible()
 					if hayDisponible {
-						ejecucion := structs.Ejecucion{
+						ejecucion := structs.EjecucionCPU{
 							PID: firstPCB.PID,
 							PC:  firstPCB.PC,
 						}
@@ -422,8 +431,8 @@ func CrearPCB() structs.PCB {
 		PID:            contadorProcesos,
 		PC:             0,
 		Estado:         structs.EstadoNew,
-		MetricasConteo: nil,
-		MetricasTiempo: nil,
+		MetricasConteo: make(map[string]int),
+		MetricasTiempo: make(map[string]int64),
 	}
 }
 

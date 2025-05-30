@@ -13,7 +13,7 @@ import (
 )
 
 var Config config.ConfigCPU
-var Ejecutando structs.Ejecucion
+var Ejecutando structs.EjecucionCPU
 var InterruptFlag = make(map[uint]bool)
 
 func PingCPU(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
-	ejecucion, err := utils.DecodificarMensaje[structs.Ejecucion](r)
+	ejecucion, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -63,6 +63,7 @@ func Ejecucion() {
 		Execute(instruccionCodificada)
 		if InterruptFlag[Ejecutando.PID] {
 			// Atiende la interrupcion
+			slog.Info(fmt.Sprintf("PID: %d - Interrumpido, Guarda contexto en PC: %d", Ejecutando.PID, Ejecutando.PC))
 			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", Ejecutando)
 			InterruptFlag[Ejecutando.PID] = false
 			return
@@ -70,7 +71,7 @@ func Ejecucion() {
 	}
 }
 
-func FetchAndDecode(peticion structs.Ejecucion) (any, bool) {
+func FetchAndDecode(peticion structs.EjecucionCPU) (any, bool) {
 	// Log obligatorio 1/11
 	logueador.FetchInstruccion(peticion.PID, peticion.PC)
 

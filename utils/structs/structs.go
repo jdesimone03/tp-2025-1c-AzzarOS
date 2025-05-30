@@ -1,17 +1,6 @@
 package structs
 
-// Estructuras generales
-
-type Interfaz struct {
-	IP     string
-	Puerto int
-}
-
-type CPU struct {
-	IP         string
-	Puerto     int
-	Ejecutando bool
-}
+// --------------------------------- Estructuras Generales --------------------------------- //
 
 type PCB struct {
 	PID            uint
@@ -21,51 +10,49 @@ type PCB struct {
 	MetricasTiempo map[string]int64
 }
 
+// Se manda a la memoria para inicializar el proceso
 type NuevoProceso struct {
 	PID           uint
 	Instrucciones string //path al archivo de instrucciones
 	Tamanio       int
 }
 
-// Peticiones
+// --------------------------------- Estructuras de Instancias --------------------------------- //
 
-type HandshakeIO struct {
-	Nombre   string
-	Interfaz Interfaz
+type InstanciaCPU struct {
+	IP         string
+	Puerto     int
+	Ejecutando bool
 }
 
-type HandshakeCPU struct {
-	Identificador string
-	CPU           CPU
+type InterfazIO struct {
+	IP     string
+	Puerto int
 }
 
-type Ejecucion struct {
+type EjecucionCPU struct {
 	PID uint
 	PC  uint
 }
 
-// Utilidades
-
-type Respuesta struct {
-	Mensaje string
-}
-
-const (
-	EstadoNew     = "NEW"
-	EstadoReady   = "READY"
-	EstadoExec    = "EXEC"
-	EstadoBlocked = "BLOCKED"
-	EstadoExit    = "EXIT"
-	EstadoWaiting = "SUSP_BLOCKED"
-	EstadoRunning = "SUSP_READY"
-)
-
-type EsperaIO struct {
+type EjecucionIO struct {
 	PID      uint
 	TiempoMs int
 }
 
-// --------------------------------- Estructuras Instrucciones ----------------------------------------------------//
+// --------------------------------- Estructuras de Handshakes --------------------------------- //
+
+type HandshakeCPU struct {
+	Identificador string
+	CPU           InstanciaCPU
+}
+
+type HandshakeIO struct {
+	Nombre   string
+	Interfaz InterfazIO
+}
+
+// --------------------------------- Estructuras de Instrucciones --------------------------------- //
 type InstructionType int
 
 const (
@@ -109,3 +96,19 @@ type InitProcInstruction struct {
 type DumpMemoryInstruction struct{}
 
 type ExitInstruction struct{}
+
+// --------------------------------- Utilidades --------------------------------- //
+
+type Respuesta struct {
+	Mensaje string
+}
+
+const (
+	EstadoNew     = "NEW"
+	EstadoReady   = "READY"
+	EstadoExec    = "EXEC"
+	EstadoBlocked = "BLOCKED"
+	EstadoExit    = "EXIT"
+	EstadoWaiting = "SUSP_BLOCKED"
+	EstadoRunning = "SUSP_READY"
+)

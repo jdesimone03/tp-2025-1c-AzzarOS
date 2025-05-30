@@ -21,7 +21,7 @@ func main() {
 	// Inicia la configuración
 	config.CargarConfiguracion("config.json", &utilsCPU.Config)
 
-	cpu := structs.CPU{
+	cpu := structs.InstanciaCPU{
 		IP:         utilsCPU.Config.IPCPU,
 		Puerto:     utilsCPU.Config.PortCPU,
 		Ejecutando: false,

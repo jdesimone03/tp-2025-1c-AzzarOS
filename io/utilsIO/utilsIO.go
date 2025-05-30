@@ -15,7 +15,7 @@ import (
 var Config config.ConfigIO
 
 func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
-	peticion, err := utils.DecodificarMensaje[structs.EsperaIO](r)
+	peticion, err := utils.DecodificarMensaje[structs.EjecucionIO](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)

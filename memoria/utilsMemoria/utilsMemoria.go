@@ -39,7 +39,7 @@ func EjecutarArchivo(path string) []string {
 
 // Recibe un PID y PC, La memoria lo busca en sus procesos y lo devuelve.
 func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
-	proceso, err := utils.DecodificarMensaje[structs.Ejecucion](r)
+	proceso, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)

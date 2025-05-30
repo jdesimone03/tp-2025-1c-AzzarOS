@@ -21,7 +21,7 @@ func main() {
 	// Inicia la configuración
 	config.CargarConfiguracion("config.json", &utilsIO.Config)
 
-	interfaz := structs.Interfaz{
+	interfaz := structs.InterfazIO{
 		IP:     utilsIO.Config.IPIo,
 		Puerto: utilsIO.Config.PortIo,
 	}
