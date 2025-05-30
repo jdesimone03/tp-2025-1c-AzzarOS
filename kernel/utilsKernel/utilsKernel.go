@@ -114,6 +114,20 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+func GuardarContexto(w http.ResponseWriter, r *http.Request) {
+	contexto, err := utils.DecodificarMensaje[structs.Ejecucion](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	ColaExecute[0].PC = contexto.PC
+	MoverPCB(contexto.PID,&ColaExecute,&ColaReady,structs.EstadoReady)
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // ---------------------------- Syscalls ----------------------------//
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(peticion structs.IOInstruction) {
@@ -268,6 +282,7 @@ func PlanificadorCortoPlazo() {
 							PID: firstPCB.PID,
 							PC: firstPCB.PC,
 						}
+
 						// Marca como ejecutando
 						cpu := InstanciasCPU[nombreCPU]
 						cpu.Ejecutando = true

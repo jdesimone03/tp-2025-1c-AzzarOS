@@ -14,9 +14,24 @@ import (
 
 var Config = config.CargarConfiguracion[config.ConfigCPU]("config.json")
 var Ejecutando structs.Ejecucion
-var InterruptFlag = false
+var InterruptFlag = make(map[uint]bool)
 
 func PingCPU(w http.ResponseWriter, r *http.Request){
+	w.WriteHeader(http.StatusOK)
+}
+
+func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
+	pid, err := utils.DecodificarMensaje[uint](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Log obligatorio 2/11
+	slog.Info("## Llega interrupción al puerto Interrupt")
+	InterruptFlag[*pid] = true
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -46,10 +61,10 @@ func Ejecucion() {
 		}
 		Ejecutando.PC++
 		Execute(instruccionCodificada)
-		if InterruptFlag {
+		if InterruptFlag[Ejecutando.PID] {
 			// Atiende la interrupcion
-			// Log obligatorio 2/11
-			slog.Info("## Llega interrupción al puerto Interrupt")
+			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", Ejecutando)
+			InterruptFlag[Ejecutando.PID] = false
 			return
 		}
 	}

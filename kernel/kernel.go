@@ -37,6 +37,7 @@ func main() {
 	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
 
 	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
+	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
 
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
