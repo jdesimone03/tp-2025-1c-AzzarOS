@@ -3,51 +3,51 @@ package structs
 // Estructuras generales
 
 type Interfaz struct {
-	IP		string
-	Puerto	int
+	IP     string
+	Puerto int
 }
 
 type CPU struct {
-	IP			string
-	Puerto		int
-	Ejecutando 	bool
+	IP         string
+	Puerto     int
+	Ejecutando bool
 }
 
 type PCB struct {
-	PID            	uint
-	PC             	uint
-	Estado         	string
-	MetricasConteo 	map[string]int
-	MetricasTiempo 	map[string]int64
+	PID            uint
+	PC             uint
+	Estado         string
+	MetricasConteo map[string]int
+	MetricasTiempo map[string]int64
 }
 
-type Proceso struct {
-	PID             uint
-	Instrucciones   string //path al archivo de instrucciones
-	Tamanio			int
+type NuevoProceso struct {
+	PID           uint
+	Instrucciones string //path al archivo de instrucciones
+	Tamanio       int
 }
 
 // Peticiones
 
 type HandshakeIO struct {
-	Nombre		string
-	Interfaz	Interfaz
+	Nombre   string
+	Interfaz Interfaz
 }
 
 type HandshakeCPU struct {
-	Identificador	string
-	CPU				CPU
+	Identificador string
+	CPU           CPU
 }
 
 type Ejecucion struct {
-	PID            	uint
-	PC			 	uint
+	PID uint
+	PC  uint
 }
 
 // Utilidades
 
 type Respuesta struct {
-	Mensaje	string
+	Mensaje string
 }
 
 const (
@@ -61,50 +61,49 @@ const (
 )
 
 type EsperaIO struct {
-	PID			uint
-	TiempoMs	int
+	PID      uint
+	TiempoMs int
 }
 
-
-//--------------------------------- Estructuras Instrucciones ----------------------------------------------------//
+// --------------------------------- Estructuras Instrucciones ----------------------------------------------------//
 type InstructionType int
 
 const (
-    INST_UNKNOWN InstructionType = iota // Parta los valores desconocidos
-    INST_NOOP
-    INST_WRITE
-    INST_READ
-    INST_GOTO
-    INST_IO
-    INST_INIT_PROC
-    INST_DUMP_MEMORY
-    INST_EXIT
+	INST_UNKNOWN InstructionType = iota // Parta los valores desconocidos
+	INST_NOOP
+	INST_WRITE
+	INST_READ
+	INST_GOTO
+	INST_IO
+	INST_INIT_PROC
+	INST_DUMP_MEMORY
+	INST_EXIT
 )
 
 type NoopInstruction struct{}
 
 type WriteInstruction struct {
-    Address int
-    Data    string
+	Address int
+	Data    string
 }
 
 type ReadInstruction struct {
-    Address int
-    Size    int
+	Address int
+	Size    int
 }
 
 type GotoInstruction struct {
-    TargetAddress int
+	TargetAddress int
 }
 
 type IOInstruction struct {
-	NombreIfaz		string
-	SuspensionTime 	int
+	NombreIfaz     string
+	SuspensionTime int
 }
 
 type InitProcInstruction struct {
-    ProcessPath string
-    MemorySize  int 
+	ProcessPath string
+	MemorySize  int
 }
 
 type DumpMemoryInstruction struct{}

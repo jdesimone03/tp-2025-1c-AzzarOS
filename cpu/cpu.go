@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"os"
 	"utils"
+	"utils/logueador"
 	"utils/structs"
 )
 
 func main() {
 	identificador := os.Args[1]
 
-	utils.ConfigurarLogger(fmt.Sprintf("log_CPU_%s", identificador))
+	logueador.ConfigurarLogger(fmt.Sprintf("log_CPU_%s", identificador))
 
 	cpu := structs.CPU{
 		IP:         utilsCPU.Config.IPCPU,

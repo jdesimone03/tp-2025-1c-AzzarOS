@@ -5,11 +5,12 @@ import (
 	"os"
 	"tp/io/utilsIO"
 	"utils"
+	"utils/logueador"
 	"utils/structs"
 )
 
 func main() {
-	utils.ConfigurarLogger("log_IO")
+	logueador.ConfigurarLogger("log_IO")
 
 	nombre := os.Args[1]
 

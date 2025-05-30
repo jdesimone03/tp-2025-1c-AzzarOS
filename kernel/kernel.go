@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"utils"
+	"utils/logueador"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 		return
 	}
 
-	utils.ConfigurarLogger("log_KERNEL")
+	logueador.ConfigurarLogger("log_KERNEL")
 
 	// memoria debe estar iniciada
 	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)

@@ -8,6 +8,7 @@ import (
 	"time"
 	"utils"
 	"utils/config"
+	"utils/logueador"
 	"utils/structs"
 )
 
@@ -21,13 +22,13 @@ func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log obligatorio 1
-	slog.Info(fmt.Sprintf("## PID: %d - Inicio de IO - Tiempo: %d", peticion.PID, peticion.TiempoMs))
-	
+	// Log obligatorio 1/2
+	logueador.InicioIO(peticion.PID, peticion.TiempoMs)
+
 	time.Sleep(time.Duration(peticion.TiempoMs) * time.Millisecond)
-	
-	// Log obligatorio 2
-	slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", peticion.PID))
+
+	// Log obligatorio 2/2
+	logueador.FinalizacionIO(peticion.PID)
 
 	respuesta := structs.Respuesta{
 		Mensaje: "IO_END",

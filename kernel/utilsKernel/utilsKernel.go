@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
 	//"os"
 	"slices"
 	"time"
 	"utils"
 	"utils/config"
+	"utils/logueador"
 	"utils/structs"
 )
 
@@ -78,6 +80,8 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Log obligatorio 1/8
+		logueador.SyscallRecibida(ColaExecute[0].PID, tipo)
 		switch tipo {
 		case "INIT_PROC":
 			proceso, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
@@ -123,7 +127,7 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ColaExecute[0].PC = contexto.PC
-	MoverPCB(contexto.PID,&ColaExecute,&ColaReady,structs.EstadoReady)
+	MoverPCB(contexto.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -208,7 +212,7 @@ func PlanificadorIO(nombre string) {
 					LimpiarExecIO(nombre)
 
 					// Log obligatorio 5/8
-					slog.Info(fmt.Sprintf("## (%d) finalizó IO y pasa a READY", proc.PID))
+					logueador.KernelFinDeIO(proc.PID)
 					MoverPCB(proc.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
 
 				case <-ctx.Done():
@@ -278,9 +282,9 @@ func PlanificadorCortoPlazo() {
 					firstPCB := ColaReady[0]
 					nombreCPU, hayDisponible := GetCPUDisponible()
 					if hayDisponible {
-						ejecucion := structs.Ejecucion {
+						ejecucion := structs.Ejecucion{
 							PID: firstPCB.PID,
-							PC: firstPCB.PC,
+							PC:  firstPCB.PC,
 						}
 
 						// Marca como ejecutando
@@ -289,7 +293,8 @@ func PlanificadorCortoPlazo() {
 						InstanciasCPU[nombreCPU] = cpu
 
 						// Envia el proceso
-						for !PingCPU(nombreCPU){}
+						for !PingCPU(nombreCPU) {
+						}
 						utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
 						MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
 					}
@@ -318,11 +323,13 @@ func IniciarPlanificadores() {
 func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNuevo string) {
 	for i, pcb := range *origen {
 		if pcb.PID == pid {
-			pcb.Estado = estadoNuevo // cambiar el estado del PCB
-			// Log obligatorio 3/8
-			slog.Info(fmt.Sprintf("## (%d) pasa del estado %s al estado %s", pid, (*origen)[i].Estado, estadoNuevo))
-			*destino = append(*destino, pcb)                    // mover a la cola destino
+			pcb.Estado = estadoNuevo                   // cambiar el estado del PCB
+			*destino = append(*destino, pcb)           // mover a la cola destino
 			*origen = slices.Delete((*origen), i, i+1) // eliminar del origen
+
+			// Log obligatorio 3/8
+			logueador.CambioDeEstado(pid, (*origen)[i].Estado, estadoNuevo)
+
 			return
 		}
 	}
@@ -330,7 +337,7 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 // ---------------------------- Funciones de utilidad ----------------------------//
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
-	
+
 	// Verifica si hay lugar disponible en memoria
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
 	if respuesta != "OK" {
@@ -339,9 +346,9 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 			// Espera a que termine el proceso ejecutando actualmente
 		}
 	}
-	
+
 	// Reserva el tamaño para memoria
-	proceso := structs.Proceso{
+	proceso := structs.NuevoProceso{
 		PID:           contadorProcesos, // PID actual
 		Instrucciones: rutaArchInstrucciones,
 		Tamanio:       tamanio,
@@ -355,7 +362,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	contadorProcesos++
 
 	// Log obligatorio 2/8
-	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
+	logueador.KernelCreacionDeProceso(pcb.PID)
 }
 
 func CrearPCB() structs.PCB {
@@ -368,7 +375,7 @@ func CrearPCB() structs.PCB {
 	}
 }
 
-func GetCPUDisponible() (string,bool) {
+func GetCPUDisponible() (string, bool) {
 	for nombre, valores := range InstanciasCPU {
 		if !valores.Ejecutando {
 			return nombre, true

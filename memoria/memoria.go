@@ -4,11 +4,11 @@ import (
 	"memoria/utilsMemoria"
 	"net/http"
 	"utils"
+	"utils/logueador"
 )
 
 func main() {
-	utils.ConfigurarLogger("log_MEMORIA")
-
+	logueador.ConfigurarLogger("log_MEMORIA")
 
 	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
 	http.HandleFunc("/nuevo-proceso", utilsMemoria.NuevoProceso)

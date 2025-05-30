@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"utils"
 	"utils/config"
+	"utils/logueador"
 	"utils/structs"
 )
 
@@ -16,7 +16,7 @@ var Config = config.CargarConfiguracion[config.ConfigCPU]("config.json")
 var Ejecutando structs.Ejecucion
 var InterruptFlag = make(map[uint]bool)
 
-func PingCPU(w http.ResponseWriter, r *http.Request){
+func PingCPU(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -29,7 +29,7 @@ func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log obligatorio 2/11
-	slog.Info("## Llega interrupción al puerto Interrupt")
+	logueador.InterrupcionRecibida()
 	InterruptFlag[*pid] = true
 
 	w.WriteHeader(http.StatusOK)
@@ -72,7 +72,8 @@ func Ejecucion() {
 
 func FetchAndDecode(peticion structs.Ejecucion) (any, bool) {
 	// Log obligatorio 1/11
-	slog.Info(fmt.Sprintf("## PID: %d - FETCH - Program Counter: %d", peticion.PID, peticion.PC))
+	logueador.FetchInstruccion(peticion.PID, peticion.PC)
+
 	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "fetch", peticion)
 	if instruccion == "" {
 		return nil, true
@@ -116,29 +117,7 @@ func Execute(decodedInstruction any) {
 		//si llega algo inesperado
 	}
 	// Log obligatorio 3/11
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", Ejecutando.PID, nombreInstruccion, parametrosToString(decodedInstruction)))
-}
-
-func parametrosToString(instruccion any) string {
-	v := reflect.ValueOf(instruccion)
-
-	// Chequeamos que sea un struct
-	if v.Kind() != reflect.Struct {
-		return ""
-	}
-
-	var values []string
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Type().Field(i)
-
-		// Solo accedemos a los campos exportados
-		if field.PkgPath == "" {
-			val := v.Field(i).Interface()
-			values = append(values, fmt.Sprintf("%v", val))
-		}
-	}
-
-	return strings.Join(values, " ")
+	logueador.InstruccionEjecutada(Ejecutando.PID, nombreInstruccion, decodedInstruction)
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS
