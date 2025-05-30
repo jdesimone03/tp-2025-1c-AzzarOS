@@ -320,12 +320,53 @@ func PlanificadorCortoPlazo() {
 	slog.Info("Finalizando planificador de corto plazo")
 }
 
-func IniciarPlanificadores() {
+func PlanificadorMedianoPlazo() {
+	slog.Info("Iniciando Planificador de Mediano Plazo.")
 
+	for {
+		// Esto puede consumir más CPU. Considerar añadir un pequeño time.Sleep() si es necesario
+		// para evitar el uso excesivo de CPU, por ejemplo: time.Sleep(10 * time.Millisecond)
+
+		slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
+
+		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
+		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
+
+		// Iterar sobre los PIDs que están actualmente en ColaBlocked.
+		// Se crea una copia de los PIDs para evitar problemas si la cola es modificada por otra goroutine durante la iteración.
+		var pidsEnBlockedActual []uint
+		for _, pcb := range ColaBlocked { // Asumir acceso seguro o añadir mutex aquí
+			pidsEnBlockedActual = append(pidsEnBlockedActual, pcb.PID)
+		}
+
+		for _, currentPid := range pidsEnBlockedActual {
+			if timer, timerExists := ProcesosEnTimer[currentPid]; timerExists {
+				// Verificar si el timer ha expirado de forma no bloqueante.
+				select {
+				case <-timer.C: // El timer ha disparado.
+					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Timer expirado para PID %d (en ColaBlocked).", currentPid))
+
+					respuestaMemoria := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "mover-a-swap", currentPid)
+					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria))
+
+					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoWaiting)
+					delete(ProcesosEnTimer, currentPid) // Eliminar el timer del mapa.
+				default:
+					break
+				}
+			}
+		}
+	}
+}
+
+func IniciarPlanificadores() {
 	go PlanificadorCortoPlazo()
 	go PlanificadorMedianoPlazo()
-	bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
-	go PlanificadorLargoPlazo()
+	go func() {
+		slog.Info("Esperando confirmación para iniciar el planificador de largo plazo...")
+		bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
+		go PlanificadorLargoPlazo()
+	}()
 }
 
 // Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado
@@ -338,6 +379,8 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 			pcb.Estado = estadoNuevo                   // cambiar el estado del PCB
 			*destino = append(*destino, pcb)           // mover a la cola destino
 			*origen = slices.Delete((*origen), i, i+1) // eliminar del origen
+
+			pcb.MetricasConteo[estadoNuevo]++
 
 			return
 		}
@@ -442,43 +485,4 @@ func IniciarTimerSuspension(pid uint) {
 	// Log de inicio del timer
 	slog.Info(fmt.Sprintf("Timer de suspensión configurado para PID %d. Duración: %d ms. Será evaluado por PlanificadorMedianoPlazo.", pid, Config.SuspensionTime))
 	// La lógica de expiración y movimiento ahora es manejada por PlanificadorMedianoPlazo.
-}
-
-func PlanificadorMedianoPlazo() {
-	slog.Info("Iniciando Planificador de Mediano Plazo.")
-
-	for {
-		// Esto puede consumir más CPU. Considerar añadir un pequeño time.Sleep() si es necesario
-		// para evitar el uso excesivo de CPU, por ejemplo: time.Sleep(10 * time.Millisecond)
-
-		slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
-
-		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
-		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
-
-		// Iterar sobre los PIDs que están actualmente en ColaBlocked.
-		// Se crea una copia de los PIDs para evitar problemas si la cola es modificada por otra goroutine durante la iteración.
-		var pidsEnBlockedActual []uint
-		for _, pcb := range ColaBlocked { // Asumir acceso seguro o añadir mutex aquí
-			pidsEnBlockedActual = append(pidsEnBlockedActual, pcb.PID)
-		}
-
-		for _, currentPid := range pidsEnBlockedActual {
-			if timer, timerExists := ProcesosEnTimer[currentPid]; timerExists {
-				// Verificar si el timer ha expirado de forma no bloqueante.
-				select {
-				case <-timer.C: // El timer ha disparado.
-					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Timer expirado para PID %d (en ColaBlocked).", currentPid))
-
-					respuestaMemoria := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "mover-a-swap", currentPid)
-					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria))
-
-					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoWaiting)
-					delete(ProcesosEnTimer, currentPid) // Eliminar el timer del mapa.
-				default:
-					break
-				}
-			}
-		}
-	}
 }

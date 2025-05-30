@@ -14,7 +14,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/kernel/kernel.go",
-            "args": ["instruccion.txt", "256"]
+            "args": ["instruccion.txt", "256"],
+            "console": "integratedTerminal"
         },
         {
             "name": "Debug CPU",
