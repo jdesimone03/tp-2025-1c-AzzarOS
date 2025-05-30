@@ -12,7 +12,7 @@ import (
 	"utils/structs"
 )
 
-var Config = config.CargarConfiguracion[config.ConfigCPU]("config.json")
+var Config config.ConfigCPU
 var Ejecutando structs.Ejecucion
 var InterruptFlag = make(map[uint]bool)
 

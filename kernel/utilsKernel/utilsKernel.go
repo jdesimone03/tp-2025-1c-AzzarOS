@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-
-	//"os"
 	"slices"
 	"time"
 	"utils"
@@ -20,7 +18,7 @@ import (
 
 // ---------------------------- Variables globales ----------------------------//
 // variables Config
-var Config = config.CargarConfiguracion[config.ConfigKernel]("config.json")
+var Config config.ConfigKernel
 
 // Colas de estados de los procesos
 var ColaNew []structs.PCB
@@ -334,12 +332,12 @@ func IniciarPlanificadores() {
 func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNuevo string) {
 	for i, pcb := range *origen {
 		if pcb.PID == pid {
+			// Log obligatorio 3/8
+			logueador.CambioDeEstado(pid, (*origen)[i].Estado, estadoNuevo)
+
 			pcb.Estado = estadoNuevo                   // cambiar el estado del PCB
 			*destino = append(*destino, pcb)           // mover a la cola destino
 			*origen = slices.Delete((*origen), i, i+1) // eliminar del origen
-
-			// Log obligatorio 3/8
-			logueador.CambioDeEstado(pid, (*origen)[i].Estado, estadoNuevo)
 
 			return
 		}

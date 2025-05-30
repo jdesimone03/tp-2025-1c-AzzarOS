@@ -12,7 +12,7 @@ import (
 	"utils/structs"
 )
 
-var Config = config.CargarConfiguracion[config.ConfigIO]("config.json")
+var Config config.ConfigIO
 
 func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 	peticion, err := utils.DecodificarMensaje[structs.EsperaIO](r)

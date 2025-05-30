@@ -1,18 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"tp/io/utilsIO"
 	"utils"
+	"utils/config"
 	"utils/logueador"
 	"utils/structs"
 )
 
 func main() {
-	logueador.ConfigurarLogger("log_IO")
-
+	// Carga los argumentos
 	nombre := os.Args[1]
+
+	// Inicia el logueador
+	logueador.ConfigurarLogger(fmt.Sprintf("log_IO_%s", nombre))
+
+	// Inicia la configuración
+	config.CargarConfiguracion("config.json", &utilsIO.Config)
 
 	interfaz := structs.Interfaz{
 		IP:     utilsIO.Config.IPIo,

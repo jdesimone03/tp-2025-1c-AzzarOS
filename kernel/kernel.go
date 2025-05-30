@@ -7,24 +7,30 @@ import (
 	"os"
 	"strconv"
 	"utils"
+	"utils/config"
 	"utils/logueador"
 )
 
 func main() {
-	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_KERNEL")
+
+	// Inicia la configuración
+	config.CargarConfiguracion("config.json", &utilsKernel.Config)
+
+	// Carga los argumentos
+	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 	tamanioProceso, err := strconv.Atoi(os.Args[2])
 	if err != nil {
 		slog.Error("Error al convertir el tamaño del proceso a int")
 		return
 	}
 
-	logueador.ConfigurarLogger("log_KERNEL")
+	// Carga el proceso inicial
+	utilsKernel.NuevoProceso(pscInicial, tamanioProceso) // memoria debe estar iniciada
 
-	// memoria debe estar iniciada
-	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)
-	
-	// Enter para iniciar el planificador
+	// Enter para iniciar el planificador de corto plazo
 	utilsKernel.IniciarPlanificadores()
 
 	// Handshakes
@@ -40,7 +46,5 @@ func main() {
 	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
 	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
 
-
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
-
 }

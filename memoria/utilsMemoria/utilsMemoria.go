@@ -16,7 +16,7 @@ import (
 	"utils/structs"
 )
 
-var Config = config.CargarConfiguracion[config.ConfigMemory]("config.json")
+var Config config.ConfigMemory
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
 
 func EjecutarArchivo(path string) []string {

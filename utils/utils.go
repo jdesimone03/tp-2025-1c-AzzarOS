@@ -53,6 +53,7 @@ func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 }
 
 func IniciarServidor(puerto int) error {
+	slog.Info(fmt.Sprintf("Inicializando servidor en el puerto %d",puerto))
 	err := http.ListenAndServe(fmt.Sprintf(":%d", puerto), nil)
 	if err != nil {
 		panic(err)
