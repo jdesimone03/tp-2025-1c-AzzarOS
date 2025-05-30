@@ -2,10 +2,13 @@ package utilsKernel
 
 import (
 	//"bufio"
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+
 	//"os"
 	"slices"
 	"time"
@@ -24,6 +27,11 @@ var ColaReady []structs.PCB
 var ColaExecute []structs.PCB
 var ColaBlocked []structs.PCB
 var ColaExit []structs.PCB
+var ColaSuspBlocked []structs.PCB
+var ColaSuspReady []structs.PCB
+
+// Map para trackear los timers de los procesos
+var ProcesosEnTimer = make(map[uint]*time.Timer)
 
 var contadorProcesos uint = 0
 
@@ -147,6 +155,9 @@ func SyscallIO(peticion structs.IOInstruction) {
 		if len(ListaExecIO[nombre]) > 0 {
 			// Enviar proceso a BLOCKED
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
+
+			// Iniciar timer de suspension
+			IniciarTimerSuspension(pid)
 
 			// Enviar proceso a ListaWaitIO
 			ListaWaitIO[nombre] = append(ListaWaitIO[nombre], espera)
@@ -310,7 +321,8 @@ func PlanificadorCortoPlazo() {
 func IniciarPlanificadores() {
 
 	go PlanificadorCortoPlazo()
-	//bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
+	go PlanificadorMedianoPlazo()
+	bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
 	go PlanificadorLargoPlazo()
 }
 
@@ -412,4 +424,57 @@ func HandleIODisconnect(nombre string) bool {
 func LimpiarExecIO(nombre string) {
 	aux := slices.Delete(ListaExecIO[nombre], 0, 1)
 	ListaExecIO[nombre] = aux
+}
+
+func IniciarTimerSuspension(pid uint) {
+	// Crear nuevo timer
+	if _, exists := ProcesosEnTimer[pid]; exists {
+		slog.Warn(fmt.Sprintf("Intento de iniciar un timer para PID %d que ya tiene uno activo. Ignorando.", pid))
+		return
+	}
+	timer := time.NewTimer(time.Duration(Config.SuspensionTime) * time.Millisecond)
+	ProcesosEnTimer[pid] = timer
+
+	// Log de inicio del timer
+	slog.Info(fmt.Sprintf("Timer de suspensión configurado para PID %d. Duración: %d ms. Será evaluado por PlanificadorMedianoPlazo.", pid, Config.SuspensionTime))
+	// La lógica de expiración y movimiento ahora es manejada por PlanificadorMedianoPlazo.
+}
+
+func PlanificadorMedianoPlazo() {
+	slog.Info("Iniciando Planificador de Mediano Plazo.")
+
+	for {
+		// Esto puede consumir más CPU. Considerar añadir un pequeño time.Sleep() si es necesario
+		// para evitar el uso excesivo de CPU, por ejemplo: time.Sleep(10 * time.Millisecond)
+
+		slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
+
+		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
+		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
+
+		// Iterar sobre los PIDs que están actualmente en ColaBlocked.
+		// Se crea una copia de los PIDs para evitar problemas si la cola es modificada por otra goroutine durante la iteración.
+		var pidsEnBlockedActual []uint
+		for _, pcb := range ColaBlocked { // Asumir acceso seguro o añadir mutex aquí
+			pidsEnBlockedActual = append(pidsEnBlockedActual, pcb.PID)
+		}
+
+		for _, currentPid := range pidsEnBlockedActual {
+			if timer, timerExists := ProcesosEnTimer[currentPid]; timerExists {
+				// Verificar si el timer ha expirado de forma no bloqueante.
+				select {
+				case <-timer.C: // El timer ha disparado.
+					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Timer expirado para PID %d (en ColaBlocked).", currentPid))
+
+					respuestaMemoria := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "mover-a-swap", currentPid)
+					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria))
+
+					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoWaiting)
+					delete(ProcesosEnTimer, currentPid) // Eliminar el timer del mapa.
+				default:
+					break
+				}
+			}
+		}
+	}
 }
