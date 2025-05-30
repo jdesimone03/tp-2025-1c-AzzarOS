@@ -17,6 +17,7 @@ func main() {
 	cpu := structs.CPU{
 		IP:     utilsCPU.Config.IPCPU,
 		Puerto: utilsCPU.Config.PortCPU,
+		Ejecutando: false,
 	}
 	
 	peticion := structs.HandshakeCPU{
@@ -26,8 +27,9 @@ func main() {
 	
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel,"handshake/CPU",peticion)
 
-	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
-	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
+	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
+	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)+
+	http.HandleFunc("/ping", utilsCPU.PingCPU)
 
 	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }

@@ -18,7 +18,6 @@ func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Error al decodificar mensaje"))
 		return
 	}
 
@@ -37,4 +36,9 @@ func RecibirPeticion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(respuesta)
+}
+
+func Ping(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("pong"))
 }

@@ -8,8 +8,9 @@ type Interfaz struct {
 }
 
 type CPU struct {
-	IP		string
-	Puerto	int
+	IP			string
+	Puerto		int
+	Ejecutando 	bool
 }
 
 type PCB struct {

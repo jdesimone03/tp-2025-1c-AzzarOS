@@ -26,6 +26,7 @@ func main() {
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
 	http.HandleFunc("/ejecutarIO", utilsIO.RecibirPeticion)
+	http.HandleFunc("/ping", utilsIO.Ping)
 
 	utils.IniciarServidor(utilsIO.Config.PortIo)
 }

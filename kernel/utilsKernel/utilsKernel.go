@@ -1,12 +1,12 @@
 package utilsKernel
 
 import (
-	"bufio"
+	//"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
+	//"os"
 	"slices"
 	"time"
 	"utils"
@@ -14,6 +14,7 @@ import (
 	"utils/structs"
 )
 
+// ---------------------------- Variables globales ----------------------------//
 // variables Config
 var Config = config.CargarConfiguracion[config.ConfigKernel]("config.json")
 
@@ -35,7 +36,7 @@ var Interfaces = make(map[string]structs.Interfaz)
 var ListaExecIO = make(map[string][]structs.EsperaIO)
 var ListaWaitIO = make(map[string][]structs.EsperaIO)
 
-// Handlers de endpoints
+// ---------------------------- Handlers de endpoints ----------------------------//
 func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch tipo {
@@ -53,7 +54,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			go PlanificadorIO(interfaz.Nombre)
 			// MoverAExecIO(interfaz.Nombre)
 
-			slog.Info(fmt.Sprintf("Me llego la siguiente interfaz: %+v", interfaz))
+			slog.Info(fmt.Sprintf("Nueva interfaz IO: %+v", interfaz))
 
 		case "CPU":
 			instancia, err := utils.DecodificarMensaje[structs.HandshakeCPU](r)
@@ -65,7 +66,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			}
 
 			InstanciasCPU[instancia.Identificador] = instancia.CPU
-			slog.Info(fmt.Sprintf("Me llego la siguiente cpu: %+v", instancia))
+			slog.Info(fmt.Sprintf("Nueva instancia CPU: %+v", instancia))
 
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un modulo valido.", tipo))
@@ -113,7 +114,7 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-// Syscalls
+// ---------------------------- Syscalls ----------------------------//
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(peticion structs.IOInstruction) {
 	pid := ColaExecute[0].PID
@@ -122,6 +123,9 @@ func SyscallIO(peticion structs.IOInstruction) {
 
 	_, encontrada := Interfaces[nombre]
 	if encontrada {
+		if HandleIODisconnect(nombre) {
+			return
+		}
 		espera := structs.EsperaIO{
 			PID:      pid,
 			TiempoMs: tiempoMs,
@@ -133,6 +137,9 @@ func SyscallIO(peticion structs.IOInstruction) {
 			// Enviar proceso a ListaWaitIO
 			ListaWaitIO[nombre] = append(ListaWaitIO[nombre], espera)
 		} else {
+			if HandleIODisconnect(nombre) {
+				return
+			}
 			// Enviar al proceso a ejecutar el IO
 			ListaExecIO[nombre] = append(ListaExecIO[nombre], espera)
 		}
@@ -154,7 +161,7 @@ func SyscallExit(proceso structs.ExitInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
 }
 
-// Planificadores
+// ---------------------------- Planificadores ----------------------------//
 func PlanificadorIO(nombre string) {
 	for {
 		interfaz, encontrada := Interfaces[nombre]
@@ -163,7 +170,11 @@ func PlanificadorIO(nombre string) {
 			if len(lista) > 0 {
 				// Enviar al IO el PID y el tiempo en ms
 				proc := lista[0]
-
+				if HandleIODisconnect(nombre) {
+					LimpiarExecIO(nombre)
+					return
+				}
+				// TODO investigar otra forma de hacer esto
 				// Manejo del timeout
 				timeoutMax := proc.TiempoMs + (proc.TiempoMs / 50) // Tiempo de espera maximo, es medio arbitrario que tiene que ser 50% mas del pedido. Se podria ajustar
 				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMax)*time.Millisecond)
@@ -180,8 +191,7 @@ func PlanificadorIO(nombre string) {
 				case <-done:
 					// SI TERMINA LA EJECUCION (FIN DE IO)
 					// Borro el proceso de la lista de ejecucion
-					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
-					ListaExecIO[nombre] = aux
+					LimpiarExecIO(nombre)
 
 					// Log obligatorio 5/8
 					slog.Info(fmt.Sprintf("## (%d) finalizó IO y pasa a READY", proc.PID))
@@ -194,13 +204,15 @@ func PlanificadorIO(nombre string) {
 					delete(Interfaces, nombre)
 
 					// Borro el proceso de la lista de ejecución
-					aux := slices.Delete(ListaExecIO[nombre], 0, 1)
-					ListaExecIO[nombre] = aux
+					LimpiarExecIO(nombre)
 					return // Si se desconecta el io hay que desconectar el planificador
 				}
 			}
 			aux := ListaWaitIO[nombre]
 			if len(aux) > 0 {
+				if HandleIODisconnect(nombre) {
+					return
+				}
 				// Borra el primer elemento en la lista de espera
 				aEjecutar := aux[0]
 				aux := slices.Delete(aux, 0, 1)
@@ -221,8 +233,9 @@ func PlanificadorIO(nombre string) {
 // Los procesos son creados con la syscall de INIT_PROC.
 // Esta función solo los manda a ejecutar según el algoritmo de planificación.
 func PlanificadorLargoPlazo() {
+	ejecutando := true
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm))
-	for {
+	for ejecutando {
 		if len(ColaNew) > 0 {
 			switch Config.SchedulerAlgorithm {
 			case "FIFO":
@@ -233,21 +246,38 @@ func PlanificadorLargoPlazo() {
 				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
 				slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
-				break
+				ejecutando = false
 			}
 		}
 	}
+	slog.Info("Finalizando planificador de largo plazo")
 }
 
 func PlanificadorCortoPlazo() {
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm))
-	for {
+	ejecutando := true
+	for ejecutando {
 		if len(ColaReady) > 0 {
 			switch Config.ReadyIngressAlgorithm {
 			case "FIFO":
 				if len(ColaExecute) == 0 {
 					firstPCB := ColaReady[0]
-					MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+					nombreCPU, hayDisponible := GetCPUDisponible()
+					if hayDisponible {
+						ejecucion := structs.Ejecucion {
+							PID: firstPCB.PID,
+							PC: firstPCB.PC,
+						}
+						// Marca como ejecutando
+						cpu := InstanciasCPU[nombreCPU]
+						cpu.Ejecutando = true
+						InstanciasCPU[nombreCPU] = cpu
+
+						// Envia el proceso
+						for !PingCPU(nombreCPU){}
+						utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
+						MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+					}
 				}
 			case "SJF":
 				//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
@@ -255,16 +285,17 @@ func PlanificadorCortoPlazo() {
 				//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
 				slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
-				break
+				ejecutando = false
 			}
 		}
 	}
+	slog.Info("Finalizando planificador de corto plazo")
 }
 
 func IniciarPlanificadores() {
-	go PlanificadorCortoPlazo()
 
-	bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
+	go PlanificadorCortoPlazo()
+	//bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
 	go PlanificadorLargoPlazo()
 }
 
@@ -276,15 +307,15 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 			// Log obligatorio 3/8
 			slog.Info(fmt.Sprintf("## (%d) pasa del estado %s al estado %s", pid, (*origen)[i].Estado, estadoNuevo))
 			*destino = append(*destino, pcb)                    // mover a la cola destino
-			*origen = append((*origen)[:i], (*origen)[i+1:]...) // eliminar del origen
+			*origen = slices.Delete((*origen), i, i+1) // eliminar del origen
 			return
 		}
 	}
 }
 
-// ---------------------------- Funciones de prueba ----------------------------//
+// ---------------------------- Funciones de utilidad ----------------------------//
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
-
+	
 	// Verifica si hay lugar disponible en memoria
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
 	if respuesta != "OK" {
@@ -293,7 +324,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 			// Espera a que termine el proceso ejecutando actualmente
 		}
 	}
-
+	
 	// Reserva el tamaño para memoria
 	proceso := structs.Proceso{
 		PID:           contadorProcesos, // PID actual
@@ -312,14 +343,6 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pcb.PID))
 }
 
-/* func configurarProceso(pid uint, rutaArchInstrucciones string, tamanio int) structs.Proceso {
-		return structs.Proceso{
-		PID:           pid,
-		Instrucciones: rutaArchInstrucciones,
-		Tamanio:       tamanio,
-	}
-} */
-
 func CrearPCB() structs.PCB {
 	return structs.PCB{
 		PID:            contadorProcesos,
@@ -330,4 +353,48 @@ func CrearPCB() structs.PCB {
 	}
 }
 
-//-------------------------------------------------------------------------------//
+func GetCPUDisponible() (string,bool) {
+	for nombre, valores := range InstanciasCPU {
+		if !valores.Ejecutando {
+			return nombre, true
+		}
+	}
+	return "", false
+}
+
+func PingCPU(nombre string) bool {
+	instancia := InstanciasCPU[nombre]
+	url := fmt.Sprintf("http://%s:%d/ping", instancia.IP, instancia.Puerto)
+	_, err := http.Get(url)
+
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func PingIO(nombre string) bool {
+	interfaz := Interfaces[nombre]
+	url := fmt.Sprintf("http://%s:%d/ping", interfaz.IP, interfaz.Puerto)
+	_, err := http.Get(url)
+
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func HandleIODisconnect(nombre string) bool {
+	pid := ColaExecute[0].PID
+	if !PingIO(nombre) {
+		slog.Info(fmt.Sprintf("La interfaz %s fue desconectada.", nombre))
+		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
+		return true
+	}
+	return false
+}
+
+func LimpiarExecIO(nombre string) {
+	aux := slices.Delete(ListaExecIO[nombre], 0, 1)
+	ListaExecIO[nombre] = aux
+}

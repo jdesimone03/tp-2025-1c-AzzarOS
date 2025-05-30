@@ -36,6 +36,9 @@ func main() {
 	http.HandleFunc("/syscall/DUMP_MEMORY", utilsKernel.HandleSyscall("DUMP_MEMORY"))
 	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
 
+	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
+
+
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 
 }

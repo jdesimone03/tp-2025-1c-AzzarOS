@@ -16,6 +16,10 @@ var Config = config.CargarConfiguracion[config.ConfigCPU]("config.json")
 var Ejecutando structs.Ejecucion
 var InterruptFlag = false
 
+func PingCPU(w http.ResponseWriter, r *http.Request){
+	w.WriteHeader(http.StatusOK)
+}
+
 func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 	ejecucion, err := utils.DecodificarMensaje[structs.Ejecucion](r)
 	if err != nil {
@@ -28,11 +32,17 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 	// InstruccionCodificada = FETCH(PCB.ProgramCounter)
 	Ejecutando = *ejecucion
 
+	go Ejecucion()
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func Ejecucion() {
 	for {
 		// Decodificamos la instruccion
 		instruccionCodificada, terminoEjecucion := FetchAndDecode(Ejecutando)
 		if terminoEjecucion {
-			break
+			return
 		}
 		Ejecutando.PC++
 		Execute(instruccionCodificada)
@@ -40,10 +50,9 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 			// Atiende la interrupcion
 			// Log obligatorio 2/11
 			slog.Info("## Llega interrupción al puerto Interrupt")
+			return
 		}
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func FetchAndDecode(peticion structs.Ejecucion) (any, bool) {
