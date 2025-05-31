@@ -130,3 +130,16 @@ func MemoriaDisponible(MemoriaSolicitada int) bool {
 		return false
 	}
 }
+
+func MoverProcesoASwap(w http.ResponseWriter, r *http.Request) {
+	_, err := utils.DecodificarMensaje[uint](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	// Se responde que la operación fue registrada como exitosa, aunque no se modifique el estado interno.
+	json.NewEncoder(w).Encode(structs.Respuesta{Mensaje:"OK"})
+}

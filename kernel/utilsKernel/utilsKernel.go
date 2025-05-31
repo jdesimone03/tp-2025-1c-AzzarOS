@@ -342,29 +342,47 @@ func PlanificadorMedianoPlazo() {
 		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
 
 		// Iterar sobre los PIDs que están actualmente en ColaBlocked.
-		// Se crea una copia de los PIDs para evitar problemas si la cola es modificada por otra goroutine durante la iteración.
-		var pidsEnBlockedActual []uint
-		for _, pcb := range ColaBlocked { // Asumir acceso seguro o añadir mutex aquí
-			pidsEnBlockedActual = append(pidsEnBlockedActual, pcb.PID)
-		}
+		// Iteramos directamente sobre ColaBlocked, manejando la modificación del slice.
+		i := 0
+		for i < len(ColaBlocked) {
+			// Es crucial asegurar que el acceso a ColaBlocked[i] sea seguro si otras goroutines pueden modificarla.
+			// La nota sobre el mutex es muy importante aquí.
+			pcb := ColaBlocked[i]
+			currentPid := pcb.PID
+			moved := false // Flag to track if the PCB was moved in this iteration
 
-		for _, currentPid := range pidsEnBlockedActual {
 			if timer, timerExists := ProcesosEnTimer[currentPid]; timerExists {
 				// Verificar si el timer ha expirado de forma no bloqueante.
 				select {
 				case <-timer.C: // El timer ha disparado.
 					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Timer expirado para PID %d (en ColaBlocked).", currentPid))
 
+					// Aquí se asume que el PCB con currentPid todavía está en ColaBlocked y es el que queremos mover.
+					// MoverPCB buscará por PID.
 					respuestaMemoria := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "mover-a-swap", currentPid)
+					if respuestaMemoria != "OK" {
+						slog.Error(fmt.Sprintf("PlanificadorMedianoPlazo: Error al mover el PCB con PID %d a swap: '%s'", currentPid, respuestaMemoria))
+						// Si no se pudo mover a swap, no se mueve el PCB y se deja en ColaBlocked.
+						break // No mover el PCB, continuar con el siguiente.
+					}
+
 					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria))
 
-					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoWaiting)
+					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoSuspBlocked)
 					delete(ProcesosEnTimer, currentPid) // Eliminar el timer del mapa.
+					moved = true                        // PCB fue movido, no se debe incrementar i.
 				default:
-					break
+					// Timer existe pero no ha expirado. No hacer nada con este PCB respecto al timer.
 				}
 			}
+
+			if !moved {
+				i++ // Incrementar el índice solo si el PCB actual no fue movido.
+			}
+			// Si moved == true, i no se incrementa, y el bucle procesará el nuevo elemento en el índice actual i.
 		}
+		// Pausa breve para evitar el uso excesivo de CPU, especialmente si ColaBlocked está vacía o no hay timers activos.
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

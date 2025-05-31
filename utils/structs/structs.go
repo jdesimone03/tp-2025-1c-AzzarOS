@@ -104,11 +104,11 @@ type Respuesta struct {
 }
 
 const (
-	EstadoNew     = "NEW"
-	EstadoReady   = "READY"
-	EstadoExec    = "EXEC"
-	EstadoBlocked = "BLOCKED"
-	EstadoExit    = "EXIT"
-	EstadoWaiting = "SUSP_BLOCKED"
-	EstadoRunning = "SUSP_READY"
+	EstadoNew         	= "NEW"
+	EstadoReady       	= "READY"
+	EstadoExec        	= "EXEC"
+	EstadoBlocked     	= "BLOCKED"
+	EstadoExit        	= "EXIT"
+	EstadoSuspBlocked 	= "SUSP_BLOCKED"
+	EstadoSuspReady		= "SUSP_READY"
 )
