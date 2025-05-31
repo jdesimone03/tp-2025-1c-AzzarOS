@@ -2,23 +2,23 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Memoria",
+            "name": "Memoria",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/memoria/memoria.go"
         },
         {
-            "name": "Debug Kernel",
+            "name": "Kernel",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/kernel/kernel.go",
-            "args": ["instruccion.txt", "256"],
+            "args": ["${workspaceFolder}/utils/init", "256"],
             "console": "integratedTerminal"
         },
         {
-            "name": "Debug CPU",
+            "name": "CPU",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -26,12 +26,19 @@
             "args": ["CPU1"]
         },
         {
-            "name": "Debug IO",
+            "name": "IO",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
             "args": ["IO1"]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Iniciar SO (Memoria, Kernel)",
+            "configurations": ["Memoria", "Kernel"],
+            "stopAll": false
         }
     ]
 }
