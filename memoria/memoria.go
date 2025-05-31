@@ -18,6 +18,8 @@ func main() {
 	http.HandleFunc("/nuevo-proceso", utilsMemoria.NuevoProceso)
 	http.HandleFunc("/check-memoria", utilsMemoria.CheckMemoria)
 
+	http.HandleFunc("/mover-a-swap", utilsMemoria.MoverProcesoASwap)
+
 	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
 
 }
