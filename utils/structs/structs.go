@@ -23,6 +23,7 @@ type InstanciaCPU struct {
 	IP         string
 	Puerto     int
 	Ejecutando bool
+	PID        uint
 }
 
 type InterfazIO struct {

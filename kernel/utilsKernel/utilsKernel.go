@@ -52,7 +52,6 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			if err != nil {
 				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Error al decodificar mensaje"))
 				return
 			}
 
@@ -68,7 +67,6 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			if err != nil {
 				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Error al decodificar mensaje"))
 				return
 			}
 
@@ -128,12 +126,11 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	}
 	MoverPCB(contexto.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
 
-	// Función temporal para que desaloje las cpu que se estén usando.
-	// Hay que ver el tema de la cola de execute si tiene que ser con dos cpus distintas.
-	for k, v := range InstanciasCPU {
-		if v.Ejecutando == true {
-			v.Ejecutando = false
-			InstanciasCPU[k] = v
+	// Desaloja las cpu que se estén usando.
+	for nombre, instancia := range InstanciasCPU {
+		if instancia.Ejecutando && instancia.PID == contexto.PID {
+			instancia.Ejecutando = false
+			InstanciasCPU[nombre] = instancia
 		}
 	}
 
@@ -145,7 +142,7 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 func SyscallIO(peticion structs.SyscallInstruction) {
 	pid := peticion.PID
 	instruccion := peticion.Instruccion.(*structs.IOInstruction)
-	
+
 	nombre := instruccion.NombreIfaz
 	tiempoMs := instruccion.SuspensionTime
 
@@ -265,9 +262,8 @@ func PlanificadorIO(nombre string) {
 // Los procesos son creados con la syscall de INIT_PROC.
 // Esta función solo los manda a ejecutar según el algoritmo de planificación.
 func PlanificadorLargoPlazo() {
-	ejecutando := true
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm))
-	for ejecutando {
+	for {
 		if len(ColaNew) > 0 {
 			switch Config.SchedulerAlgorithm {
 			case "FIFO":
@@ -278,17 +274,15 @@ func PlanificadorLargoPlazo() {
 				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
 				slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
-				ejecutando = false
+				return
 			}
 		}
 	}
-	slog.Info("Finalizando planificador de largo plazo")
 }
 
 func PlanificadorCortoPlazo() {
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm))
-	ejecutando := true
-	for ejecutando {
+	for {
 		if len(ColaReady) > 0 {
 			switch Config.ReadyIngressAlgorithm {
 			case "FIFO":
@@ -303,6 +297,7 @@ func PlanificadorCortoPlazo() {
 					// Marca como ejecutando
 					cpu := InstanciasCPU[nombreCPU]
 					cpu.Ejecutando = true
+					cpu.PID = firstPCB.PID
 					InstanciasCPU[nombreCPU] = cpu
 
 					// Envia el proceso
@@ -315,11 +310,10 @@ func PlanificadorCortoPlazo() {
 				//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
 			default:
 				slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
-				ejecutando = false
+				return
 			}
 		}
 	}
-	slog.Info("Finalizando planificador de corto plazo")
 }
 
 func PlanificadorMedianoPlazo() {
@@ -336,8 +330,8 @@ func PlanificadorMedianoPlazo() {
 
 		// Iterar sobre los PIDs que están actualmente en ColaBlocked.
 		// Iteramos directamente sobre ColaBlocked, manejando la modificación del slice.
-		i := 0
-		for i < len(ColaBlocked) {
+
+		for i := 0; i < len(ColaBlocked); {
 			// Es crucial asegurar que el acceso a ColaBlocked[i] sea seguro si otras goroutines pueden modificarla.
 			// La nota sobre el mutex es muy importante aquí.
 			pcb := ColaBlocked[i]
@@ -374,8 +368,6 @@ func PlanificadorMedianoPlazo() {
 			}
 			// Si moved == true, i no se incrementa, y el bucle procesará el nuevo elemento en el índice actual i.
 		}
-		// Pausa breve para evitar el uso excesivo de CPU, especialmente si ColaBlocked está vacía o no hay timers activos.
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -469,8 +461,6 @@ func PingIO(nombre string) bool {
 
 func Interrumpir(nombreCpu string) {
 	cpu := InstanciasCPU[nombreCpu]
-	cpu.Ejecutando = false
-	InstanciasCPU[nombreCpu] = cpu
 
 	url := fmt.Sprintf("http://%s:%d/interrupt", cpu.IP, cpu.Puerto)
 	_, err := http.Get(url)
