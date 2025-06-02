@@ -85,35 +85,23 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		syscall, err := utils.DecodificarMensaje[structs.SyscallInstruction](r)
+		if err != nil {
+			slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		// Log obligatorio 1/8
-		logueador.SyscallRecibida(ColaExecute[0].PID, tipo)
+		logueador.SyscallRecibida(syscall.PID, tipo)
 		switch tipo {
 		case "INIT_PROC":
-			proceso, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
-			if err != nil {
-				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			SyscallInitProc(*proceso)
+			SyscallInitProc(*syscall)
 		case "DUMP_MEMORY":
 			return // No implementado
 		case "IO":
-			peticion, err := utils.DecodificarMensaje[structs.IOInstruction](r)
-			if err != nil {
-				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			SyscallIO(*peticion)
+			SyscallIO(*syscall)
 		case "EXIT":
-			proceso, err := utils.DecodificarMensaje[structs.ExitInstruction](r)
-			if err != nil {
-				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			SyscallExit(*proceso)
+			SyscallExit(*syscall)
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un tipo de syscall valida.", tipo))
 			w.WriteHeader(http.StatusBadRequest)
@@ -131,7 +119,13 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ColaExecute[0].PC = contexto.PC
+	// Busca el proceso a guardar en la cola execute
+	for i := range ColaExecute {
+		if ColaExecute[i].PID == contexto.PID {
+			ColaExecute[i].PC = contexto.PC
+			break
+		}
+	}
 	MoverPCB(contexto.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
 
 	// Función temporal para que desaloje las cpu que se estén usando.
@@ -148,10 +142,12 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------- Syscalls ----------------------------//
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
-func SyscallIO(peticion structs.IOInstruction) {
-	pid := ColaExecute[0].PID
-	nombre := peticion.NombreIfaz
-	tiempoMs := peticion.SuspensionTime
+func SyscallIO(peticion structs.SyscallInstruction) {
+	pid := peticion.PID
+	instruccion := peticion.Instruccion.(*structs.IOInstruction)
+	
+	nombre := instruccion.NombreIfaz
+	tiempoMs := instruccion.SuspensionTime
 
 	_, encontrada := Interfaces[nombre]
 	if encontrada {
@@ -186,13 +182,14 @@ func SyscallIO(peticion structs.IOInstruction) {
 	}
 }
 
-func SyscallInitProc(inst structs.InitProcInstruction) {
+func SyscallInitProc(peticion structs.SyscallInstruction) {
+	inst := peticion.Instruccion.(*structs.InitProcInstruction)
 	instrucciones := inst.ProcessPath
 	tamanio := inst.MemorySize
 	NuevoProceso(instrucciones, tamanio)
 }
 
-func SyscallExit(proceso structs.ExitInstruction) {
+func SyscallExit(peticion structs.SyscallInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
 }
 
@@ -295,26 +292,22 @@ func PlanificadorCortoPlazo() {
 		if len(ColaReady) > 0 {
 			switch Config.ReadyIngressAlgorithm {
 			case "FIFO":
-				if len(ColaExecute) == 0 {
+				nombreCPU, hayDisponible := GetCPUDisponible()
+				if hayDisponible {
 					firstPCB := ColaReady[0]
-					nombreCPU, hayDisponible := GetCPUDisponible()
-					if hayDisponible {
-						ejecucion := structs.EjecucionCPU{
-							PID: firstPCB.PID,
-							PC:  firstPCB.PC,
-						}
-
-						// Marca como ejecutando
-						cpu := InstanciasCPU[nombreCPU]
-						cpu.Ejecutando = true
-						InstanciasCPU[nombreCPU] = cpu
-
-						// Envia el proceso
-						for !PingCPU(nombreCPU) {
-						}
-						utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
-						MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+					ejecucion := structs.EjecucionCPU{
+						PID: firstPCB.PID,
+						PC:  firstPCB.PC,
 					}
+
+					// Marca como ejecutando
+					cpu := InstanciasCPU[nombreCPU]
+					cpu.Ejecutando = true
+					InstanciasCPU[nombreCPU] = cpu
+
+					// Envia el proceso
+					utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
+					MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
 				}
 			case "SJF":
 				//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
@@ -463,17 +456,6 @@ func GetCPUDisponible() (string, bool) {
 	return "", false
 }
 
-func PingCPU(nombre string) bool {
-	instancia := InstanciasCPU[nombre]
-	url := fmt.Sprintf("http://%s:%d/ping", instancia.IP, instancia.Puerto)
-	_, err := http.Get(url)
-
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func PingIO(nombre string) bool {
 	interfaz := Interfaces[nombre]
 	url := fmt.Sprintf("http://%s:%d/ping", interfaz.IP, interfaz.Puerto)
@@ -483,6 +465,20 @@ func PingIO(nombre string) bool {
 		return false
 	}
 	return true
+}
+
+func Interrumpir(nombreCpu string) {
+	cpu := InstanciasCPU[nombreCpu]
+	cpu.Ejecutando = false
+	InstanciasCPU[nombreCpu] = cpu
+
+	url := fmt.Sprintf("http://%s:%d/interrupt", cpu.IP, cpu.Puerto)
+	_, err := http.Get(url)
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo interrumpir la CPU %s: %v", nombreCpu, err))
+	}
+
 }
 
 func HandleIODisconnect(nombre string) bool {

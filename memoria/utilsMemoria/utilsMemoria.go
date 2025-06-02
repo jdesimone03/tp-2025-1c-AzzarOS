@@ -46,13 +46,7 @@ func EnviarInstruccion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Si el program counter supera a la cantidad total de lineas significa que terminó su ejecución
-	var linea string
-	if proceso.PC >= uint(len(Procesos[proceso.PID])) {
-		linea = ""
-	} else {
-		linea = Procesos[proceso.PID][proceso.PC]
-	}
+	linea := Procesos[proceso.PID][proceso.PC]
 
 	// Log obligatorio 3/5
 	logueador.ObtenerInstruccion(proceso.PID, proceso.PC, linea)

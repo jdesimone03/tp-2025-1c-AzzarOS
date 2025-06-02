@@ -67,6 +67,15 @@ const (
 	INST_EXIT
 )
 
+type Syscall interface {
+	isSyscall()
+}
+
+type SyscallInstruction struct {
+	PID         uint
+	Instruccion Syscall
+}
+
 type NoopInstruction struct{}
 
 type WriteInstruction struct {
@@ -83,19 +92,29 @@ type GotoInstruction struct {
 	TargetAddress int
 }
 
+// Syscalls
+
 type IOInstruction struct {
 	NombreIfaz     string
 	SuspensionTime int
 }
+
+func (IOInstruction) isSyscall() {}
 
 type InitProcInstruction struct {
 	ProcessPath string
 	MemorySize  int
 }
 
+func (InitProcInstruction) isSyscall() {}
+
 type DumpMemoryInstruction struct{}
 
+func (DumpMemoryInstruction) isSyscall() {}
+
 type ExitInstruction struct{}
+
+func (ExitInstruction) isSyscall() {}
 
 // --------------------------------- Utilidades --------------------------------- //
 
@@ -104,11 +123,11 @@ type Respuesta struct {
 }
 
 const (
-	EstadoNew         	= "NEW"
-	EstadoReady       	= "READY"
-	EstadoExec        	= "EXEC"
-	EstadoBlocked     	= "BLOCKED"
-	EstadoExit        	= "EXIT"
-	EstadoSuspBlocked 	= "SUSP_BLOCKED"
-	EstadoSuspReady		= "SUSP_READY"
+	EstadoNew         = "NEW"
+	EstadoReady       = "READY"
+	EstadoExec        = "EXEC"
+	EstadoBlocked     = "BLOCKED"
+	EstadoExit        = "EXIT"
+	EstadoSuspBlocked = "SUSP_BLOCKED"
+	EstadoSuspReady   = "SUSP_READY"
 )

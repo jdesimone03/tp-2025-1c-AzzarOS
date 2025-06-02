@@ -36,7 +36,6 @@ func main() {
 
 	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
 	http.HandleFunc("/interrupt", utilsCPU.RecibirInterrupcion)
-	http.HandleFunc("/ping", utilsCPU.PingCPU)
 
 	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }
