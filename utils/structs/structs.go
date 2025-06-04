@@ -132,3 +132,8 @@ const (
 	EstadoSuspBlocked = "SUSP_BLOCKED"
 	EstadoSuspReady   = "SUSP_READY"
 )
+
+type TiempoEjecucion struct {
+	PID    uint
+	Tiempo int64
+}

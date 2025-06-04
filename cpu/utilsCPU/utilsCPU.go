@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"utils"
 	"utils/config"
 	"utils/logueador"
@@ -54,7 +55,11 @@ func init() {
 	}()
 }
 
+var TiempoEjecucion int64
+
+
 func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
+	TiempoEjecucion = time.Now().UnixMilli()
 	for {
 		// Decodificamos la instruccion
 		instruccionCodificada := FetchAndDecode(ctxEjecucion)
@@ -62,7 +67,12 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 		Execute(&ctxEjecucion, instruccionCodificada)
 		if InterruptFlag {
 			// Atiende la interrupcion
+			TiempoEjecucion = time.Now().UnixMilli() - TiempoEjecucion
 			slog.Info(fmt.Sprintf("PID: %d - Interrumpido, Guarda contexto en PC: %d", ctxEjecucion.PID, ctxEjecucion.PC))
+			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "tiempo-ejecucion", structs.TiempoEjecucion{
+				PID:    ctxEjecucion.PID,
+				Tiempo: TiempoEjecucion,
+			})
 			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", ctxEjecucion)
 			InterruptFlag = false
 			hayEjecucion <- false
@@ -87,7 +97,7 @@ func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) {
 	// Por si hay una syscall
 	var esSyscall bool
 	var syscall structs.Syscall
-	
+
 	switch instruccion := decodedInstruction.(type) {
 	case structs.NoopInstruction:
 		nombreInstruccion = "NOOP"

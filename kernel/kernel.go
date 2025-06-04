@@ -45,6 +45,7 @@ func main() {
 
 	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
 	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
+	http.HandleFunc("/tiempo-ejecucion", utilsKernel.RecibirTiempoEjecucion)
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

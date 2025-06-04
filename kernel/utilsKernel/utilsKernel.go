@@ -30,7 +30,8 @@ var ColaSuspBlocked []structs.PCB
 var ColaSuspReady []structs.PCB
 
 // Map para trackear los timers de los procesos
-var ProcesosEnTimer = make(map[uint]*time.Timer)
+var TiempoEnColaBlocked = make(map[uint]*time.Timer)
+var TiempoEnColaExecute = make(map[uint]int64)
 
 var contadorProcesos uint = 0
 
@@ -280,40 +281,75 @@ func PlanificadorLargoPlazo() {
 	}
 }
 
+// var notificacionColaReady = make(chan struct{}, 1)
+
 func PlanificadorCortoPlazo() {
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm))
+	// var estimado = float64(Config.InitialEstimate)
+	// var real int64
 	for {
-		if len(ColaReady) > 0 {
-			switch Config.ReadyIngressAlgorithm {
-			case "FIFO":
-				nombreCPU, hayDisponible := GetCPUDisponible()
-				if hayDisponible {
-					firstPCB := ColaReady[0]
+		for _, pcb := range ColaReady {
+			nombreCPU, hayDisponible := GetCPUDisponible()
+			if hayDisponible {
+				switch Config.ReadyIngressAlgorithm {
+				case "FIFO":
 					ejecucion := structs.EjecucionCPU{
-						PID: firstPCB.PID,
-						PC:  firstPCB.PC,
+						PID: pcb.PID,
+						PC:  pcb.PC,
 					}
 
 					// Marca como ejecutando
 					cpu := InstanciasCPU[nombreCPU]
 					cpu.Ejecutando = true
-					cpu.PID = firstPCB.PID
+					cpu.PID = pcb.PID
 					InstanciasCPU[nombreCPU] = cpu
 
 					// Envia el proceso
 					utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
-					MoverPCB(firstPCB.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+					MoverPCB(pcb.PID, &ColaReady, &ColaExecute, structs.EstadoExec)
+				case "SJF":
+					// Est(n)=Estimado de la ráfaga anterior =
+					// R(n) = Lo que realmente ejecutó de la ráfaga anterior en la CPU
+					// Est(n+1) = El estimado de la próxima ráfaga
+					// Est(n+1) =  alpha * R(n) + (1-alpha) * Est(n) ;    [0,1]
+					// real = time.Now().UnixMilli() - TiempoEnColaExecute[pcb.PID]
+					// estimadoSiguiente := EstimarRafaga(float64(estimado), float64(real))
+
+					// if estimadoSiguiente > estimado {
+					// 	estimado = estimadoSiguiente
+					// 	//	desalojar ejecutando
+					// 	//	mandar proceso a ejecutar
+					// }
+
+					//TODO IMPLEMENTAR
+				case "SJF-SD":
+					//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
+					// real = TiempoEnColaExecute[pcb.PID]
+					// estimadoSiguiente := EstimarRafaga(float64(estimado), float64(real))
+
+					// for k,v := range ColaReady {
+					// 	if 
+					// }
+				default:
+					slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
+					return
 				}
-			case "SJF":
-				//ejecutar SJF, no es de este checkpoint lo haremos despues (si dios quiere)
-			case "SJF-SD":
-				//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
-			default:
-				slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
-				return
 			}
 		}
 	}
+}
+
+func EstimarRafaga(estimadoAnterior float64, realAnterior float64) float64 {
+	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
+}
+
+func RecibirTiempoEjecucion(w http.ResponseWriter, r *http.Request) {
+	tiempo, err := utils.DecodificarMensaje[structs.TiempoEjecucion](r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	TiempoEnColaExecute[tiempo.PID] = tiempo.Tiempo
+	w.WriteHeader(http.StatusOK)
 }
 
 func PlanificadorMedianoPlazo() {
@@ -338,7 +374,7 @@ func PlanificadorMedianoPlazo() {
 			currentPid := pcb.PID
 			moved := false // Flag to track if the PCB was moved in this iteration
 
-			if timer, timerExists := ProcesosEnTimer[currentPid]; timerExists {
+			if timer, timerExists := TiempoEnColaBlocked[currentPid]; timerExists {
 				// Verificar si el timer ha expirado de forma no bloqueante.
 				select {
 				case <-timer.C: // El timer ha disparado.
@@ -356,8 +392,8 @@ func PlanificadorMedianoPlazo() {
 					slog.Info(fmt.Sprintf("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria))
 
 					MoverPCB(currentPid, &ColaBlocked, &ColaSuspBlocked, structs.EstadoSuspBlocked)
-					delete(ProcesosEnTimer, currentPid) // Eliminar el timer del mapa.
-					moved = true                        // PCB fue movido, no se debe incrementar i.
+					delete(TiempoEnColaBlocked, currentPid) // Eliminar el timer del mapa.
+					moved = true                            // PCB fue movido, no se debe incrementar i.
 				default:
 					// Timer existe pero no ha expirado. No hacer nada con este PCB respecto al timer.
 				}
@@ -488,12 +524,12 @@ func LimpiarExecIO(nombre string) {
 
 func IniciarTimerSuspension(pid uint) {
 	// Crear nuevo timer
-	if _, exists := ProcesosEnTimer[pid]; exists {
+	if _, exists := TiempoEnColaBlocked[pid]; exists {
 		slog.Warn(fmt.Sprintf("Intento de iniciar un timer para PID %d que ya tiene uno activo. Ignorando.", pid))
 		return
 	}
 	timer := time.NewTimer(time.Duration(Config.SuspensionTime) * time.Millisecond)
-	ProcesosEnTimer[pid] = timer
+	TiempoEnColaBlocked[pid] = timer
 
 	// Log de inicio del timer
 	slog.Info(fmt.Sprintf("Timer de suspensión configurado para PID %d. Duración: %d ms. Será evaluado por PlanificadorMedianoPlazo.", pid, Config.SuspensionTime))
