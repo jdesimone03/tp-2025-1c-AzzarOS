@@ -47,5 +47,9 @@ func main() {
 	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
 	http.HandleFunc("/tiempo-ejecucion", utilsKernel.RecibirTiempoEjecucion)
 
+	// Manejo de IO
+	http.HandleFunc("/io-end", utilsKernel.HandleIOEnd)
+	http.HandleFunc("/io-disconnect", utilsKernel.HandleIODisconnect)
+
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

@@ -14,6 +14,7 @@ import (
 func main() {
 	// Carga los argumentos
 	nombre := os.Args[1]
+	utilsIO.NombreInterfaz = nombre
 
 	// Inicia el logueador
 	logueador.ConfigurarLogger(fmt.Sprintf("log_IO_%s", nombre))
@@ -33,8 +34,7 @@ func main() {
 
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
-	http.HandleFunc("/ejecutarIO", utilsIO.RecibirPeticion)
-	http.HandleFunc("/ping", utilsIO.Ping)
+	http.HandleFunc("/ejecutarIO", utilsIO.RecibirEjecucionIO)
 
 	utils.IniciarServidor(utilsIO.Config.PortIo)
 }

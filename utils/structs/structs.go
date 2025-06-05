@@ -1,5 +1,7 @@
 package structs
 
+import "sync"
+
 // --------------------------------- Estructuras Generales --------------------------------- //
 
 type PCB struct {
@@ -116,6 +118,47 @@ func (DumpMemoryInstruction) isSyscall() {}
 type ExitInstruction struct{}
 
 func (ExitInstruction) isSyscall() {}
+
+// --------------------------------- Estructuras seguras --------------------------------- //
+type MapSeguro struct {
+	Map map[string][]EjecucionIO
+	Mutex sync.Mutex
+}
+
+func NewMapSeguro() *MapSeguro {
+	return &MapSeguro{Map: make(map[string][]EjecucionIO)}
+}
+
+func (ms *MapSeguro) Agregar(key string, ejecucion EjecucionIO) {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	ms.Map[key] = append(ms.Map[key], ejecucion)
+}
+
+func (ms *MapSeguro) Obtener(key string) ([]EjecucionIO, bool) {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	slice, ok := ms.Map[key]
+	return slice, ok
+}
+
+func (ms *MapSeguro) EliminarPrimero(key string) EjecucionIO {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	if slice, ok := ms.Map[key]; ok && len(slice) > 0 {
+		primerElemento := slice[0]
+		ms.Map[key] = slice[1:]
+		return primerElemento
+	}
+	return EjecucionIO{} // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
+}
+
+func (ms *MapSeguro) BorrarLista(key string) {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	delete(ms.Map, key)
+
+}
 
 // --------------------------------- Utilidades --------------------------------- //
 

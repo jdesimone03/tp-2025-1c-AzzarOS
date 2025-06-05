@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 	"utils"
 	"utils/config"
 	"utils/logueador"
@@ -17,6 +16,16 @@ var Config config.ConfigCPU
 var Ejecutando structs.EjecucionCPU
 var InterruptFlag bool
 var hayEjecucion = make(chan bool)
+
+func init() {
+	go func() {
+		for {
+			// channel que avisa que va a ejecutar
+			<-hayEjecucion
+			Ejecucion(Ejecutando)
+		}
+	}()
+}
 
 func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
 
@@ -45,34 +54,22 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func init() {
-	go func() {
-		for {
-			// channel que avisa que va a ejecutar
-			<-hayEjecucion
-			Ejecucion(Ejecutando)
-		}
-	}()
-}
-
-var TiempoEjecucion int64
-
-
 func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
-	TiempoEjecucion = time.Now().UnixMilli()
 	for {
 		// Decodificamos la instruccion
-		instruccionCodificada := FetchAndDecode(ctxEjecucion)
-		ctxEjecucion.PC++ // hay que ver si no es grave tenerlo aca
-		Execute(&ctxEjecucion, instruccionCodificada)
+		instruccionCodificada := FetchAndDecode(&ctxEjecucion)
+		instruccionEjecutada := Execute(&ctxEjecucion, instruccionCodificada)
+		switch instruccionEjecutada {
+		case "GOTO":
+			// No hace nada para que no cambie el pc
+		case "EXIT":
+			return
+		default:
+			ctxEjecucion.PC++
+		}
 		if InterruptFlag {
 			// Atiende la interrupcion
-			TiempoEjecucion = time.Now().UnixMilli() - TiempoEjecucion
 			slog.Info(fmt.Sprintf("PID: %d - Interrumpido, Guarda contexto en PC: %d", ctxEjecucion.PID, ctxEjecucion.PC))
-			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "tiempo-ejecucion", structs.TiempoEjecucion{
-				PID:    ctxEjecucion.PID,
-				Tiempo: TiempoEjecucion,
-			})
 			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", ctxEjecucion)
 			InterruptFlag = false
 			hayEjecucion <- false
@@ -81,18 +78,16 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 	}
 }
 
-func FetchAndDecode(peticion structs.EjecucionCPU) any{
+func FetchAndDecode(ctxEjecucion *structs.EjecucionCPU) any {
 	// Log obligatorio 1/11
-	logueador.FetchInstruccion(peticion.PID, peticion.PC)
+	logueador.FetchInstruccion(ctxEjecucion.PID, ctxEjecucion.PC)
 
-	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "fetch", peticion)
+	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "fetch", ctxEjecucion)
 	instruccionDecodificada := Decode(instruccion)
 	return instruccionDecodificada
 }
 
-//AUMENTAR PC NO SE EN QUE MOMENTO SE HACE QUIERO VER LA TEORIA ANTES DE IMPLEMENTARLO
-
-func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) {
+func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) string {
 	var nombreInstruccion string
 	// Por si hay una syscall
 	var esSyscall bool
@@ -133,14 +128,15 @@ func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) {
 		//si llega algo inesperado
 	}
 	if esSyscall {
-		syscallMsg := structs.SyscallInstruction {
-			PID: ctxEjecucion.PID,
+		syscallMsg := structs.SyscallInstruction{
+			PID:         ctxEjecucion.PID,
 			Instruccion: syscall,
 		}
 		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/"+nombreInstruccion, syscallMsg)
 	}
 	// Log obligatorio 3/11
 	logueador.InstruccionEjecutada(ctxEjecucion.PID, nombreInstruccion, decodedInstruction)
+	return nombreInstruccion
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS

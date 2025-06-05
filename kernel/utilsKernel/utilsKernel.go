@@ -3,12 +3,12 @@ package utilsKernel
 import (
 	//"bufio"
 	"bufio"
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"slices"
+	"sync"
 	"time"
 	"utils"
 	"utils/config"
@@ -33,6 +33,11 @@ var ColaSuspReady []structs.PCB
 var TiempoEnColaBlocked = make(map[uint]*time.Timer)
 var TiempoEnColaExecute = make(map[uint]int64)
 
+// Semaforos mutex
+var mxCambioPCB sync.Mutex
+var mxExecIO sync.Mutex
+var mxWaitIO sync.Mutex
+
 var contadorProcesos uint = 0
 
 // scheduler_algorithm: LARGO plazo
@@ -41,8 +46,8 @@ var contadorProcesos uint = 0
 var InstanciasCPU = make(map[string]structs.InstanciaCPU)
 var Interfaces = make(map[string]structs.InterfazIO)
 
-var ListaExecIO = make(map[string][]structs.EjecucionIO)
-var ListaWaitIO = make(map[string][]structs.EjecucionIO)
+var ListaExecIO = structs.NewMapSeguro()
+var ListaWaitIO = structs.NewMapSeguro()
 
 // ---------------------------- Handlers de endpoints ----------------------------//
 func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
@@ -138,6 +143,53 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
+	ifaz, err := utils.DecodificarMensaje[string](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	slog.Warn(fmt.Sprintf("Se recibió notificación de desconexión de IO: %s", *ifaz))
+	
+	// Borra cualquier proceso que este ejecutando
+	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
+		MoverPCB(ejecucion[0].PID, &ColaExecute, &ColaExit, structs.EstadoExit)
+		// Borro el proceso de la lista de ejecución
+		ListaExecIO.EliminarPrimero(*ifaz)
+	}
+	
+	if _, existe := Interfaces[*ifaz]; existe {
+		delete(Interfaces, *ifaz)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
+	ifaz, err := utils.DecodificarMensaje[string](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	ejecucion, existe := ListaExecIO.Obtener(*ifaz)
+	if existe {
+		pid := ejecucion[0].PID
+		MoverPCB(pid, &ColaExecute, &ColaReady, structs.EstadoReady)
+		// Borro el proceso de la lista de ejecución
+		ListaExecIO.EliminarPrimero(*ifaz)
+		// Log obligatorio 5/8
+		logueador.KernelFinDeIO(pid)
+		w.WriteHeader(http.StatusOK)
+	} else {
+		slog.Error(fmt.Sprintf("No existe el proceso en la lista de ejecución: %s", *ifaz))
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+}
+
 // ---------------------------- Syscalls ----------------------------//
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(peticion structs.SyscallInstruction) {
@@ -149,14 +201,12 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 
 	_, encontrada := Interfaces[nombre]
 	if encontrada {
-		if HandleIODisconnect(nombre) {
-			return
-		}
 		espera := structs.EjecucionIO{
 			PID:      pid,
 			TiempoMs: tiempoMs,
 		}
-		if len(ListaExecIO[nombre]) > 0 {
+		lista, _ := ListaExecIO.Obtener(nombre)
+		if len(lista) > 0 {
 			// Enviar proceso a BLOCKED
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 
@@ -164,13 +214,10 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 			IniciarTimerSuspension(pid)
 
 			// Enviar proceso a ListaWaitIO
-			ListaWaitIO[nombre] = append(ListaWaitIO[nombre], espera)
+			ListaWaitIO.Agregar(nombre, espera)
 		} else {
-			if HandleIODisconnect(nombre) {
-				return
-			}
 			// Enviar al proceso a ejecutar el IO
-			ListaExecIO[nombre] = append(ListaExecIO[nombre], espera)
+			ListaExecIO.Agregar(nombre, espera)
 		}
 	} else {
 		slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
@@ -189,6 +236,7 @@ func SyscallInitProc(peticion structs.SyscallInstruction) {
 
 func SyscallExit(peticion structs.SyscallInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
+	MoverPCB(peticion.PID, &ColaExecute, &ColaExit, structs.EstadoExit)
 }
 
 // ---------------------------- Planificadores ----------------------------//
@@ -196,60 +244,18 @@ func PlanificadorIO(nombre string) {
 	for {
 		interfaz, encontrada := Interfaces[nombre]
 		if encontrada {
-			lista := ListaExecIO[nombre]
+			lista, _ := ListaExecIO.Obtener(nombre)
 			if len(lista) > 0 {
 				// Enviar al IO el PID y el tiempo en ms
 				proc := lista[0]
-				if HandleIODisconnect(nombre) {
-					LimpiarExecIO(nombre)
-					return
-				}
-				// TODO investigar otra forma de hacer esto
-				// Manejo del timeout
-				timeoutMax := proc.TiempoMs + (proc.TiempoMs / 50) // Tiempo de espera maximo, es medio arbitrario que tiene que ser 50% mas del pedido. Se podria ajustar
-				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMax)*time.Millisecond)
-				defer cancel()
-
-				// Crea un canal que marca si termino la ejecución de IO
-				done := make(chan bool, 1)
-				go func() {
-					utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", proc)
-					done <- true
-				}()
-
-				select {
-				case <-done:
-					// SI TERMINA LA EJECUCION (FIN DE IO)
-					// Borro el proceso de la lista de ejecucion
-					LimpiarExecIO(nombre)
-
-					// Log obligatorio 5/8
-					logueador.KernelFinDeIO(proc.PID)
-					MoverPCB(proc.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
-
-				case <-ctx.Done():
-					// SI HAY DESCONEXION DE IO
-					slog.Error(fmt.Sprintf("Timeout excedido para el proceso %d en la interfaz %s", proc.PID, nombre))
-					MoverPCB(proc.PID, &ColaExecute, &ColaExit, structs.EstadoExit)
-					delete(Interfaces, nombre)
-
-					// Borro el proceso de la lista de ejecución
-					LimpiarExecIO(nombre)
-					return // Si se desconecta el io hay que desconectar el planificador
-				}
+				utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", proc)
 			}
-			aux := ListaWaitIO[nombre]
+			aux, _ := ListaExecIO.Obtener(nombre)
 			if len(aux) > 0 {
-				if HandleIODisconnect(nombre) {
-					return
-				}
 				// Borra el primer elemento en la lista de espera
-				aEjecutar := aux[0]
-				aux := slices.Delete(aux, 0, 1)
-				ListaWaitIO[nombre] = aux
-
+				aEjecutar := ListaWaitIO.EliminarPrimero(nombre)
 				MoverPCB(aEjecutar.PID, &ColaBlocked, &ColaExecute, structs.EstadoExec)
-				ListaExecIO[nombre] = append(ListaExecIO[nombre], aEjecutar)
+				ListaExecIO.Agregar(nombre, aEjecutar)
 			}
 		} else {
 			// Si se llega a desconectar el IO, se desconecta el planificador
@@ -281,10 +287,9 @@ func PlanificadorLargoPlazo() {
 	}
 }
 
-// var notificacionColaReady = make(chan struct{}, 1)
-
 func PlanificadorCortoPlazo() {
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm))
+
 	// var estimado = float64(Config.InitialEstimate)
 	// var real int64
 	for {
@@ -323,21 +328,18 @@ func PlanificadorCortoPlazo() {
 
 					//TODO IMPLEMENTAR
 				case "SJF-SD":
-					//ejecutar SJF sin desalojo, no es de este checkpoint lo haremos despues (si dios quiere)
-					// real = TiempoEnColaExecute[pcb.PID]
-					// estimadoSiguiente := EstimarRafaga(float64(estimado), float64(real))
-
-					// for k,v := range ColaReady {
-					// 	if 
-					// }
+					//1 estimar todos los procesos en la cola de ready
+					//2 elegir el mas chico
+					//3 mandar a ejecutar el mas chico
+					//4 iniciar el timer
+					//5 en base al ultimo timer reestimar todos los procesos en la cola de ready
 				default:
 					slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
 					return
 				}
-			}
-		}
 	}
 }
+}}
 
 func EstimarRafaga(estimadoAnterior float64, realAnterior float64) float64 {
 	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
@@ -421,6 +423,8 @@ func IniciarPlanificadores() {
 func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNuevo string) {
 	for i, pcb := range *origen {
 		if pcb.PID == pid {
+			mxCambioPCB.Lock()
+
 			// Log obligatorio 3/8
 			logueador.CambioDeEstado(pid, (*origen)[i].Estado, estadoNuevo)
 
@@ -430,6 +434,7 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 			pcb.MetricasConteo[estadoNuevo]++
 
+			mxCambioPCB.Unlock()
 			return
 		}
 	}
@@ -484,17 +489,6 @@ func GetCPUDisponible() (string, bool) {
 	return "", false
 }
 
-func PingIO(nombre string) bool {
-	interfaz := Interfaces[nombre]
-	url := fmt.Sprintf("http://%s:%d/ping", interfaz.IP, interfaz.Puerto)
-	_, err := http.Get(url)
-
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func Interrumpir(nombreCpu string) {
 	cpu := InstanciasCPU[nombreCpu]
 
@@ -505,21 +499,6 @@ func Interrumpir(nombreCpu string) {
 		slog.Error(fmt.Sprintf("No se pudo interrumpir la CPU %s: %v", nombreCpu, err))
 	}
 
-}
-
-func HandleIODisconnect(nombre string) bool {
-	pid := ColaExecute[0].PID
-	if !PingIO(nombre) {
-		slog.Info(fmt.Sprintf("La interfaz %s fue desconectada.", nombre))
-		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
-		return true
-	}
-	return false
-}
-
-func LimpiarExecIO(nombre string) {
-	aux := slices.Delete(ListaExecIO[nombre], 0, 1)
-	ListaExecIO[nombre] = aux
 }
 
 func IniciarTimerSuspension(pid uint) {
