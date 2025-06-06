@@ -7,6 +7,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/memoria/memoria.go"
+            
         },
         {
             "name": "Kernel",
@@ -36,9 +37,25 @@
     ],
     "compounds": [
         {
-            "name": "Iniciar SO (Memoria, Kernel)",
+            "name": "Iniciar Memoria y Kernel",
             "configurations": ["Memoria", "Kernel"],
-            "stopAll": false
+            "stopAll": false,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            }
+        },
+        {
+            "name": "Iniciar CPU y IO",
+            "configurations": ["CPU", "IO"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            }
         }
     ]
 }

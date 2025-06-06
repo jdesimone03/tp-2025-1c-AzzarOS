@@ -13,16 +13,15 @@ import (
 )
 
 var Config config.ConfigCPU
-var Ejecutando structs.EjecucionCPU
 var InterruptFlag bool
-var hayEjecucion = make(chan bool)
+var chEjecucion = make(chan structs.EjecucionCPU)
 
 func init() {
 	go func() {
 		for {
 			// channel que avisa que va a ejecutar
-			<-hayEjecucion
-			Ejecucion(Ejecutando)
+			ctxEjecucion := <- chEjecucion
+			Ejecucion(ctxEjecucion)
 		}
 	}()
 }
@@ -44,12 +43,7 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Solicitar a memoria la siguiente instruccion para la ejecución
-	// InstruccionCodificada = FETCH(PCB.ProgramCounter)
-	Ejecutando = *ejecucion
-	// hacer un channel que se fije si existe el contexto de ejecucion
-	// channel booleano
-	hayEjecucion <- true
+	chEjecucion <- *ejecucion
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -72,7 +66,6 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 			slog.Info(fmt.Sprintf("PID: %d - Interrumpido, Guarda contexto en PC: %d", ctxEjecucion.PID, ctxEjecucion.PC))
 			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", ctxEjecucion)
 			InterruptFlag = false
-			hayEjecucion <- false
 			return
 		}
 	}

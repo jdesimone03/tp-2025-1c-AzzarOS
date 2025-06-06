@@ -43,6 +43,8 @@ var contadorProcesos uint = 0
 // scheduler_algorithm: LARGO plazo
 // ready_ingress_algorithm: CORTO plazo
 
+var NuevosProcesos = make(map[uint]structs.NuevoProceso)
+
 var InstanciasCPU = make(map[string]structs.InstanciaCPU)
 var Interfaces = make(map[string]structs.InterfazIO)
 
@@ -89,7 +91,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		syscall, err := utils.DecodificarMensaje[structs.SyscallInstruction](r)
+		syscall, err := utils.DecodificarSyscall(r, tipo)
 		if err != nil {
 			slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
 			w.WriteHeader(http.StatusBadRequest)
@@ -123,20 +125,21 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Busca el proceso a guardar en la cola execute
-	for i := range ColaExecute {
-		if ColaExecute[i].PID == contexto.PID {
-			ColaExecute[i].PC = contexto.PC
-			break
-		}
-	}
-	MoverPCB(contexto.PID, &ColaExecute, &ColaReady, structs.EstadoReady)
+	slog.Info(fmt.Sprintf("(%d) Guardando contexto en PC: %d", contexto.PID, contexto.PC))
 
 	// Desaloja las cpu que se estén usando.
 	for nombre, instancia := range InstanciasCPU {
 		if instancia.Ejecutando && instancia.PID == contexto.PID {
 			instancia.Ejecutando = false
 			InstanciasCPU[nombre] = instancia
+		}
+	}
+
+	// Busca el proceso a guardar en la cola execute
+	for i := range ColaExecute {
+		if ColaExecute[i].PID == contexto.PID {
+			ColaExecute[i].PC = contexto.PC
+			break
 		}
 	}
 
@@ -151,14 +154,16 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Warn(fmt.Sprintf("Se recibió notificación de desconexión de IO: %s", *ifaz))
-	
+
 	// Borra cualquier proceso que este ejecutando
 	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
-		MoverPCB(ejecucion[0].PID, &ColaExecute, &ColaExit, structs.EstadoExit)
+		pid := ejecucion[0].PID
+		Interrumpir(GetCPU(pid))
+		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
 	}
-	
+
 	if _, existe := Interfaces[*ifaz]; existe {
 		delete(Interfaces, *ifaz)
 	}
@@ -177,11 +182,13 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 	ejecucion, existe := ListaExecIO.Obtener(*ifaz)
 	if existe {
 		pid := ejecucion[0].PID
-		MoverPCB(pid, &ColaExecute, &ColaReady, structs.EstadoReady)
-		// Borro el proceso de la lista de ejecución
-		ListaExecIO.EliminarPrimero(*ifaz)
+
 		// Log obligatorio 5/8
 		logueador.KernelFinDeIO(pid)
+
+		// Borro el proceso de la lista de ejecución
+		ListaExecIO.EliminarPrimero(*ifaz)
+		MoverPCB(pid, &ColaBlocked, &ColaReady, structs.EstadoReady)
 		w.WriteHeader(http.StatusOK)
 	} else {
 		slog.Error(fmt.Sprintf("No existe el proceso en la lista de ejecución: %s", *ifaz))
@@ -208,6 +215,7 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 		lista, _ := ListaExecIO.Obtener(nombre)
 		if len(lista) > 0 {
 			// Enviar proceso a BLOCKED
+			Interrumpir(GetCPU(pid))
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 
 			// Iniciar timer de suspension
@@ -217,12 +225,15 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 			ListaWaitIO.Agregar(nombre, espera)
 		} else {
 			// Enviar al proceso a ejecutar el IO
+			Interrumpir(GetCPU(pid))
+			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 			ListaExecIO.Agregar(nombre, espera)
 		}
 	} else {
 		slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
 
 		// Enviar proceso a EXIT
+		Interrumpir(GetCPU(pid))
 		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 	}
 }
@@ -236,6 +247,14 @@ func SyscallInitProc(peticion structs.SyscallInstruction) {
 
 func SyscallExit(peticion structs.SyscallInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
+	pid := peticion.PID
+	for nombre, instancia := range InstanciasCPU {
+		if instancia.Ejecutando && instancia.PID == pid {
+			instancia.Ejecutando = false
+			InstanciasCPU[nombre] = instancia
+		}
+	}
+
 	MoverPCB(peticion.PID, &ColaExecute, &ColaExit, structs.EstadoExit)
 }
 
@@ -250,7 +269,7 @@ func PlanificadorIO(nombre string) {
 				proc := lista[0]
 				utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", proc)
 			}
-			aux, _ := ListaExecIO.Obtener(nombre)
+			aux, _ := ListaWaitIO.Obtener(nombre)
 			if len(aux) > 0 {
 				// Borra el primer elemento en la lista de espera
 				aEjecutar := ListaWaitIO.EliminarPrimero(nombre)
@@ -270,19 +289,34 @@ func PlanificadorIO(nombre string) {
 // Esta función solo los manda a ejecutar según el algoritmo de planificación.
 func PlanificadorLargoPlazo() {
 	slog.Info(fmt.Sprintf("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm))
+	var procesoAEnviar structs.NuevoProceso
 	for {
 		if len(ColaNew) > 0 {
 			switch Config.SchedulerAlgorithm {
-			case "FIFO":
-				firstPCB := ColaNew[0]
-				MoverPCB(firstPCB.PID, &ColaNew, &ColaReady, structs.EstadoReady)
-				// Si no, no hace nada. Sigue con el bucle hasta que se libere
-			case "PMCP":
-				//ejecutar PMCP, no es de este checkpoint lo haremos despues (si dios quiere)
-			default:
-				slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
-				return
+				case "FIFO":
+					firstPCB := ColaNew[0]
+					procesoAEnviar = NuevosProcesos[firstPCB.PID]
+					// Si no, no hace nada. Sigue con el bucle hasta que se libere
+				case "PMCP":
+					procesoMinimo := NuevosProcesos[ColaNew[0].PID]
+					for _, pcb := range ColaNew {
+						nuevoProceso := NuevosProcesos[pcb.PID]
+						if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
+							procesoMinimo = nuevoProceso
+						}
+					}
+					procesoAEnviar = procesoMinimo
+				default:
+					slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
+					return
 			}
+			// TODO Liberar map de nuevos procesos?
+			respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
+			if respuesta == "OK" {
+				utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
+				MoverPCB(procesoAEnviar.PID, &ColaNew, &ColaReady, structs.EstadoReady)
+			}
+			//TODO timesleep?
 		}
 	}
 }
@@ -337,21 +371,9 @@ func PlanificadorCortoPlazo() {
 					slog.Error(fmt.Sprintf("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm))
 					return
 				}
+			}
+		}
 	}
-}
-}}
-
-func EstimarRafaga(estimadoAnterior float64, realAnterior float64) float64 {
-	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
-}
-
-func RecibirTiempoEjecucion(w http.ResponseWriter, r *http.Request) {
-	tiempo, err := utils.DecodificarMensaje[structs.TiempoEjecucion](r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	TiempoEnColaExecute[tiempo.PID] = tiempo.Tiempo
-	w.WriteHeader(http.StatusOK)
 }
 
 func PlanificadorMedianoPlazo() {
@@ -442,24 +464,14 @@ func MoverPCB(pid uint, origen *[]structs.PCB, destino *[]structs.PCB, estadoNue
 
 // ---------------------------- Funciones de utilidad ----------------------------//
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
-
-	// Verifica si hay lugar disponible en memoria
-	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", tamanio)
-	if respuesta != "OK" {
-		slog.Error(fmt.Sprintf("No hay suficiente espacio en memoria. Esperando a que termine el proceso PID (%d)...", ColaExecute[0].PID))
-		for ColaExecute != nil {
-			// Espera a que termine el proceso ejecutando actualmente
-		}
-	}
-
-	// Reserva el tamaño para memoria
 	proceso := structs.NuevoProceso{
 		PID:           contadorProcesos, // PID actual
 		Instrucciones: rutaArchInstrucciones,
 		Tamanio:       tamanio,
 	}
 
-	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
+	//utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
+	NuevosProcesos[proceso.PID] = proceso
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
@@ -489,8 +501,34 @@ func GetCPUDisponible() (string, bool) {
 	return "", false
 }
 
+func GetCPU(pid uint) string {
+	for nombre, valores := range InstanciasCPU {
+		if valores.PID == pid {
+			return nombre
+		}
+	}
+	return ""
+}
+
+func EstimarRafaga(estimadoAnterior float64, realAnterior float64) float64 {
+	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
+}
+
+func RecibirTiempoEjecucion(w http.ResponseWriter, r *http.Request) {
+	tiempo, err := utils.DecodificarMensaje[structs.TiempoEjecucion](r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	TiempoEnColaExecute[tiempo.PID] = tiempo.Tiempo
+	w.WriteHeader(http.StatusOK)
+}
+
 func Interrumpir(nombreCpu string) {
-	cpu := InstanciasCPU[nombreCpu]
+	cpu, existe := InstanciasCPU[nombreCpu]
+	if !existe {
+		slog.Error(fmt.Sprintf("No se pudo interrumpir %s ya que no existe en el sistema.", nombreCpu))
+		return
+	}
 
 	url := fmt.Sprintf("http://%s:%d/interrupt", cpu.IP, cpu.Puerto)
 	_, err := http.Get(url)
