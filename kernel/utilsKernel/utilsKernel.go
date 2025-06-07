@@ -203,6 +203,8 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 	pid := peticion.PID
 	instruccion := peticion.Instruccion.(*structs.IOInstruction)
 
+	Interrumpir(GetCPU(pid))
+
 	nombre := instruccion.NombreIfaz
 	tiempoMs := instruccion.SuspensionTime
 
@@ -215,7 +217,6 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 		lista, _ := ListaExecIO.Obtener(nombre)
 		if len(lista) > 0 {
 			// Enviar proceso a BLOCKED
-			Interrumpir(GetCPU(pid))
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 
 			// Iniciar timer de suspension
@@ -225,7 +226,6 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 			ListaWaitIO.Agregar(nombre, espera)
 		} else {
 			// Enviar al proceso a ejecutar el IO
-			Interrumpir(GetCPU(pid))
 			MoverPCB(pid, &ColaExecute, &ColaBlocked, structs.EstadoBlocked)
 			ListaExecIO.Agregar(nombre, espera)
 		}
@@ -233,7 +233,6 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 		slog.Error(fmt.Sprintf("La interfaz %s no existe en el sistema", nombre))
 
 		// Enviar proceso a EXIT
-		Interrumpir(GetCPU(pid))
 		MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 	}
 }
@@ -317,6 +316,7 @@ func PlanificadorLargoPlazo() {
 				MoverPCB(procesoAEnviar.PID, &ColaNew, &ColaReady, structs.EstadoReady)
 			}
 			//TODO timesleep?
+			// Implementar semaforos para que espere que termine un proceso
 		}
 	}
 }
