@@ -31,13 +31,13 @@ func IniciarEstructuras() {
 
 	// Carga el espacio de kernel (Paginacion jerárquica multinivel)
 	// Capaz despues lo cambio
-	EspacioKernel = make([][][]byte, Config.NumberOfLevels)
+/* 	EspacioKernel = make([][][]byte, Config.NumberOfLevels)
 	for i := range Config.NumberOfLevels {
 		EspacioKernel[i] = make([][]byte, Config.EntriesPerPage)
 		for j := range Config.EntriesPerPage {
 			EspacioKernel[i][j] = make([]byte, Config.PageSize)
 		}
-	}
+	} */
 }
 
 func EjecutarArchivo(path string) []string {
@@ -162,6 +162,7 @@ func Read(w http.ResponseWriter, r *http.Request) {
 
 	leido := EspacioUsuario[read.Address:read.Size]
 
+	// Log obligatorio 4/5
 	logueador.LecturaEnEspacioDeUsuario(uint(pid), read.Address, read.Size)
 
 	w.WriteHeader(http.StatusOK)
@@ -182,6 +183,7 @@ func Write(w http.ResponseWriter, r *http.Request) {
 
 	copy(EspacioUsuario[write.Address:], []byte(write.Data))
 
+	// Log obligatorio 4/5
 	logueador.EscrituraEnEspacioDeUsuario(uint(pid), write.Address, len(write.Data))
 
 	w.WriteHeader(http.StatusOK)

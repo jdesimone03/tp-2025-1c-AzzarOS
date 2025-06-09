@@ -79,15 +79,6 @@ const (
 	INST_EXIT
 )
 
-type Syscall interface {
-	isSyscall()
-}
-
-type SyscallInstruction struct {
-	PID         uint
-	Instruccion Syscall
-}
-
 type NoopInstruction struct{}
 
 type WriteInstruction struct {
@@ -111,22 +102,14 @@ type IOInstruction struct {
 	SuspensionTime int
 }
 
-func (IOInstruction) isSyscall() {}
-
 type InitProcInstruction struct {
 	ProcessPath string
 	MemorySize  int
 }
 
-func (InitProcInstruction) isSyscall() {}
-
 type DumpMemoryInstruction struct{}
 
-func (DumpMemoryInstruction) isSyscall() {}
-
 type ExitInstruction struct{}
-
-func (ExitInstruction) isSyscall() {}
 
 // --------------------------------- Estructuras seguras --------------------------------- //
 type MapSeguro struct {

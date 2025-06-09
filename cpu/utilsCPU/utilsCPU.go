@@ -20,7 +20,7 @@ func init() {
 	go func() {
 		for {
 			// channel que avisa que va a ejecutar
-			ctxEjecucion := <- chEjecucion
+			ctxEjecucion := <-chEjecucion
 			Ejecucion(ctxEjecucion)
 		}
 	}()
@@ -77,71 +77,61 @@ func FetchAndDecode(ctxEjecucion *structs.EjecucionCPU) any {
 
 	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "fetch", ctxEjecucion)
 	instruccionDecodificada := Decode(instruccion)
+
 	return instruccionDecodificada
 }
 
 func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) string {
-	var nombreInstruccion string
+	var nombreInstruccion = utils.ParsearNombreInstruccion(decodedInstruction)
 	// Por si hay una syscall
 	var esSyscall bool
-	var syscall structs.Syscall
 
 	switch instruccion := decodedInstruction.(type) {
 	case structs.NoopInstruction:
-		nombreInstruccion = "NOOP"
 		//hace nada
 	case structs.WriteInstruction:
-		nombreInstruccion = "WRITE"
-		//hace lo que tenga quer hacer
+		Write(ctxEjecucion.PID, instruccion)
 	case structs.ReadInstruction:
-		nombreInstruccion = "READ"
-		//hace lo que tenga quer hacer
+		Read(ctxEjecucion.PID, instruccion)
 	case structs.GotoInstruction:
-		nombreInstruccion = "GOTO"
-		//hace lo que tenga quer hacer
 		ctxEjecucion.PC = uint(instruccion.TargetAddress)
 	case structs.IOInstruction:
-		nombreInstruccion = "IO"
 		esSyscall = true
-		syscall = instruccion
 	case structs.InitProcInstruction:
-		nombreInstruccion = "INIT_PROC"
 		esSyscall = true
-		syscall = instruccion
 	case structs.DumpMemoryInstruction:
-		nombreInstruccion = "DUMP_MEMORY"
 		esSyscall = true
-		syscall = instruccion
 	case structs.ExitInstruction:
-		nombreInstruccion = "EXIT"
 		esSyscall = true
-		syscall = instruccion
 	default:
 		slog.Error(fmt.Sprintf("llego una instruccion desconocida %v ", instruccion))
 		//si llega algo inesperado
 	}
 	if esSyscall {
-		syscallMsg := structs.SyscallInstruction{
-			PID:         ctxEjecucion.PID,
-			Instruccion: syscall,
-		}
-		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/"+nombreInstruccion, syscallMsg)
+		stringPID := strconv.Itoa(int(ctxEjecucion.PID))
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "syscall/"+nombreInstruccion+"?pid="+stringPID, decodedInstruction)
 	}
 	// Log obligatorio 3/11
 	logueador.InstruccionEjecutada(ctxEjecucion.PID, nombreInstruccion, decodedInstruction)
 	return nombreInstruccion
 }
 
+// ---------------------------- Handlers de instrucciones ----------------------------//
+
 // Instrucciones de memoria
 func Read(pid uint, inst structs.ReadInstruction) {
 	stringPID := strconv.Itoa(int(pid))
 	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read?pid="+stringPID, inst)
+
+	// Log obligatorio 4/11
 	logueador.LecturaMemoria(pid, inst.Address, read)
 }
 
 func Write(pid uint, inst structs.WriteInstruction) {
 	stringPID := strconv.Itoa(int(pid))
 	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write?pid="+stringPID, inst)
+
+	// Log obligatorio 4/11
 	logueador.EscrituraMemoria(pid, inst.Address, inst.Data)
 }
 

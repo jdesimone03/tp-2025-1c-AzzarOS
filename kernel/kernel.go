@@ -45,7 +45,6 @@ func main() {
 
 	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
 	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
-	http.HandleFunc("/tiempo-ejecucion", utilsKernel.RecibirTiempoEjecucion)
 
 	// Manejo de IO
 	http.HandleFunc("/io-end", utilsKernel.HandleIOEnd)

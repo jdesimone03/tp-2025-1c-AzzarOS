@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"reflect"
+	"strings"
 	"utils/structs"
 )
 
@@ -52,57 +54,6 @@ func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 	return &mensaje, nil
 }
 
-func DecodificarSyscall(r *http.Request, tipoSyscall string) (*structs.SyscallInstruction, error) {
-    var raw struct {
-        PID         uint            `json:"pid"`
-        Instruccion json.RawMessage `json:"instruccion"`
-    }
-
-    decoder := json.NewDecoder(r.Body)
-    err := decoder.Decode(&raw)
-    if err != nil {
-        return nil, err
-    }
-
-	 // Log para verificar el contenido de Instruccion
-	 slog.Info(fmt.Sprintf("Instrucción recibida (raw): %s", string(raw.Instruccion)))
-
-    var instruccion structs.Syscall
-    switch tipoSyscall {
-    case "IO":
-        var ioInst structs.IOInstruction
-        if err := json.Unmarshal(raw.Instruccion, &ioInst); err != nil {
-            return nil, fmt.Errorf("error al decodificar IOInstruction: %w. JSON: %s", err, string(raw.Instruccion))
-        }
-        instruccion = &ioInst
-    case "INIT_PROC":
-        var initProcInst structs.InitProcInstruction
-        if err := json.Unmarshal(raw.Instruccion, &initProcInst); err != nil {
-            return nil, fmt.Errorf("error al decodificar InitProcInstruction: %w. JSON: %s", err, string(raw.Instruccion))
-        }
-        instruccion = &initProcInst
-    case "DUMP_MEMORY":
-        var dumpMemInst structs.DumpMemoryInstruction
-        if err := json.Unmarshal(raw.Instruccion, &dumpMemInst); err != nil {
-            return nil, fmt.Errorf("error al decodificar DumpMemoryInstruction: %w. JSON: %s", err, string(raw.Instruccion))
-        }
-        instruccion = &dumpMemInst
-    case "EXIT":
-        var exitInst structs.ExitInstruction
-        if err := json.Unmarshal(raw.Instruccion, &exitInst); err != nil {
-            return nil, fmt.Errorf("error al decodificar ExitInstruction: %w. JSON: %s", err, string(raw.Instruccion))
-        }
-        instruccion= &exitInst
-    default:
-        return nil, fmt.Errorf("tipo de instrucción desconocido")
-    }
-
-    return &structs.SyscallInstruction{
-        PID:         raw.PID,
-        Instruccion: instruccion,
-    }, nil
-}
-
 func IniciarServidor(puerto int) error {
 	slog.Info(fmt.Sprintf("Inicializando servidor en el puerto %d",puerto))
 	err := http.ListenAndServe(fmt.Sprintf(":%d", puerto), nil)
@@ -110,4 +61,26 @@ func IniciarServidor(puerto int) error {
 		panic(err)
 	}
 	return err
+}
+
+func ParsearNombreInstruccion(v any) string {
+	t := reflect.TypeOf(v)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem() // Dereference if it's a pointer
+	}
+
+	name := t.Name()
+	if strings.HasSuffix(name, "Instruction") {
+		name = strings.TrimSuffix(name, "Instruction") // Remove "Instruction"
+	}
+
+	var result strings.Builder
+	for i, char := range name {
+		if i > 0 && char >= 'A' && char <= 'Z' {
+			result.WriteRune('_') // Add underscore before uppercase letters after the first one
+		}
+		result.WriteRune(char)
+	}
+
+	return strings.ToUpper(result.String()) // Convert to uppercase
 }

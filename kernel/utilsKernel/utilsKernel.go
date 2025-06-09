@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 	"utils"
@@ -91,29 +92,49 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		syscall, err := utils.DecodificarSyscall(r, tipo)
-		if err != nil {
-			slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		rawPID := r.URL.Query().Get("pid")
+		pid, _ := strconv.ParseUint(rawPID, 10, 32)
+
 		// Log obligatorio 1/8
-		logueador.SyscallRecibida(syscall.PID, tipo)
+		logueador.SyscallRecibida(uint(pid), tipo)
 		switch tipo {
 		case "INIT_PROC":
-			SyscallInitProc(*syscall)
+			syscall, err := utils.DecodificarMensaje[structs.InitProcInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallInitProc(uint(pid), *syscall)
 		case "DUMP_MEMORY":
-			return // No implementado
+			syscall, err := utils.DecodificarMensaje[structs.DumpMemoryInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallDumpMemory(uint(pid), *syscall)
 		case "IO":
-			SyscallIO(*syscall)
+			syscall, err := utils.DecodificarMensaje[structs.IOInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallIO(uint(pid), *syscall)
 		case "EXIT":
-			SyscallExit(*syscall)
+			syscall, err := utils.DecodificarMensaje[structs.ExitInstruction](r)
+			if err != nil {
+				slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			SyscallExit(uint(pid), *syscall)
 		default:
 			slog.Error(fmt.Sprintf("FATAL: %s no es un tipo de syscall valida.", tipo))
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		w.WriteHeader(http.StatusOK)
-
 	}
 }
 
@@ -199,9 +220,7 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------- Syscalls ----------------------------//
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
-func SyscallIO(peticion structs.SyscallInstruction) {
-	pid := peticion.PID
-	instruccion := peticion.Instruccion.(*structs.IOInstruction)
+func SyscallIO(pid uint, instruccion structs.IOInstruction) {
 
 	Interrumpir(GetCPU(pid))
 
@@ -237,16 +256,18 @@ func SyscallIO(peticion structs.SyscallInstruction) {
 	}
 }
 
-func SyscallInitProc(peticion structs.SyscallInstruction) {
-	inst := peticion.Instruccion.(*structs.InitProcInstruction)
-	instrucciones := inst.ProcessPath
-	tamanio := inst.MemorySize
+func SyscallDumpMemory(pid uint, instruccion structs.DumpMemoryInstruction) {
+	// TODO
+}
+
+func SyscallInitProc(pid uint, instruccion structs.InitProcInstruction) {
+	instrucciones := instruccion.ProcessPath
+	tamanio := instruccion.MemorySize
 	NuevoProceso(instrucciones, tamanio)
 }
 
-func SyscallExit(peticion structs.SyscallInstruction) {
+func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
-	pid := peticion.PID
 	for nombre, instancia := range InstanciasCPU {
 		if instancia.Ejecutando && instancia.PID == pid {
 			instancia.Ejecutando = false
@@ -254,7 +275,7 @@ func SyscallExit(peticion structs.SyscallInstruction) {
 		}
 	}
 
-	MoverPCB(peticion.PID, &ColaExecute, &ColaExit, structs.EstadoExit)
+	MoverPCB(pid, &ColaExecute, &ColaExit, structs.EstadoExit)
 }
 
 // ---------------------------- Planificadores ----------------------------//
@@ -309,14 +330,16 @@ func PlanificadorLargoPlazo() {
 					slog.Error(fmt.Sprintf("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm))
 					return
 			}
+			slog.Info(fmt.Sprintf("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio))
 			// TODO Liberar map de nuevos procesos?
 			respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
-			if respuesta == "OK" {
-				utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
-				MoverPCB(procesoAEnviar.PID, &ColaNew, &ColaReady, structs.EstadoReady)
+			if respuesta != "OK" {
+				slog.Warn(fmt.Sprintf("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", procesoAEnviar.PID))
+				// Implementar semaforos para que espere que termine un proceso
 			}
+			utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
+			MoverPCB(procesoAEnviar.PID, &ColaNew, &ColaReady, structs.EstadoReady)
 			//TODO timesleep?
-			// Implementar semaforos para que espere que termine un proceso
 		}
 	}
 }
