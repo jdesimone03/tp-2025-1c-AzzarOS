@@ -19,6 +19,15 @@ type NuevoProceso struct {
 	Tamanio       int
 }
 
+type Metricas struct {
+	AccesosATablas           uint
+	InstruccionesSolicitadas uint
+	BajadasASWAP             uint
+	SubidasAMemoria          uint
+	Lecturas                 uint
+	Escrituras               uint
+}
+
 // --------------------------------- Estructuras de Instancias --------------------------------- //
 
 type InstanciaCPU struct {

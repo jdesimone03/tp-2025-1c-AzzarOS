@@ -84,8 +84,16 @@ func ObtenerInstruccion(pid uint, pc uint, linea string) {
 }
 
 // Log obligatorio 4/5
-func EscrituraLecturaEnEspacioDeUsuario(pid uint, accion string, direccionFisica int16, tamanio int) {
-	slog.Info(fmt.Sprintf("PID: %d - %s - Dirección Física: %d - Tamaño: %d", pid, accion, direccionFisica, tamanio))
+func OperacionEnEspacioDeUsuario(pid uint, accion string, direccionFisica int, tamanio int) {
+	slog.Info(fmt.Sprintf("## PID: %d - %s - Dirección Física: %d - Tamaño: %d", pid, accion, direccionFisica, tamanio))
+}
+
+func EscrituraEnEspacioDeUsuario(pid uint, direccionFisica int, tamanio int) {
+	OperacionEnEspacioDeUsuario(pid, "Escritura", direccionFisica, tamanio)
+}
+
+func LecturaEnEspacioDeUsuario(pid uint, direccionFisica int, tamanio int) {
+	OperacionEnEspacioDeUsuario(pid, "Lectura", direccionFisica, tamanio)
 }
 
 // Log obligatorio 5/5
@@ -110,43 +118,51 @@ func InstruccionEjecutada(pid uint, nombreInstruccion string, instruccionDecodif
 }
 
 // Log obligatorio 4/11
-func LecturaEscrituraMemoria(pid uint, accion string, direccionFisica int16, valor int) {
-	slog.Info(fmt.Sprintf("PID: %d - Acción: %s - Dirección Física: %d - Valor: %d", pid, accion, direccionFisica, valor))
+func LecturaEscrituraMemoria(pid uint, accion string, direccionFisica int, valor string) {
+	slog.Info(fmt.Sprintf("## PID: %d - Acción: %s - Dirección Física: %d - Valor: %s", pid, accion, direccionFisica, valor))
+}
+
+func LecturaMemoria(pid uint, direccionFisica int, valor string) {
+	LecturaEscrituraMemoria(pid, "Lectura", direccionFisica, valor)
+}
+
+func EscrituraMemoria(pid uint, direccionFisica int, valor string) {
+	LecturaEscrituraMemoria(pid, "Escritura", direccionFisica, valor)
 }
 
 // Log obligatorio 5/11
 func ObtenerMarco(pid uint, numeroPagina int, numeroMarco int) {
-	slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, numeroPagina, numeroMarco))
+	slog.Info(fmt.Sprintf("## PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, numeroPagina, numeroMarco))
 }
 
 // Log obligatorio 6/11
 func TLBHit(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("PID: %d - TLB HIT - Pagina: %d", pid, numeroPagina))
+	slog.Info(fmt.Sprintf("## PID: %d - TLB HIT - Pagina: %d", pid, numeroPagina))
 }
 
 // Log obligatorio 7/11
 func TLBMiss(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("PID: %d - TLB MISS - Pagina: %d", pid, numeroPagina))
+	slog.Info(fmt.Sprintf("## PID: %d - TLB MISS - Pagina: %d", pid, numeroPagina))
 }
 
 // Log obligatorio 8/11
 func PaginaEncontradaEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("PID: %d - Cache Hit - Pagina: %d", pid, numeroPagina))
+	slog.Info(fmt.Sprintf("## PID: %d - Cache Hit - Pagina: %d", pid, numeroPagina))
 }
 
 // Log obligatorio 9/11
 func PaginaFaltanteEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("PID: %d - Cache Miss - Pagina: %d", pid, numeroPagina))
+	slog.Info(fmt.Sprintf("## PID: %d - Cache Miss - Pagina: %d", pid, numeroPagina))
 }
 
 // Log obligatorio 10/11
 func PaginaIngresadaEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("PID: %d - Cache Add - Pagina: %d", pid, numeroPagina))
+	slog.Info(fmt.Sprintf("## PID: %d - Cache Add - Pagina: %d", pid, numeroPagina))
 }
 
 // Log obligatorio 11/11
 func PaginaActualizadaDeCacheAMemoria(pid uint, numeroPagina int, frameEnMemoriaPrincipal int) {
-	slog.Info(fmt.Sprintf("PID: %d - Memory Update - Pagina: %d - Frame: %d", pid, numeroPagina, frameEnMemoriaPrincipal))
+	slog.Info(fmt.Sprintf("## PID: %d - Memory Update - Pagina: %d - Frame: %d", pid, numeroPagina, frameEnMemoriaPrincipal))
 }
 
 // ---------------------------- IO ----------------------------//

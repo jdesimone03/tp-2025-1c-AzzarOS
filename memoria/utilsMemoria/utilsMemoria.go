@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 
 	// "strconv"
 	"strings"
@@ -18,6 +19,26 @@ import (
 
 var Config config.ConfigMemory
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
+
+var EspacioUsuario []byte
+var EspacioKernel [][][]byte
+
+var Metricas = make(map[uint]structs.Metricas)
+
+func IniciarEstructuras() {
+	// Carga el espacio de usuario
+	EspacioUsuario = make([]byte, Config.MemorySize)
+
+	// Carga el espacio de kernel (Paginacion jerárquica multinivel)
+	// Capaz despues lo cambio
+	EspacioKernel = make([][][]byte, Config.NumberOfLevels)
+	for i := range Config.NumberOfLevels {
+		EspacioKernel[i] = make([][]byte, Config.EntriesPerPage)
+		for j := range Config.EntriesPerPage {
+			EspacioKernel[i][j] = make([]byte, Config.PageSize)
+		}
+	}
+}
 
 func EjecutarArchivo(path string) []string {
 	contenido, err := os.ReadFile(path)
@@ -125,6 +146,47 @@ func MemoriaDisponible(MemoriaSolicitada int) bool {
 	}
 }
 
+// Operaciones
+func Read(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	rawPID := r.URL.Query().Get("pid")
+	pid, err := strconv.ParseUint(rawPID, 10, 32)
+
+	read, err := utils.DecodificarMensaje[structs.ReadInstruction](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	leido := EspacioUsuario[read.Address:read.Size]
+
+	logueador.LecturaEnEspacioDeUsuario(uint(pid), read.Address, read.Size)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(string(leido))
+}
+
+func Write(w http.ResponseWriter, r *http.Request) {
+
+	rawPID := r.URL.Query().Get("pid")
+	pid, err := strconv.ParseUint(rawPID, 10, 32)
+
+	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	copy(EspacioUsuario[write.Address:], []byte(write.Data))
+
+	logueador.EscrituraEnEspacioDeUsuario(uint(pid), write.Address, len(write.Data))
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func MoverProcesoASwap(w http.ResponseWriter, r *http.Request) {
 	_, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
@@ -135,5 +197,5 @@ func MoverProcesoASwap(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	// Se responde que la operación fue registrada como exitosa, aunque no se modifique el estado interno.
-	json.NewEncoder(w).Encode(structs.Respuesta{Mensaje:"OK"})
+	json.NewEncoder(w).Encode(structs.Respuesta{Mensaje: "OK"})
 }

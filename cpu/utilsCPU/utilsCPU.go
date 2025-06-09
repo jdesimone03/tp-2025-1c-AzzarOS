@@ -132,6 +132,19 @@ func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) string 
 	return nombreInstruccion
 }
 
+// Instrucciones de memoria
+func Read(pid uint, inst structs.ReadInstruction) {
+	stringPID := strconv.Itoa(int(pid))
+	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read?pid="+stringPID, inst)
+	logueador.LecturaMemoria(pid, inst.Address, read)
+}
+
+func Write(pid uint, inst structs.WriteInstruction) {
+	stringPID := strconv.Itoa(int(pid))
+	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write?pid="+stringPID, inst)
+	logueador.EscrituraMemoria(pid, inst.Address, inst.Data)
+}
+
 // PROPUESTA FUNCION PARSEO DE COMANDOS
 
 // Mapa para pasar de  string a InstructionType (nos serviria para el parsing)
