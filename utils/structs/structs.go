@@ -1,6 +1,9 @@
 package structs
 
-import "sync"
+import (
+	"slices"
+	"sync"
+)
 
 // --------------------------------- Estructuras Generales --------------------------------- //
 
@@ -112,29 +115,39 @@ type DumpMemoryInstruction struct{}
 type ExitInstruction struct{}
 
 // --------------------------------- Estructuras seguras --------------------------------- //
-type MapSeguro struct {
-	Map map[string][]EjecucionIO
+// --------------------------------- MAPS --------------------------------- //
+// Lo hice con tipo de dato generico por si alguna otra estructura lo necesitaba usar.
+// Si resulta que es la unica lo sacamos para que sea la estructura que valga
+type MapSeguro[T any] struct {
+	Map   map[string][]T
 	Mutex sync.Mutex
 }
 
-func NewMapSeguro() *MapSeguro {
-	return &MapSeguro{Map: make(map[string][]EjecucionIO)}
+func NewMapSeguro[T any]() *MapSeguro[T] {
+	return &MapSeguro[T]{Map: make(map[string][]T)}
 }
 
-func (ms *MapSeguro) Agregar(key string, ejecucion EjecucionIO) {
+func (ms *MapSeguro[T]) Agregar(key string, value T) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	ms.Map[key] = append(ms.Map[key], ejecucion)
+	ms.Map[key] = append(ms.Map[key], value)
 }
 
-func (ms *MapSeguro) Obtener(key string) ([]EjecucionIO, bool) {
+func (ms *MapSeguro[T]) Obtener(key string) ([]T, bool) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	slice, ok := ms.Map[key]
 	return slice, ok
 }
 
-func (ms *MapSeguro) EliminarPrimero(key string) EjecucionIO {
+func (ms *MapSeguro[T]) ObtenerPrimero(key string) T {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	slice, _ := ms.Obtener(key)
+	return slice[0]
+}
+
+func (ms *MapSeguro[T]) EliminarPrimero(key string) T {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	if slice, ok := ms.Map[key]; ok && len(slice) > 0 {
@@ -142,14 +155,62 @@ func (ms *MapSeguro) EliminarPrimero(key string) EjecucionIO {
 		ms.Map[key] = slice[1:]
 		return primerElemento
 	}
-	return EjecucionIO{} // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
+	var valorVacio T
+	return valorVacio // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
 }
 
-func (ms *MapSeguro) BorrarLista(key string) {
+func (ms *MapSeguro[T]) BorrarLista(key string) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	delete(ms.Map, key)
+}
 
+func (ms *MapSeguro[T]) Longitud(key string) int {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	return len(ms.Map[key])
+}
+
+func (ms *MapSeguro[T]) NoVacia(key string) bool {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	return len(ms.Map[key]) > 0
+}
+
+// --------------------------------- COLAS --------------------------------- //
+type ColaSegura struct {
+	Cola  []PCB
+	Mutex sync.Mutex
+}
+
+func NewColaSegura() *ColaSegura {
+	return &ColaSegura{Cola: make([]PCB, 0)}
+}
+
+func (cs *ColaSegura) Agregar(pcb PCB) {
+	cs.Mutex.Lock()
+	cs.Cola = append(cs.Cola, pcb)
+	cs.Mutex.Unlock()
+}
+
+func (cs *ColaSegura) Eliminar(indice int) {
+	cs.Mutex.Lock()
+	cs.Cola = slices.Delete(cs.Cola, indice, indice+1)
+	cs.Mutex.Unlock()
+}
+
+func (cs *ColaSegura) Obtener(indice int) PCB {
+	cs.Mutex.Lock()
+	defer cs.Mutex.Unlock()
+	return cs.Cola[indice]
+}
+
+func (cs *ColaSegura) Longitud() int {
+	return len(cs.Cola)
+}
+
+func (cs *ColaSegura) NoVacia() bool {
+	return len(cs.Cola) > 0
 }
 
 // --------------------------------- Utilidades --------------------------------- //
