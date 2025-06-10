@@ -205,6 +205,17 @@ func (cs *ColaSegura) Obtener(indice int) PCB {
 	return cs.Cola[indice]
 }
 
+func (cs *ColaSegura) Buscar(pid uint) (PCB, int) {
+	cs.Mutex.Lock()
+	defer cs.Mutex.Unlock()
+	for i, pcb := range cs.Cola {
+		if pcb.PID == pid {
+			return pcb, i
+		}
+	}
+	return PCB{}, -1
+}
+
 func (cs *ColaSegura) Longitud() int {
 	return len(cs.Cola)
 }

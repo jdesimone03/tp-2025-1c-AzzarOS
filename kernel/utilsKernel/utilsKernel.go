@@ -462,21 +462,19 @@ func IniciarPlanificadores() {
 
 // Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado
 func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura, estadoNuevo string) {
-	for i, pcb := range origen.Cola {
-		if pcb.PID == pid {
-			estadoActual := origen.Cola[i].Estado
-			pcb.Estado = estadoNuevo // cambiar el estado del PCB
+	pcb, indice := origen.Buscar(pid)
+	if indice > -1 { // Si encuentra el indice
+		estadoActual := pcb.Estado
+		pcb.Estado = estadoNuevo // cambiar el estado del PCB
 
-			// Log obligatorio 3/8
-			logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
+		pcb.MetricasConteo[estadoNuevo]++
 
-			pcb.MetricasConteo[estadoNuevo]++
+		destino.Agregar(pcb)
+		origen.Eliminar(indice)
 
-			destino.Agregar(pcb)
-			origen.Eliminar(i)
-
-			return
-		}
+		// Log obligatorio 3/8
+		logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
+		return
 	}
 }
 
@@ -493,6 +491,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
+	pcb.MetricasConteo[structs.EstadoNew]++
 	ColaNew.Agregar(pcb)
 	contadorProcesos++
 
