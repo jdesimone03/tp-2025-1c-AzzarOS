@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"utils/structs"
 )
 
 // CREA ARCHIVO .LOG
@@ -16,44 +17,56 @@ func ConfigurarLogger(nombreArchivoLog string) {
 		panic(err)
 	}
 	log.SetOutput(logFile)
-	slog.Info("Logger " + nombreArchivoLog + ".log configurado")
+	Info("Logger %s.log configurado", nombreArchivoLog)
 }
 
-// ---------------------------- Logs obligatorios ----------------------------//
+// ---------------------------- Funciones log ----------------------------//
+func Info(formato string, args ...any) {
+	slog.Info(fmt.Sprintf(formato, args...))
+}
+
+func Error(formato string, args ...any) {
+	slog.Error(fmt.Sprintf(formato, args...))
+}
+
+func Warn(formato string, args ...any) {
+	slog.Warn(fmt.Sprintf(formato, args...))
+}
+
 // ---------------------------- KERNEL ----------------------------//
 // Log obligatorio 1/8
 func SyscallRecibida(pid uint, nombreSyscall string) {
-	slog.Info(fmt.Sprintf("## (%d) - Solicitó syscall: %s", pid, nombreSyscall))
+	Info("## (%d) - Solicitó syscall: %s", pid, nombreSyscall)
 }
 
 // Log obligatorio 2/8
 func KernelCreacionDeProceso(pid uint) {
-	slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado: NEW", pid))
+	Info("## (%d) Se crea el proceso - Estado: NEW", pid)
 }
 
 // Log obligatorio 3/8
 func CambioDeEstado(pid uint, estadoAnterior string, estadoNuevo string) {
-	slog.Info(fmt.Sprintf("## (%d) pasa del estado %s al estado %s", pid, estadoAnterior, estadoNuevo))
+	Info("## (%d) pasa del estado %s al estado %s", pid, estadoAnterior, estadoNuevo)
 }
 
 // Log obligatorio 4/8
 func MotivoDeBloqueo(pid uint, dispositivoIO string) {
-	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pid, dispositivoIO))
+	Info("## (%d) - Bloqueado por IO: %s", pid, dispositivoIO)
 }
 
 // Log obligatorio 5/8
 func KernelFinDeIO(pid uint) {
-	slog.Info(fmt.Sprintf("## (%d) finalizó IO y pasa a READY", pid))
+	Info("## (%d) finalizó IO y pasa a READY", pid)
 }
 
 // Log obligatorio 6/8
 func DesalojoSRT(pid uint) {
-	slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pid))
+	Info("## (%d) - Desalojado por algoritmo SJF/SRT", pid)
 }
 
 // Log obligatorio 7/8
 func FinDeProceso(pid uint) {
-	slog.Info(fmt.Sprintf("## (%d) - Finaliza el proceso", pid))
+	Info("## (%d) - Finaliza el proceso", pid)
 }
 
 // Log obligatorio 8/8
@@ -66,26 +79,29 @@ func MetricasDeEstado(pid uint, metricasConteo map[string]int, metricasTiempo ma
 	}
 
 	// Finalmente loguea las métricas
-	slog.Info(fmt.Sprintf("## (%d) - Métricas de estado: %s", pid, metricasString))
+	Info("## (%d) - Métricas de estado: %s", pid, metricasString)
 }
 
 // ---------------------------- MEMORIA ----------------------------//
 // Log obligatorio 1/5
 func MemoriaCreacionDeProceso(pid uint, tamanio int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Proceso Creado - Tamaño: %d", pid, tamanio))
+	Info("## PID: %d - Proceso Creado - Tamaño: %d", pid, tamanio)
 }
 
 // Log obligatorio 2/5
 // Destrucción de Proceso: “## PID: <PID> - Proceso Destruido - Métricas - Acc.T.Pag: <ATP>; Inst.Sol.: <Inst.Sol.>; SWAP: <SWAP>; Mem.Prin.: <Mem.Prin.>; Lec.Mem.: <Lec.Mem.>; Esc.Mem.: <Esc.Mem.>”
+func DestruccionDeProceso(pid int, metrica structs.Metricas) {
+	Info("## PID: %d - Proceso Destruido - Métricas - Acc.T.Pag: %d; Inst.Sol.: %d; SWAP: %d; Mem.Prin.: %d; Lec.Mem.: %d; Esc.Mem.: %d", pid, metrica.AccesosATablas, metrica.InstruccionesSolicitadas, metrica.BajadasASWAP, metrica.SubidasAMemoria, metrica.Lecturas, metrica.Escrituras)
+}
 
 // Log obligatorio 3/5
 func ObtenerInstruccion(pid uint, pc uint, linea string) {
-	slog.Info(fmt.Sprintf("## PID: %d - Obtener instrucción: %d - Instrucción: %s", pid, pc, linea))
+	Info("## PID: %d - Obtener instrucción: %d - Instrucción: %s", pid, pc, linea)
 }
 
 // Log obligatorio 4/5
 func OperacionEnEspacioDeUsuario(pid uint, accion string, direccionFisica int, tamanio int) {
-	slog.Info(fmt.Sprintf("## PID: %d - %s - Dirección Física: %d - Tamaño: %d", pid, accion, direccionFisica, tamanio))
+	Info("## PID: %d - %s - Dirección Física: %d - Tamaño: %d", pid, accion, direccionFisica, tamanio)
 }
 
 func EscrituraEnEspacioDeUsuario(pid uint, direccionFisica int, tamanio int) {
@@ -98,28 +114,28 @@ func LecturaEnEspacioDeUsuario(pid uint, direccionFisica int, tamanio int) {
 
 // Log obligatorio 5/5
 func MemoryDump(pid uint) {
-	slog.Info(fmt.Sprintf("## PID: %d - Memory Dump solicitado", pid))
+	Info("## PID: %d - Memory Dump solicitado", pid)
 }
 
 // ---------------------------- CPU ----------------------------//
 // Log obligatorio 1/11
 func FetchInstruccion(pid uint, pc uint) {
-	slog.Info(fmt.Sprintf("## PID: %d - FETCH - Program Counter: %d", pid, pc))
+	Info("## PID: %d - FETCH - Program Counter: %d", pid, pc)
 }
 
 // Log obligatorio 2/11
 func InterrupcionRecibida() {
-	slog.Info("## Llega interrupción al puerto Interrupt")
+	Info("## Llega interrupción al puerto Interrupt")
 }
 
 // Log obligatorio 3/11
 func InstruccionEjecutada(pid uint, nombreInstruccion string, instruccionDecodificada any) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", pid, nombreInstruccion, parametrosToString(instruccionDecodificada)))
+	Info("## PID: %d - Ejecutando: %s - %s", pid, nombreInstruccion, parametrosToString(instruccionDecodificada))
 }
 
 // Log obligatorio 4/11
 func LecturaEscrituraMemoria(pid uint, accion string, direccionFisica int, valor string) {
-	slog.Info(fmt.Sprintf("## PID: %d - Acción: %s - Dirección Física: %d - Valor: %s", pid, accion, direccionFisica, valor))
+	Info("## PID: %d - Acción: %s - Dirección Física: %d - Valor: %s", pid, accion, direccionFisica, valor)
 }
 
 func LecturaMemoria(pid uint, direccionFisica int, valor string) {
@@ -132,48 +148,48 @@ func EscrituraMemoria(pid uint, direccionFisica int, valor string) {
 
 // Log obligatorio 5/11
 func ObtenerMarco(pid uint, numeroPagina int, numeroMarco int) {
-	slog.Info(fmt.Sprintf("## PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, numeroPagina, numeroMarco))
+	Info("## PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, numeroPagina, numeroMarco)
 }
 
 // Log obligatorio 6/11
 func TLBHit(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("## PID: %d - TLB HIT - Pagina: %d", pid, numeroPagina))
+	Info("## PID: %d - TLB HIT - Pagina: %d", pid, numeroPagina)
 }
 
 // Log obligatorio 7/11
 func TLBMiss(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("## PID: %d - TLB MISS - Pagina: %d", pid, numeroPagina))
+	Info("## PID: %d - TLB MISS - Pagina: %d", pid, numeroPagina)
 }
 
 // Log obligatorio 8/11
 func PaginaEncontradaEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Cache Hit - Pagina: %d", pid, numeroPagina))
+	Info("## PID: %d - Cache Hit - Pagina: %d", pid, numeroPagina)
 }
 
 // Log obligatorio 9/11
 func PaginaFaltanteEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Cache Miss - Pagina: %d", pid, numeroPagina))
+	Info("## PID: %d - Cache Miss - Pagina: %d", pid, numeroPagina)
 }
 
 // Log obligatorio 10/11
 func PaginaIngresadaEnCache(pid uint, numeroPagina int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Cache Add - Pagina: %d", pid, numeroPagina))
+	Info("## PID: %d - Cache Add - Pagina: %d", pid, numeroPagina)
 }
 
 // Log obligatorio 11/11
 func PaginaActualizadaDeCacheAMemoria(pid uint, numeroPagina int, frameEnMemoriaPrincipal int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Memory Update - Pagina: %d - Frame: %d", pid, numeroPagina, frameEnMemoriaPrincipal))
+	Info("## PID: %d - Memory Update - Pagina: %d - Frame: %d", pid, numeroPagina, frameEnMemoriaPrincipal)
 }
 
 // ---------------------------- IO ----------------------------//
 // Log obligatorio 1/2
 func InicioIO(pid uint, tiempoMs int) {
-	slog.Info(fmt.Sprintf("## PID: %d - Inicio de IO - Tiempo: %d", pid, tiempoMs))
+	Info("## PID: %d - Inicio de IO - Tiempo: %d", pid, tiempoMs)
 }
 
 // Log obligatorio 2/2
 func FinalizacionIO(pid uint) {
-	slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", pid))
+	Info("## PID: %d - Fin de IO", pid)
 }
 
 // ---------------------------- Utilidades ----------------------------//

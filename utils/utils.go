@@ -5,24 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
+	"utils/logueador"
 	"utils/structs"
 )
 
 func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
 	body, err := json.Marshal(mensaje)
 	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo codificar el mensaje (%v)", err))
+		logueador.Error("No se pudo codificar el mensaje (%v)", err)
 		return ""
 	}
 
 	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err))
+		logueador.Error("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err)
 		return ""
 	}
 	defer resp.Body.Close()
@@ -39,7 +39,7 @@ func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
 	}
 
 	// log.Printf("respuesta del servidor: %s", resp.Status)
-	slog.Info(fmt.Sprintf("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resData))
+	logueador.Info("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resData)
 	return resData.Mensaje
 }
 
@@ -55,7 +55,7 @@ func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 }
 
 func IniciarServidor(puerto int) error {
-	slog.Info(fmt.Sprintf("Inicializando servidor en el puerto %d",puerto))
+	logueador.Info("Inicializando servidor en el puerto %d",puerto)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", puerto), nil)
 	if err != nil {
 		panic(err)

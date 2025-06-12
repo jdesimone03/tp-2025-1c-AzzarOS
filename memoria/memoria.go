@@ -18,14 +18,16 @@ func main() {
 	utilsMemoria.IniciarEstructuras()
 
 	// Endpoints
-	http.HandleFunc("/fetch", utilsMemoria.EnviarInstruccion)
+	http.HandleFunc("/fetch", utilsMemoria.HandlerFetch)
 	http.HandleFunc("/nuevo-proceso", utilsMemoria.NuevoProceso)
 	http.HandleFunc("/check-memoria", utilsMemoria.CheckMemoria)
+	http.HandleFunc("/suspenderProceso", utilsMemoria.HandlerDeSuspension)
+	http.HandleFunc("/desuspenderProceso", utilsMemoria.HandlerDeDesuspension)
+	http.HandleFunc("/finalizarProceso", utilsMemoria.HandlerDeFinalizacion)
+	http.HandleFunc("/read", utilsMemoria.HandlerRead)
+	http.HandleFunc("/write", utilsMemoria.HandlerWrite)
 
-	http.HandleFunc("/read", utilsMemoria.Read)
-	http.HandleFunc("/write", utilsMemoria.Write)
-
-	http.HandleFunc("/mover-a-swap", utilsMemoria.MoverProcesoASwap)
+	// http.HandleFunc("/mover-a-swap", utilsMemoria.MoverProcesoASwap)
 
 	utils.IniciarServidor(utilsMemoria.Config.PortMemory)
 }

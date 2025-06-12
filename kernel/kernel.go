@@ -2,7 +2,6 @@ package main
 
 import (
 	"kernel/utilsKernel"
-	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,7 +22,7 @@ func main() {
 	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 	tamanioProceso, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		slog.Error("Error al convertir el tamaño del proceso a int")
+		logueador.Error("Error al convertir el tamaño del proceso a int")
 		return
 	}
 

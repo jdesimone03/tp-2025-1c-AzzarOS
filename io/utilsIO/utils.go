@@ -1,8 +1,6 @@
 package utilsIO
 
 import (
-	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,9 +32,9 @@ func init() {
 
 	go func() {
 		sig := <-sigs
-		slog.Warn(fmt.Sprintf("Señal recibida: %v. Notificando al Kernel.", sig))
+		logueador.Warn("Señal recibida: %v. Notificando al Kernel.", sig)
 		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-disconnect", NombreInterfaz)
-		slog.Info("Notificación de desconexión enviada al Kernel.")
+		logueador.Info("Notificación de desconexión enviada al Kernel.")
 		os.Exit(0)
 	}()
 }
@@ -44,7 +42,7 @@ func init() {
 func RecibirEjecucionIO(w http.ResponseWriter, r *http.Request) {
 	ejecucion, err := utils.DecodificarMensaje[structs.EjecucionIO](r)
 	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el mensaje (%v)", err))
+		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

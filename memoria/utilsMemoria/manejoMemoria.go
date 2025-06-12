@@ -1,0 +1,195 @@
+package utilsMemoria
+
+import (
+	"utils/logueador"
+	"utils/structs"
+)
+
+var CantidadDeFrames = Config.MemorySize / Config.PageSize
+
+// -------------------------------- Tablas de Páginas --------------------------------
+
+func ObtenerTablaDePaginas(pid uint) *structs.TablaDePaginas {
+	for _, tabla := range TablasDePaginas {
+		if tabla.PID == pid {
+			return tabla // Retorna la tabla de páginas del proceso
+		}
+	}
+	logueador.Warn("No se encontró la tabla de páginas para el PID %d", pid)
+	return nil // Si no se encuentra el PID, retorna nil
+}
+
+func InicializarEntrada(pid uint, frameAsignado int, entrada structs.EntradaDeTabla) structs.EntradaDeTabla {
+	entrada.BitPresencia = false          // Inicialmente no esta en memoria
+	entrada.BitModificado = false         // Inicialmente no se ha modificado
+	entrada.NumeroDeFrame = frameAsignado // Inicialmente no tiene marco asignado
+	MarcarFrameOcupado(uint(frameAsignado), pid)
+	return entrada
+}
+
+func CrearTablaDePaginas(pid uint, tamanio int) {
+	logueador.Info("Creando tabla de paginas para el PID: %d - Tamaño: %d", pid, tamanio)
+	cantPaginas := CantidadDePaginasDeProceso(tamanio)
+
+	tabla := &structs.TablaDePaginas{
+		PID:      pid,
+		Entradas: make([]structs.EntradaDeTabla, cantPaginas), // Cantidad de entradas por el tamaño del proceso
+	}
+
+	cantPaginasAsignadas := 0
+	for i := 0; cantPaginasAsignadas < cantPaginas; i++ {
+		var frameLibre = PrimerFrameLibre(uint(i))                                 // La verificación de si hay espacio libre, se hizo antes. Se toma como que hay suficientes frames
+		tabla.Entradas[i] = InicializarEntrada(pid, frameLibre, tabla.Entradas[i]) // Inicializa la entrada con el frame asignado4
+		cantPaginasAsignadas++
+	}
+
+	TablasDePaginas = append(TablasDePaginas, tabla) // Agrega la tabla de paginas a la lista de tablas de paginas
+}
+
+func FrameLibre(numero uint) bool {
+	return !Ocupadas[numero].EstaOcupado
+}
+
+func PrimerFrameLibre(arranque uint) int { // arranque => desde cual frame arranco a buscar
+	logueador.Info("Buscando frame libre...")
+	CantidadDeFrames := uint(len(Ocupadas)) // Cantidad de frames que hay en memoria
+	for i := arranque; i < uint(CantidadDeFrames); i++ {
+		if FrameLibre(i) {
+			logueador.Info("Frame libre encontrado - NRO Frame %d", i)
+			return int(i)
+		}
+	}
+	logueador.Warn("No se encontraron frames libres")
+	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
+}
+
+func HayFramesDisponibles(n int) bool {
+	i := 0
+	cant := 0
+	for cant < n {
+		frameLibre := PrimerFrameLibre(uint(i)) // Busco el primer frame libre a partir del indice i
+		if frameLibre == -1 {                   // Si no hay mas frames libres, salgo
+			logueador.Warn("No hay suficientes frames libres")
+			return false
+		}
+		cant++ // Si hay un frame libre, aumento la cantidad de frames libres encontrados
+		i++
+	}
+	return true
+}
+
+func HayEspacioParaInicializar(tamanio int) bool {
+	cantPaginas := CantidadDePaginasDeProceso(tamanio) // Cantidad de paginas que se necesitan
+	if HayFramesDisponibles(cantPaginas) {             // Si hay suficientes frames libres
+		return true
+	} else {
+		return false
+	}
+}
+
+func CantidadDePaginasDeProceso(tamanio int) int {
+	tamanioPagina := int(Config.PageSize)
+	cantPaginas := tamanio / tamanioPagina // Cantidad de paginas que se necesitan
+	return cantPaginas
+}
+
+// Asumiendo que hay espacio
+func AsignarMemoriaAProceso(pid string, tamanio int) {
+	logueador.Info("Asignando memoria al proceso %s de tamaño %d bytes", pid, tamanio)
+	cantPaginas := CantidadDePaginasDeProceso(tamanio)
+	if HayFramesDisponibles(cantPaginas) {
+		// CrearTablaDePaginas(pid, tamanio) => preguntar
+	} else {
+		logueador.Error("No hay suficiente espacio en memoria para asignar al proceso %s de tamaño %d bytes", pid, tamanio)
+		return
+	}
+}
+
+func Read(pid uint, direccion int, tamanio int) (string, error) {
+	logueador.Info("Leyendo de memoria")
+	finDeLectura := direccion + tamanio
+
+	if direccion < 0 || finDeLectura > Config.MemorySize {
+		logueador.Error("Dirección fuera de rango %d - %d", direccion, finDeLectura)
+		return "", nil // Retorna un error o un string vacío
+	}
+
+	// Agrgar verificación por si se quiere leer otro frame que no le pertenece al proceso
+	datosLeidos := make([]byte, tamanio)
+	copy(datosLeidos, EspacioUsuario[direccion:finDeLectura]) // Copia los datos de la memoria principal a los datosLeidos
+
+	IncrementarMetricaEn(pid, "LecturasDeMemoria") // Aumenta la métrica de lecturas de memoria del PID
+	logueador.Info("Lectura exitosa de memoria")
+	return string(datosLeidos), nil // Retorna los datos leídos como string
+}
+
+func Write(pid uint, direccion int, aEscribir string) {
+
+	if direccion < 0 || direccion >= Config.MemorySize {
+		logueador.Error("Dirección fuera de rango: %d", direccion)
+		return
+	}
+
+	// paginasDeProceso := CantidadDePaginas(pid) // Obtiene la cantidad de paginas del proceso
+	// if len(memoriaPrincipal[direccion:]) > paginasDeProceso * Tamanioframe {
+	// 	logueador.Info("Los bytes a escribir exceden el tamaño de todas las páginas del proceso")
+	// 	return
+	// }
+
+	frameAEscribir := int(direccion / Config.PageSize)
+	if Ocupadas[uint(frameAEscribir)].PID != pid {
+		logueador.Error("El proceso %d quiere escribir en el frame %d que no le pertenece", pid, frameAEscribir)
+		return
+	}
+
+	logueador.Info("Escribiendo en memoria")
+	copy(EspacioUsuario[direccion:], []byte(aEscribir))
+
+	// tablasDePaginas := ObtenerTablaDePaginas(pid) // Obtengo la tabla de paginas del PID
+	// tablasDePaginas.Entradas[frameAEscribir].BitModificado = true // Marca la entrada como presente en memoria
+
+	IncrementarMetricaEn(pid, "Escrituras")
+	logueador.Info("Escritura exitosa en memoria")
+}
+
+func CantidadDePaginas(pid uint) int {
+	for _, tabla := range TablasDePaginas {
+		if tabla.PID == pid {
+			return len(tabla.Entradas) // Retorna la cantidad de entradas (páginas) de la tabla del proceso
+		}
+	}
+	logueador.Warn("No se encontró la tabla de páginas para el PID: %d", pid)
+	return 0 // Si no se encuentra el PID, retorna 0
+}
+
+func LiberarMemoria(pid uint) {
+	for i := 0; i < CantidadDePaginas(pid); i++ {
+		frame := Ocupadas[uint(i)]
+		if frame.PID == pid {
+			frame.EstaOcupado = false
+			frame.PID = 0 // TODO
+			Ocupadas[uint(i)] = frame
+			logueador.Info("Liberando frame %d del proceso %d", i, pid)
+		}
+	}
+}
+
+func MarcarFrameOcupado(frame uint, pid uint) {
+	info := Ocupadas[frame]
+	info.EstaOcupado = true // Marca el frame como ocupado
+	info.PID = pid          // Asigna el PID del proceso que ocupa el frame
+	Ocupadas[frame] = info  // Actualiza el mapa con la información del frame
+}
+
+func InicializarFrameInfo() structs.FrameInfo {
+	return structs.FrameInfo{
+		EstaOcupado: false, // Inicialmente no está ocupado
+		PID:         0,     // Inicialmente no tiene PID asignado
+	}
+}
+
+func InicializarOcupadas() {
+	for i := 0; i < CantidadDeFrames; i++ {
+		Ocupadas[uint(i)] = InicializarFrameInfo()
+	}
+}

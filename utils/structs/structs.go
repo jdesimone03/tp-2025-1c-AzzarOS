@@ -87,6 +87,7 @@ type NoopInstruction struct{}
 type WriteInstruction struct {
 	Address int
 	Data    string
+	PID   uint
 }
 
 type ReadInstruction struct {
@@ -243,4 +244,23 @@ const (
 type TiempoEjecucion struct {
 	PID    uint
 	Tiempo int64
+}
+
+// --------------------------------- Memoria --------------------------------- //
+
+type FrameInfo struct{
+	EstaOcupado bool `json:"esta_ocupado"` // Indica si el frame está ocupado
+	PID uint `json:"pid"` // Identificador del proceso al que pertenece el frame
+}
+
+type TablaDePaginas struct{
+	PID uint `json:"pid"` // Identificador del proceso
+	Entradas []EntradaDeTabla`json:"paginas"` // Lista de páginas, Por numero de pagina: cada una con su bit de presencia y modificado y nro frame en memoria
+}
+
+type EntradaDeTabla struct {
+	BitPresencia bool `json:"bit_presencia"`
+	BitModificado bool `json:"bit_modificado"`
+	NumeroDeFrame int `json:"numero_frame"`  
+	// PunteroATabla *TablaDePaginas `json:"puntero_a_tabla"`
 }
