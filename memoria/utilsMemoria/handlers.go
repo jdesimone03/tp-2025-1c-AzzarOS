@@ -9,6 +9,7 @@ import (
 	"utils/structs"
 	"os"
 	"strconv"
+	"strings"
 )
 
 
@@ -188,4 +189,132 @@ func HandlerRead(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(string(valorLeido))
+}
+
+func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
+	pid := r.URL.Query().Get("pid")
+	if pid == "" {
+		http.Error(w, "PID no proporcionado", http.StatusBadRequest)
+		return
+	}
+	pidUint, err := strconv.ParseUint(pid, 10, 32)
+	if err != nil {
+		http.Error(w, "Error al convertir PID a entero", http.StatusBadRequest)
+		return
+	}
+	file, err := CreacionArchivoDump(uint(pidUint))  
+	if err != nil{
+		w.WriteHeader(http.StatusInternalServerError) // En el handler del kernel, si el httpStatus es este, manda el proceso a EXIT
+		logueador.Info("Error al crear el archivo de dump de memoria:", err)
+		return
+	}
+	defer file.Close() 
+	logueador.MemoryDump(uint(pidUint)) 
+	w.WriteHeader(http.StatusOK) // Salió todo bien
+}
+
+func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		var data structs.CuerpoSolicitud 
+		err := decoder.Decode(&data)
+		logueador.Info("Error decodificando el cuerpo", err)
+
+		// Primer chequeo por si el PID no existe
+		if !ExisteElPID(data.PID) {
+			logueador.Info("No existe el PID", "pid", data.PID)
+			http.Error(w, "PID no existe", http.StatusBadRequest)
+			return
+		}
+
+		// Segundo chequeo por si el PC es mayor al tamaño de las instrucciones => ya no quedan más instrucciones por ejecutar 
+		if NoQuedanMasInstrucciones(data.PID, data.PC) {
+			logueador.Info("No quedan más instrucciones para el PID", "pid", data.PID)
+			http.Error(w, "No quedan más instrucciones", http.StatusBadRequest)
+			return
+		}
+
+		instruccion := Procesos[data.PID][data.PC] // Obtengo la instrucción del PID y el PC. 
+		logueador.ObtenerInstruccion(data.PID, data.PC, instruccion) 
+		MandarInstruccion(instruccion,w, r) // Envio la instruccion a la CPU
+		IncrementarMetricaEn(data.PID, "InstruccionesSolicitadas") // Aumento la métrica de instrucciones solicitadas del PID
+		
+		w.WriteHeader(http.StatusOK) 
+		w.Write([]byte("OK"))
+}
+
+func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Request) {
+	instruccionJSON, err := json.Marshal(instruccion)
+	if err != nil {
+		logueador.Info("Error al convertir la instrucción a JSON", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(instruccionJSON)
+	logueador.Info("Instrucción enviada desde memoria -", "instruccion", instruccion)
+}
+
+func check(mensaje string, e error) {
+	if e != nil {
+		logueador.Error(mensaje, "error", e)	
+	}
+}
+
+func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
+		
+		decoder := json.NewDecoder(r.Body)
+		var data structs.PedidoDeInicializacion
+		err := decoder.Decode(&data)
+		check("Error decodificando", err)
+
+		if(ExisteElPID(data.PID)) {
+			logueador.Info("El PID ya existe: ", data.PID)
+			http.Error(w, "El PID ya existe", http.StatusBadRequest)
+			return 
+		}
+
+		tamanioInt := int(data.TamanioProceso)
+
+		if HayEspacioParaInicializar(tamanioInt) {
+			
+			logueador.Info("Hay espacio para el proceso con PID: ", data.PID)
+			
+			CargarPIDconInstrucciones(data.Path, int(data.PID))  // Carga las instrucciones del PID en el map
+			CrearMetricaDeProceso(data.PID) // Crea la metrica del proceso para ir guardando registro de las acciones
+ 
+			CrearTablaDePaginas(data.PID, int(data.TamanioProceso)) // Crea la tabla de paginas del PID
+			
+			w.WriteHeader(http.StatusOK) // Envio el OK al kernel
+			w.Write([]byte("OK")) // Envio el OK al kernel
+			return  
+			} else {
+					logueador.Info("No hay espacio para el proceso con PID: ", data.PID)
+					http.Error(w, "No hay espacio para el proceso", http.StatusBadRequest) // Envio el error al kernel
+					return
+		}
+}
+
+func CargarPIDconInstrucciones(path string, pid int) {
+	instrucciones := LeerArchivoYGuardarInstrucciones(path)
+	Procesos[uint(pid)] = instrucciones
+	logueador.Info("PID: " + strconv.Itoa(pid) + " cargado con sus instrucciones: " + strings.Join(instrucciones, "-"))
+}
+
+func LeerArchivoYGuardarInstrucciones(path string) []string {
+	var instrucciones []string
+	file , err := os.Open(path)
+	check("No se pudo abrir el archivo",err)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() { 
+		instruccion := strings.TrimSpace(scanner.Text()) 
+			if instruccion != ""{
+			instrucciones = append(instrucciones, instruccion)
+			}
+	}
+	if err := scanner.Err(); err != nil {
+		check("Error al leer la instruccion",err)
+	}
+	defer file.Close() 
+	return instrucciones // Devulve un ["JUMP 1", "ADD 2", "SUB 3"]
 }

@@ -264,3 +264,15 @@ type EntradaDeTabla struct {
 	NumeroDeFrame int `json:"numero_frame"`  
 	// PunteroATabla *TablaDePaginas `json:"puntero_a_tabla"`
 }
+
+type CuerpoSolicitud struct {
+    PID uint `json:"PID"`
+    PC  uint `json:"PC"`	
+}
+
+type PedidoDeInicializacion struct {
+	PID uint `json:"PID"`
+	TamanioProceso uint `json:"TAM"`	
+	Path string `json:"PATH"`
+}
+

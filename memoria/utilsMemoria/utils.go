@@ -18,8 +18,8 @@ import (
 var Config config.ConfigMemory
 
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
-var EspacioUsuario []byte
-var Metricas = make(map[uint]structs.Metricas)
+var EspacioUsuario []byte // memoriaPrincipal
+var Metricas = make(map[uint]structs.Metricas) // Metricas
 var Ocupadas map[uint]structs.FrameInfo
 var TablasDePaginas []*structs.TablaDePaginas
 
@@ -27,6 +27,7 @@ func IniciarEstructuras() {
 	// Carga el espacio de usuario
 	EspacioUsuario = make([]byte, Config.MemorySize)
 	Ocupadas = make(map[uint]structs.FrameInfo, Config.MemorySize/Config.PageSize)
+	CreacionArchivoSWAP()
 	// Carga el espacio de kernel (Paginacion jerárquica multinivel)
 	// Capaz despues lo cambio
 	/* 	EspacioKernel = make([][][]byte, Config.NumberOfLevels)
