@@ -1,0 +1,61 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Memoria",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go"
+            
+        },
+        {
+            "name": "Kernel",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["${workspaceFolder}/utils/init", "256"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "CPU",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1"]
+        },
+        {
+            "name": "IO",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["IO1"]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Iniciar Memoria y Kernel",
+            "configurations": ["Memoria", "Kernel"],
+            "stopAll": false,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            }
+        },
+        {
+            "name": "Iniciar CPU y IO",
+            "configurations": ["CPU", "IO"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            }
+        }
+    ]
+}

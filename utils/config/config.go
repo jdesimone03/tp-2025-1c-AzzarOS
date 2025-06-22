@@ -2,9 +2,8 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"os"
+	"utils/logueador"
 )
 
 // ----------------------------------- CONFIGS --------------------------------------------------
@@ -60,22 +59,19 @@ type ConfigMemory struct {
 }
 
 //------------------------------------------------------------------------------------------------
-func CargarConfiguracion[T any](filePath string) *T {
-	var config T
-
+func CargarConfiguracion (filePath string, configVar any){
 	file, err := os.Open(filePath)
 	if err != nil {
-		slog.Error(fmt.Sprintf("No se pudo abrir el archivo de configuración  (%v)", err))
+		logueador.Error("No se pudo abrir el archivo de configuración  (%v)", err)
 		panic(err)
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		slog.Error(fmt.Sprintf("No se pudo decodificar el archivo JSON (%v)", err))
+	if err := decoder.Decode(configVar); err != nil {
+		logueador.Error("No se pudo decodificar el archivo JSON (%v)", err)
 		panic(err)
 	}
 
-	slog.Info(fmt.Sprintf("Configuración cargada correctamente: %+v", config))
-	return &config
+	logueador.Info("Configuración cargada correctamente: %+v", configVar)
 }

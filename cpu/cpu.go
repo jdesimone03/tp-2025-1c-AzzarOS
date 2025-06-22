@@ -6,28 +6,36 @@ import (
 	"net/http"
 	"os"
 	"utils"
+	"utils/config"
+	"utils/logueador"
 	"utils/structs"
 )
 
 func main() {
+	// Carga los argumentos
 	identificador := os.Args[1]
 
-	utils.ConfigurarLogger(fmt.Sprintf("log_CPU_%s",identificador))
+	// Inicia el logueador
+	logueador.ConfigurarLogger(fmt.Sprintf("log_CPU_%s", identificador))
 
-	cpu := structs.CPU{
-		IP:     utilsCPU.Config.IPCPU,
-		Puerto: utilsCPU.Config.PortCPU,
+	// Inicia la configuración
+	config.CargarConfiguracion("config.json", &utilsCPU.Config)
+
+	cpu := structs.InstanciaCPU{
+		IP:         utilsCPU.Config.IPCPU,
+		Puerto:     utilsCPU.Config.PortCPU,
+		Ejecutando: false,
 	}
-	
+
 	peticion := structs.HandshakeCPU{
 		Identificador: identificador,
-		CPU: cpu,
+		CPU:           cpu,
 	}
-	
-	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel,"handshake/CPU",peticion)
 
-	http.HandleFunc("/ejecutar", utilsCPU.RecibirEjecucion)
-	//http.HandleFunc("/interrupciones", utilsCPU.RecibirPeticion)
+	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel, "handshake/CPU", peticion)
 
+	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
+	http.HandleFunc("/interrupt", utilsCPU.RecibirInterrupcion)
+
+	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }
-

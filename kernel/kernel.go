@@ -6,22 +6,31 @@ import (
 	"os"
 	"strconv"
 	"utils"
-	"log/slog"
+	"utils/config"
+	"utils/logueador"
 )
 
 func main() {
-	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_KERNEL")
+
+	// Inicia la configuración
+	config.CargarConfiguracion("config.json", &utilsKernel.Config)
+
+	// Carga los argumentos
+	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 	tamanioProceso, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		slog.Error("Error al convertir el tamaño del proceso a int")
+		logueador.Error("Error al convertir el tamaño del proceso a int")
 		return
 	}
 
-	utils.ConfigurarLogger("log_KERNEL")
+	// Carga el proceso inicial
+	utilsKernel.NuevoProceso(pscInicial, tamanioProceso) // memoria debe estar iniciada
 
-	// memoria debe estar iniciada
-	utilsKernel.NuevoProceso(pscInicial, tamanioProceso)
+	// Enter para iniciar el planificador de corto plazo
+	utilsKernel.IniciarPlanificadores()
 
 	// Handshakes
 	http.HandleFunc("/handshake/CPU", utilsKernel.HandleHandshake("CPU"))
@@ -32,6 +41,13 @@ func main() {
 	http.HandleFunc("/syscall/INIT_PROC", utilsKernel.HandleSyscall("INIT_PROC"))
 	http.HandleFunc("/syscall/DUMP_MEMORY", utilsKernel.HandleSyscall("DUMP_MEMORY"))
 	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
+
+	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
+	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
+
+	// Manejo de IO
+	http.HandleFunc("/io-end", utilsKernel.HandleIOEnd)
+	http.HandleFunc("/io-disconnect", utilsKernel.HandleIODisconnect)
 
 	utils.IniciarServidor(utilsKernel.Config.PortKernel)
 }

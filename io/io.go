@@ -1,19 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"tp/io/utilsIO"
 	"utils"
+	"utils/config"
+	"utils/logueador"
 	"utils/structs"
 )
 
 func main() {
-	utils.ConfigurarLogger("log_IO")
-
+	// Carga los argumentos
 	nombre := os.Args[1]
+	utilsIO.NombreInterfaz = nombre
 
-	interfaz := structs.Interfaz{
+	// Inicia el logueador
+	logueador.ConfigurarLogger(fmt.Sprintf("log_IO_%s", nombre))
+
+	// Inicia la configuración
+	config.CargarConfiguracion("config.json", &utilsIO.Config)
+
+	interfaz := structs.InterfazIO{
 		IP:     utilsIO.Config.IPIo,
 		Puerto: utilsIO.Config.PortIo,
 	}
@@ -25,7 +34,7 @@ func main() {
 
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
-	http.HandleFunc("/ejecutarIO", utilsIO.RecibirPeticion)
+	http.HandleFunc("/ejecutarIO", utilsIO.RecibirEjecucionIO)
 
 	utils.IniciarServidor(utilsIO.Config.PortIo)
 }
