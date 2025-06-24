@@ -81,6 +81,8 @@ func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) string 
 // Instrucciones de memoria
 func Read(pid uint, inst structs.ReadInstruction) {
 	stringPID := strconv.Itoa(int(pid))
+
+	
 	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read?pid="+stringPID, inst)
 
 	// Log obligatorio 4/11

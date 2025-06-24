@@ -1,6 +1,7 @@
 package utilsCPU
 
 import (
+	"fmt"
 	"net/http"
 	"utils"
 	"utils/logueador"
@@ -25,7 +26,13 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chEjecucion <- *ejecucion
+	url := fmt.Sprintf("http://%s:%d/proximaInstruccion", Config.IPMemory, Config.PortMemory)
+	logueador.Info("Enviando mensaje a memoria: %s", url)
+
+
+
+
+	// chEjecucion <- *ejecucion
 
 	w.WriteHeader(http.StatusOK)
 }

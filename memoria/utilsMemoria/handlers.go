@@ -215,7 +215,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 
 func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
-		var data structs.CuerpoSolicitud 
+		var data structs.EjecucionCPU 
 		err := decoder.Decode(&data)
 		logueador.Info("Error decodificando el cuerpo", err)
 

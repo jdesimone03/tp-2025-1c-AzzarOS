@@ -9,7 +9,6 @@ import (
 	"net/http"
 )
 
-
 type EntradaTLB struct {
 	NumeroPagina int
 	NumeroFrame int 
@@ -86,6 +85,7 @@ func AccesoATLB(pid int, nropagina int) (int, bool) {
 		return tlb.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		log.Println("PID: <", pid, "> - TLB MISS - Página:", nropagina)
+		return
 		// Se busca en la tabla de paginas => GET a memoria 
 		// Se remplaza
 		// Se devuelve el frame 
@@ -166,10 +166,43 @@ func Hit(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta c
 
 // --------------------------------------- Cache ---------------------------------------------
 
+/*
+A la hora de modificar una página:
+	1. Se debe corroborar si la Cache esta habilitada => tiene al menos 1 frame
+		De ser asi: 
+			a. Se hacen las operaciones en caché 
+		Si no esat habilitada:
+			b. Se hace un write a memoria directamente
+
+
+A la hora de cargar una página en cache
+	1. Hay que corroborar si se encuentra llena 
+		De ser asi:
+			a. Se debe reemplazar una página según el algoritmo de reemplazo
+			b. Si la página fue modificada, los cambios deben ser escritos en memoria
+
+
+Al la hora de desojar un proceso: 
+	1. Las páginas que se encuentran modificadas deben ser actualizadas en memoria principal
+		a. Primero se consultan las direcciones fisicas 
+		b. Se envian a escribir su contenido a memoria 
+		c. Se eliminan todas las entradas de la caché
+	
+	
+Para acceder a una página hay que:
+1. Verificar que este en caché
+2. Despues se pasa a la TLB
+3. Como ultima instancia la tabla de paginas en memoria 
+
+Preguntas: 
+1) Se cargan todas las paginas en cache de un proceso al iniciar?
+
+
+*/
+
 // Posibilidad que sea la misma estructura que la TLB
 type PaginaCache struct {
-	NumeroPagina int // Numero de pagina
-	NumeroFrame int // Numero de frame / puntero a este
+	NumeroFrame int // Numero de pagina
 	BitPresencia bool // Indica si el frame esta presente en memoria
 	BitModificado bool // Indica si el frame ha sido modificado
 	BitDeUso bool // Indica si el frame ha sido usado recientemente
@@ -199,6 +232,19 @@ func CacheHabilitado() bool {
 
 func FueModificada(pagina PaginaCache) bool {
 	return pagina.BitModificado
+}
+
+func EstaEnCache(pid uint, nropagina int) bool {
+	if !CacheHabilitado() {
+		return false 
+	}
+
+	for _, pagina := range cache.Paginas {
+		if pagina.PID == int(pid) {
+			return true // La página está en la caché
+		}
+	}
+	return false 
 }
 
 // mandamos una lista de paginas cache para reutilizar en el codigo 
@@ -296,6 +342,6 @@ func AccederACache(numeroPagina int) (PaginaCache, bool) {
 		return PaginaCache{}, false // La cache no está habilitada
 		// mandar mensaje a memoria para que haga las operaciones
 	} else {
-
+			return 
 	}
 }

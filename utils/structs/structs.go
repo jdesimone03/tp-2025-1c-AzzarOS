@@ -46,7 +46,7 @@ type InterfazIO struct {
 }
 
 type EjecucionCPU struct {
-	PID uint
+	PID uint 
 	PC  uint
 }
 
