@@ -1,7 +1,6 @@
 package utilsCPU
 
 import (
-	"fmt"
 	"net/http"
 	"utils"
 	"utils/logueador"
@@ -19,18 +18,15 @@ func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
-	ejecucion, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
+	
+	ejecucion, err := utils.DecodificarMensaje[structs.EjecucionCPU](r) // llega de kernel
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	url := fmt.Sprintf("http://%s:%d/proximaInstruccion", Config.IPMemory, Config.PortMemory)
-	logueador.Info("Enviando mensaje a memoria: %s", url)
-
-
-
+	Ejecucion(*ejecucion) 
 
 	// chEjecucion <- *ejecucion
 

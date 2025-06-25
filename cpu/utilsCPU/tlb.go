@@ -1,12 +1,13 @@
 package utilsCPU
 
 import (
-	"log"
-	"time"
-	"fmt"
-	"encoding/json"
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"time"
+	"utils/logueador"
 )
 
 type EntradaTLB struct {
@@ -175,10 +176,10 @@ A la hora de modificar una página:
 			b. Se hace un write a memoria directamente
 
 
-A la hora de cargar una página en cache
+A la hora de cargar una página en cache => HECHO
 	1. Hay que corroborar si se encuentra llena 
 		De ser asi:
-			a. Se debe reemplazar una página según el algoritmo de reemplazo
+			a. Se debe reemplazar una página según el algoritmo de reemplazo => HECHO
 			b. Si la página fue modificada, los cambios deben ser escritos en memoria
 
 
@@ -240,16 +241,15 @@ func EstaEnCache(pid uint, nropagina int) bool {
 	}
 
 	for _, pagina := range cache.Paginas {
-		if pagina.PID == int(pid) {
+		if pagina.PID == int(pid) && pagina.NumeroFrame == nropagina && pagina.BitPresencia {
 			return true // La página está en la caché
 		}
 	}
 	return false 
 }
 
-// mandamos una lista de paginas cache para reutilizar en el codigo 
-func MandarDatosAMP(paginas []PaginaCache) {
-	url := fmt.Sprintf("http://%s:%d/cache", Config.IPMemory, Config.PortMemory)
+func MandarDatosAMP(paginas PaginaCache) {
+	url := fmt.Sprintf("http://%s:%d/actualizarMP", Config.IPMemory, Config.PortMemory)
 	body, err := json.Marshal(paginas)
 	if err != nil {
 		log.Println("Error al serializar la pagina a JSON:", err)
@@ -257,15 +257,15 @@ func MandarDatosAMP(paginas []PaginaCache) {
 	}
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		log.Println("Error al enviar la pagina a la memoria:", err)
+		logueador.Error("Error al enviar la pagina a la memoria:", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Error al enviar la pagina a la memoria, status code: %d", resp.StatusCode)
+		logueador.Error("Error al enviar la pagina a la memoria, status code: %d", resp.StatusCode)
 		return
 	}
-	log.Println("Pagina enviada a la memoria correctamente")
+	logueador.Info("Pagina enviada a la memoria correctamente")
 }
 
 func PaginasModificadas() []PaginaCache {
@@ -298,13 +298,29 @@ func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 }
 
 func AgregarPaginaACache(pagina PaginaCache) {
-	
 	if len(cache.Paginas) == Config.CacheEntries {
-		// Remplazar segun el algoritmo de reemplazo
+		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
+		if FueModificada(pagina) {
+			logueador.Info("Pagina modificada, escribiendo en memoria")
+			MandarDatosAMP(pagina) 
+		}
+		return 
 	} else {
 		cache.Paginas = append(cache.Paginas, pagina)
-		log.Println("Pagina agregada a la cache")
+		logueador.Info("Pagina agregada a la cache") 
+		return 
 	}
+}
+
+func RemplazarPaginaEnCache(pagina PaginaCache) {
+	indiceVictima := IndiceDeCacheVictima() // Obtenemos el indice de la pagina victima
+
+	if FueModificada(cache.Paginas[indiceVictima]) { // Si la pagina victima fue modificada, debemos escribir su contenido en memoria
+		logueador.Info("Pagina modificada, escribiendo en memoria")
+		MandarDatosAMP(cache.Paginas[indiceVictima]) // Enviamos la pagina a memoria
+	}
+	cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
+	logueador.Info("Pagina reemplazada en cache") 
 }
 
 // Para CLOCK-M
@@ -335,13 +351,6 @@ func IndiceDeCacheVictima() int {
 			}
 		}
 	}
+	return -1 // Si no se encuentra una pagina con bits 00, retorna -1
 }
 
-func AccederACache(numeroPagina int) (PaginaCache, bool) {
-	if !CacheHabilitado(){
-		return PaginaCache{}, false // La cache no está habilitada
-		// mandar mensaje a memoria para que haga las operaciones
-	} else {
-			return 
-	}
-}

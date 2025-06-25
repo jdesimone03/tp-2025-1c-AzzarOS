@@ -41,7 +41,7 @@ func EscribirProcesoEsSwap(proceso ProcesoEnSwap) {
 
 func CreacionArchivoSWAP() {
 	file, err := os.Create(pathCorrectoSwap)
-	logueador.Info("Error al crear el archivo SWAP", err)
+	logueador.Info("Error al crear el archivo SWAP: %v", err)
 	defer file.Close()
 }
 

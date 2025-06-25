@@ -248,6 +248,20 @@ type TiempoEjecucion struct {
 
 // --------------------------------- Memoria --------------------------------- //
 
+type Tabla struct {
+	Punteros []*Tabla 
+	Valores []int 
+}
+
+type PaginaCache struct {
+	NumeroFrame int // Numero de pagina
+	NumeroPagina int // Numero de pagina en la tabla de paginas
+	BitPresencia bool // Indica si el frame esta presente en memoria
+	BitModificado bool // Indica si el frame ha sido modificado
+	BitDeUso bool // Indica si el frame ha sido usado recientemente
+	PID int // Identificador del proceso al que pertenece el frame
+	Contenido []byte // Contenido de la pagina
+}
 type FrameInfo struct{
 	EstaOcupado bool `json:"esta_ocupado"` // Indica si el frame está ocupado
 	PID uint `json:"pid"` // Identificador del proceso al que pertenece el frame
@@ -276,3 +290,8 @@ type PedidoDeInicializacion struct {
 	Path string `json:"PATH"`
 }
 
+type ConfigMemoria struct {
+	CantNiveles      int `json:"cant_niveles"`
+	EntradasPorTabla int `json:"entradas_por_tabla"`
+	TamanioPagina    int `json:"tam_pagina"`
+}

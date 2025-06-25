@@ -12,6 +12,83 @@ import (
 	"strings"
 )
 
+func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pid := r.URL.Query().Get("pid")
+	if pid == "" {
+		http.Error(w, "PID no proporcionado", http.StatusBadRequest)
+		return
+	}
+
+	pidInt, err := strconv.Atoi(pid)
+	if err != nil {
+		logueador.Error("Error al convertir PID a entero: %v", err)
+		http.Error(w, "Error al convertir PID a entero", http.StatusBadRequest)
+		return
+	}
+
+	tablaDeProceso := TDPMultinivel[uint(pidInt)]
+	if tablaDeProceso == nil {
+		logueador.Error("No se encontró la tabla de páginas para el PID: %d", pidInt)
+		http.Error(w, "Tabla de páginas no encontrada", http.StatusNotFound)
+		return
+	}
+
+	tablaJSON, err := json.Marshal(tablaDeProceso)
+	if err != nil {
+		logueador.Error("Error al convertir la tabla de páginas a JSON: %v", err)
+		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(tablaJSON)
+	logueador.Info("Tabla de páginas enviada para el PID: %d", pidInt)	
+}
+
+func HandlerConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	config := structs.ConfigMemoria{
+		CantNiveles:         Config.NumberOfLevels,
+		EntradasPorTabla:       Config.EntriesPerPage,
+		TamanioPagina:   Config.PageSize,
+	}
+
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		logueador.Error("Error al convertir la configuración a JSON: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(configJSON)
+	logueador.Info("Configuración enviada")
+}
+
+func HandlerCache(w http.ResponseWriter, r *http.Request) {
+	paginaJSON, err := utils.DecodificarMensaje[structs.PaginaCache](r)
+	if err != nil {
+		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	contenidoStr := string(paginaJSON.Contenido)
+	Write(uint(paginaJSON.PID), paginaJSON.NumeroFrame * Config.PageSize, contenidoStr ) 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
 
 // Recibe un PID y PC, La memoria lo busca en sus procesos y lo devuelve.
 func HandlerFetch(w http.ResponseWriter, r *http.Request) {
@@ -148,6 +225,11 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 
 	rawPID := r.URL.Query().Get("pid")
 	pid, err := strconv.ParseUint(rawPID, 10, 32)
+	if err != nil {
+		logueador.Error("Error al convertir PID a entero: %e", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
 	if err != nil {
@@ -169,6 +251,11 @@ func HandlerRead(w http.ResponseWriter, r *http.Request) {
 
 	rawPID := r.URL.Query().Get("pid")
 	pid, err := strconv.ParseUint(rawPID, 10, 32)
+	if err != nil {
+		logueador.Error("Error al convertir PID a entero: %e", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	read, err := utils.DecodificarMensaje[structs.ReadInstruction](r)
 	if err != nil {
@@ -205,7 +292,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 	file, err := CreacionArchivoDump(uint(pidUint))  
 	if err != nil{
 		w.WriteHeader(http.StatusInternalServerError) // En el handler del kernel, si el httpStatus es este, manda el proceso a EXIT
-		logueador.Info("Error al crear el archivo de dump de memoria:", err)
+		logueador.Info("Error al crear el archivo de dump de memoria: %v", err)
 		return
 	}
 	defer file.Close() 
@@ -217,18 +304,18 @@ func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		var data structs.EjecucionCPU 
 		err := decoder.Decode(&data)
-		logueador.Info("Error decodificando el cuerpo", err)
+		logueador.Info("Error decodificando el cuerpo: %v", err)
 
 		// Primer chequeo por si el PID no existe
 		if !ExisteElPID(data.PID) {
-			logueador.Info("No existe el PID", "pid", data.PID)
+			logueador.Info("No existe el PID: %d", data.PID)
 			http.Error(w, "PID no existe", http.StatusBadRequest)
 			return
 		}
 
 		// Segundo chequeo por si el PC es mayor al tamaño de las instrucciones => ya no quedan más instrucciones por ejecutar 
 		if NoQuedanMasInstrucciones(data.PID, data.PC) {
-			logueador.Info("No quedan más instrucciones para el PID", "pid", data.PID)
+			logueador.Info("No quedan más instrucciones para el PID: %d", data.PID)
 			http.Error(w, "No quedan más instrucciones", http.StatusBadRequest)
 			return
 		}
@@ -245,14 +332,14 @@ func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Request) {
 	instruccionJSON, err := json.Marshal(instruccion)
 	if err != nil {
-		logueador.Info("Error al convertir la instrucción a JSON", "error", err)
+		logueador.Info("Error al convertir la instrucción a JSON: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(instruccionJSON)
-	logueador.Info("Instrucción enviada desde memoria -", "instruccion", instruccion)
+	logueador.Info("Instrucción enviada desde memoria - instruccion: %s", instruccion)
 }
 
 func check(mensaje string, e error) {
@@ -267,9 +354,8 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		var data structs.PedidoDeInicializacion
 		err := decoder.Decode(&data)
 		check("Error decodificando", err)
-
-		if(ExisteElPID(data.PID)) {
-			logueador.Info("El PID ya existe: ", data.PID)
+		if ExisteElPID(data.PID) {
+			logueador.Info("El PID ya existe: %d", data.PID)
 			http.Error(w, "El PID ya existe", http.StatusBadRequest)
 			return 
 		}
@@ -277,28 +363,27 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		tamanioInt := int(data.TamanioProceso)
 
 		if HayEspacioParaInicializar(tamanioInt) {
-			
-			logueador.Info("Hay espacio para el proceso con PID: ", data.PID)
+			logueador.Info("Hay espacio para el proceso con PID: %d", data.PID)
 			
 			CargarPIDconInstrucciones(data.Path, int(data.PID))  // Carga las instrucciones del PID en el map
 			CrearMetricaDeProceso(data.PID) // Crea la metrica del proceso para ir guardando registro de las acciones
- 
 			CrearTablaDePaginas(data.PID, int(data.TamanioProceso)) // Crea la tabla de paginas del PID
 			
 			w.WriteHeader(http.StatusOK) // Envio el OK al kernel
 			w.Write([]byte("OK")) // Envio el OK al kernel
 			return  
-			} else {
-					logueador.Info("No hay espacio para el proceso con PID: ", data.PID)
-					http.Error(w, "No hay espacio para el proceso", http.StatusBadRequest) // Envio el error al kernel
-					return
+		} else {
+			logueador.Info("No hay espacio para el proceso con PID: %d", data.PID)
+			http.Error(w, "No hay espacio para el proceso", http.StatusBadRequest) // Envio el error al kernel
+			return
 		}
-}
+	}
+
 
 func CargarPIDconInstrucciones(path string, pid int) {
 	instrucciones := LeerArchivoYGuardarInstrucciones(path)
 	Procesos[uint(pid)] = instrucciones
-	logueador.Info("PID: " + strconv.Itoa(pid) + " cargado con sus instrucciones: " + strings.Join(instrucciones, "-"))
+	logueador.Info("PID: %d cargado con sus instrucciones: %s", pid, strings.Join(instrucciones, "-"))
 }
 
 func LeerArchivoYGuardarInstrucciones(path string) []string {

@@ -30,11 +30,13 @@ func main() {
 	mux.HandleFunc("/suspenderProceso", utilsMemoria.HandlerDeSuspension)
 	mux.HandleFunc("/desuspenderProceso", utilsMemoria.HandlerDeDesuspension)
 	mux.HandleFunc("/finalizarProceso", utilsMemoria.HandlerDeFinalizacion)
+	mux.HandleFunc("/actualizarMP", utilsMemoria.HandlerCache)
+	mux.HandleFunc("/config", utilsMemoria.HandlerConfig) // para que CPU sepa de la configuración de memoria
+	mux.HandleFunc("/tabla-paginas", utilsMemoria.HandlerPedidoTDP) // por pid
 
 	// GETS para mostrar información
 	mux.HandleFunc("/metricas", utilsMemoria.HandlerMostrarMetricas)
 	mux.HandleFunc("/listaProcEinstrucciones", utilsMemoria.HandlerMostrarProcesoConInstrucciones)
-	mux.HandleFunc("/tablasDePaginas", utilsMemoria.MostrarTablasDePaginas)
 	mux.HandleFunc("/ocupadas", utilsMemoria.MostrarOcupadas)
 	
 	// http.HandleFunc("/mover-a-swap", utilsMemoria.MoverProcesoASwap)
