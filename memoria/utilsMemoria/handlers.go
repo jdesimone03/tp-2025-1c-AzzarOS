@@ -12,6 +12,47 @@ import (
 	"strings"
 )
 
+func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
+
+	pid := r.URL.Query().Get("pid")
+	direccion := r.URL.Query().Get("direccion")
+	if pid == "" || direccion == "" {
+		http.Error(w, "Datos no proporcionados", http.StatusBadRequest)
+		return
+	}
+
+	pidInt, err := strconv.Atoi(pid)
+	if err != nil {
+		logueador.Error("Error al convertir PID a entero: %v", err)
+		http.Error(w, "Error al convertir PID a entero", http.StatusBadRequest)
+		return
+	}
+
+	if !ExisteElPID(uint(pidInt)) {
+		logueador.Error("El PID %s no existe", pid)
+		http.Error(w, "PID no existe", http.StatusBadRequest)
+		return
+	}
+
+	direccionInt, err := strconv.Atoi(direccion)
+	if err != nil {
+		logueador.Error("Error al convertir dirección a entero: %v", err)
+		http.Error(w, "Error al convertir dirección a entero", http.StatusBadRequest)
+		return
+	}
+
+	inicio := direccionInt * Config.PageSize
+	fin := inicio + Config.PageSize 
+	paginaADar := EspacioUsuario[inicio:fin] // Obtengo la pagina que corresponde a la direccion
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(paginaADar); err != nil {
+		logueador.Error("Error al codificar página: %v", err)
+	}	
+	logueador.Info("Página enviada para el PID: %s, Dirección: %s", pid, direccion)
+}
+
 func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != http.MethodGet {
@@ -75,7 +116,7 @@ func HandlerConfig(w http.ResponseWriter, r *http.Request) {
 	logueador.Info("Configuración enviada")
 }
 
-func HandlerCache(w http.ResponseWriter, r *http.Request) {
+func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 	paginaJSON, err := utils.DecodificarMensaje[structs.PaginaCache](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
@@ -244,6 +285,7 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 	logueador.EscrituraEnEspacioDeUsuario(uint(pid), write.Address, len(write.Data))
 
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK")) // Envio el OK al kernel
 }
 
 func HandlerRead(w http.ResponseWriter, r *http.Request) {

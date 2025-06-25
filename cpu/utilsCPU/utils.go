@@ -193,8 +193,19 @@ func Read(pid uint, inst structs.ReadInstruction) {
 	stringPID := strconv.Itoa(int(pid))
 
 	// Verificar si la página esta en Cache
+	if(EstaEnCache(pid, inst.Address)) {
+		logueador.Info("La dirección %d ya está en la cache del PID %d", inst.Address, pid)
+		LeerDeCache(pid, inst.Address, inst.Size) 
+		return 
+	}
 
-
+	// Si la página no estaba en cache, pedirla a memoria
+	pagina, err := PedirFrameAMemoria(pid, inst.Address)
+	if err != nil {
+		logueador.Error("Error al pedir el frame a memoria: %v", err)
+		return
+	}
+	AgregarPaginaACache(pagina)
 	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read?pid="+stringPID, inst)
 
 	// Log obligatorio 4/11
@@ -202,11 +213,31 @@ func Read(pid uint, inst structs.ReadInstruction) {
 }
 
 func Write(pid uint, inst structs.WriteInstruction) {
-	stringPID := strconv.Itoa(int(pid))
-	utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write?pid="+stringPID, inst)
 
+	// Verificar si la página esta en Cache
+	if(EstaEnCache(pid, inst.Address)) {
+		logueador.Info("La dirección %d ya está en la cache del PID %d", inst.Address, pid)
+		EscribirEnCache(pid, inst.Address, inst.Data) 
+		return 
+	}
+
+	// Si no está en cache, escribir en memoria
+	stringPID := strconv.Itoa(int(pid))
+	resp := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write?pid=" + stringPID, inst)
+	if resp != "OK" {
+		logueador.Error("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.Address)
+		return
+	}
+
+	// Si la página no estaba en cache, pedirla a memoria
+	pagina, err := PedirFrameAMemoria(pid, inst.Address)
+	if err != nil {
+		logueador.Error("Error al pedir el frame a memoria: %v", err)
+		return
+	}
+	AgregarPaginaACache(pagina)
 	// Log obligatorio 4/11
-	logueador.EscrituraMemoria(pid, inst.Address, inst.Data)
+	logueador.EscrituraMemoria(pid, inst.Address, inst.Data)	
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS

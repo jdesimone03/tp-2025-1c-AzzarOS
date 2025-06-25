@@ -23,11 +23,9 @@ func PrimerFrameLibre(arranque uint) int { // arranque => desde cual frame arran
 	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
 }
 
-
-func CreaTablaJerarquica(pid uint, paginasRestantes *int) *structs.Tabla {
+func CreaTablaJerarquica(pid uint, nivelesRestantes int, paginasRestantes *int) *structs.Tabla {
 
 	tabla := &structs.Tabla{}
-	nivelesRestantes := Config.NumberOfLevels - 1
 
 	if nivelesRestantes == 0 {
 		// Nivel hoja: asignar solo las páginas necesarias
@@ -44,18 +42,17 @@ func CreaTablaJerarquica(pid uint, paginasRestantes *int) *structs.Tabla {
 	} else {
 		// Nivel intermedio: crear subtablas recursivamente
 		for i := 0; i < Config.EntriesPerPage; i++ {
-			subtabla := CreaTablaJerarquica(pid, paginasRestantes)
+			subtabla := CreaTablaJerarquica(pid, nivelesRestantes - 1,paginasRestantes)
 			tabla.Punteros = append(tabla.Punteros, subtabla)
 		}
 	}
-
 	return tabla
 }
 
 func CrearTablaDePaginas(pid uint, tamanio int) {
 	logueador.Info("Creando tabla de paginas para el PID %d" , pid)
 	paginasRestantes := CantidadDePaginasDeProceso(tamanio)
-	tabla := CreaTablaJerarquica(pid, &paginasRestantes) // Crea una tabla jerárquica para el PID
+	tabla := CreaTablaJerarquica(pid, Config.NumberOfLevels, &paginasRestantes) // Crea una tabla jerárquica para el PID
 	TDPMultinivel[pid] = tabla // Asigna la tabla al mapa TDP
 }
 

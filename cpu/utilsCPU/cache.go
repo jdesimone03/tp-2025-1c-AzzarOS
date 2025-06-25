@@ -86,7 +86,7 @@ func AccesoATLB(pid int, nropagina int) (int, bool) {
 		return tlb.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		log.Println("PID: <", pid, "> - TLB MISS - Página:", nropagina)
-		return
+		return tlb.Entradas[indice].NumeroFrame, true
 		// Se busca en la tabla de paginas => GET a memoria 
 		// Se remplaza
 		// Se devuelve el frame 
@@ -172,8 +172,8 @@ A la hora de modificar una página:
 	1. Se debe corroborar si la Cache esta habilitada => tiene al menos 1 frame
 		De ser asi: 
 			a. Se hacen las operaciones en caché 
-		Si no esat habilitada:
-			b. Se hace un write a memoria directamente
+		Si no esta habilitada:
+			b. Se hace un write a memoria directamente => pedido a memoria 
 
 
 A la hora de cargar una página en cache => HECHO
@@ -203,7 +203,7 @@ Preguntas:
 
 // Posibilidad que sea la misma estructura que la TLB
 type PaginaCache struct {
-	NumeroFrame int // Numero de pagina
+	NumeroPagina int // Numero de pagina en la tabla de paginas
 	BitPresencia bool // Indica si el frame esta presente en memoria
 	BitModificado bool // Indica si el frame ha sido modificado
 	BitDeUso bool // Indica si el frame ha sido usado recientemente
@@ -211,9 +211,8 @@ type PaginaCache struct {
 	Contenido []byte // Contenido de la pagina
 }
 
-
 type Cache struct {
-	Paginas []PaginaCache
+	Paginas []PaginaCache 
 	Algoritmo string 
 	Clock int // dato para saber donde quedó la "aguja" del clock
 }
@@ -237,15 +236,31 @@ func FueModificada(pagina PaginaCache) bool {
 
 func EstaEnCache(pid uint, nropagina int) bool {
 	if !CacheHabilitado() {
+		logueador.Error("Caché no habilitada, no se puede verificar si la página está en caché")
 		return false 
 	}
 
 	for _, pagina := range cache.Paginas {
-		if pagina.PID == int(pid) && pagina.NumeroFrame == nropagina && pagina.BitPresencia {
+		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
 			return true // La página está en la caché
 		}
 	}
 	return false 
+}
+
+func ObtenerPaginaDeCache(pid uint, nropagina int) (int, error) {
+	if !CacheHabilitado() {
+		logueador.Error("Caché no habilitada, no se puede obtener la página de caché")
+		return -1, fmt.Errorf("caché no habilitada")
+	}
+
+	for i, pagina := range cache.Paginas {
+		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
+			logueador.Info("Página encontrada en caché: PID %d, Página %d", pid, nropagina)
+			return i, nil // Retorna la página y su índice en caché
+		}
+	}
+	return -1, fmt.Errorf("página no encontrada en caché")
 }
 
 func MandarDatosAMP(paginas PaginaCache) {
@@ -297,6 +312,45 @@ func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 	}
 }
 
+func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) PaginaCache {
+	return PaginaCache{
+		NumeroPagina: nropagina,
+		BitPresencia: true, // La pagina esta presente en memoria
+		BitModificado: false, // Inicialmente no ha sido modificada
+		BitDeUso: true, // Inicialmente se considera que la pagina ha sido usada
+		PID: int(pid), // Asignamos el PID del proceso
+		Contenido: contenido, // Asignamos el contenido de la pagina
+	}
+}
+
+func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
+	
+	direccionFisica := MMU(pid, nropagina) 
+	url := fmt.Sprintf("http://%s:%d/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
+	resp, err := http.Get(url)
+	if err != nil {
+		logueador.Error("Error al pedir el frame a memoria: %v", err)
+		return PaginaCache{}, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		logueador.Error("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
+		return PaginaCache{}, fmt.Errorf("error al pedir el frame a memoria, status code: %d", resp.StatusCode)
+	}
+
+	var frame []byte 
+	err = json.NewDecoder(resp.Body).Decode(&frame)
+	if err != nil {
+		logueador.Error("Error al decodificar el frame: %v", err)
+		return PaginaCache{}, err
+	}
+
+	paginaCache := CreacionDePaginaCache(pid, nropagina, frame) 
+
+	return paginaCache, nil
+}
+
 func AgregarPaginaACache(pagina PaginaCache) {
 	if len(cache.Paginas) == Config.CacheEntries {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
@@ -321,6 +375,45 @@ func RemplazarPaginaEnCache(pagina PaginaCache) {
 	}
 	cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
 	logueador.Info("Pagina reemplazada en cache") 
+}
+
+
+func EscribirEnCache(pid uint, adress int, data string) {
+
+	indice, err := ObtenerPaginaDeCache(pid, adress)
+	if err != nil {
+		logueador.Error("Error al obtener la pagina de cache: %v", err)
+		return
+	}
+
+	cache.Paginas[indice].Contenido = []byte(data) // Actualizamos el contenido de la pagina en cache
+	cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
+	logueador.Info("Pagina escrita en cache: PID %d, Direccion %d, Contenido %s", pid, adress, data)
+}
+
+func LeerDeCache(pid uint, adress int, tam int) []byte {
+	indice, err := ObtenerPaginaDeCache(pid, adress)
+	if err != nil {
+		logueador.Error("Error al obtener la pagina de cache: %v", err)
+		return nil
+	}
+
+	if indice < 0 || indice >= len(cache.Paginas) {
+		logueador.Error("Indice de pagina fuera de rango: %d", indice)
+		return nil 
+	}
+
+	pagina := cache.Paginas[indice]
+	if pagina.BitPresencia && pagina.PID == int(pid) {
+		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en cache
+		return contenido 
+		logueador.Info("Pagina leida de cache: PID %d, Direccion %d, Contenido %s", pid, adress, string(contenido))
+	} else {
+		logueador.Error("Pagina no encontrada en cache o no pertenece al PID %d", pid)
+		return nil 
+	}
+
+	return nil 
 }
 
 // Para CLOCK-M

@@ -32,6 +32,8 @@ func main() {
 		CPU:           cpu,
 	}
 
+	
+
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel, "handshake/CPU", peticion)
 
 	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
