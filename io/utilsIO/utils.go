@@ -15,7 +15,7 @@ import (
 var Config config.ConfigIO
 var NombreInterfaz string
 var Ejecutando structs.EjecucionIO
-var hayEjecucion = make(chan bool)
+var chEjecucion = make(chan structs.EjecucionIO)
 
 // Manejo de señales
 func init() {
@@ -25,11 +25,11 @@ func init() {
 
 	go func() {
 		for {
-			<-hayEjecucion
-			Ejecucion(Ejecutando)
+			exec := <-chEjecucion
+			Ejecucion(exec)
 		}
 	}()
-
+ 
 	go func() {
 		sig := <-sigs
 		logueador.Warn("Señal recibida: %v. Notificando al Kernel.", sig)
@@ -47,8 +47,7 @@ func RecibirEjecucionIO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Ejecutando = *ejecucion
-	hayEjecucion <- true
+	chEjecucion <- *ejecucion
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -63,6 +62,4 @@ func Ejecucion(ctx structs.EjecucionIO) {
 	logueador.FinalizacionIO(ctx.PID)
 
 	utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-end", NombreInterfaz)
-
-	hayEjecucion <- false
 }
