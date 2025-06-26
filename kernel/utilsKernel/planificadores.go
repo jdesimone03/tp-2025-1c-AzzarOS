@@ -13,7 +13,7 @@ import (
 
 func PlanificadorIO(nombre string) {
 	for {
-		interfaz, encontrada := Interfaces[nombre]
+		interfaz, encontrada := Interfaces.Obtener(nombre)
 		if encontrada {
 			if ListaExecIO.NoVacia(nombre) {
 				// Enviar al IO el PID y el tiempo en ms
@@ -29,7 +29,7 @@ func PlanificadorIO(nombre string) {
 		} else {
 			// Si se llega a desconectar el IO, se desconecta el planificador
 			// Tengo que ver como hacer para que se borre la interfaz de la lista de interfaces al momento que se desconecta
-			logueador.Error("Interfaz %s no encontrada, desconectando el planificador", nombre)
+			logueador.Error("Interfaz %s no encontrada, finalizando el planificador", nombre)
 			return
 		}
 	}
@@ -44,12 +44,12 @@ func PlanificadorLargoPlazo() {
 			firstPCB := ColaNew.Obtener(0)
 			switch Config.SchedulerAlgorithm {
 			case "FIFO":
-				procesoAEnviar = NuevosProcesos[firstPCB.PID]
+				procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
 				// Si no, no hace nada. Sigue con el bucle hasta que se libere
 			case "PMCP":
-				procesoMinimo := NuevosProcesos[firstPCB.PID]
+				procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
 				for _, pcb := range ColaNew.Cola {
-					nuevoProceso := NuevosProcesos[pcb.PID]
+					nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
 					if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
 						procesoMinimo = nuevoProceso
 					}
@@ -81,7 +81,7 @@ func PlanificadorCortoPlazo() {
 	var aEjecutar structs.PCB
 	for {
 		if ColaReady.NoVacia() {
-			nombreCPU, hayDisponible := GetCPUDisponible()
+			nombreCPU, hayDisponible := InstanciasCPU.BuscarCPUDisponible()
 			if hayDisponible {
 				switch Config.ReadyIngressAlgorithm {
 				case "FIFO":
@@ -103,11 +103,15 @@ func PlanificadorCortoPlazo() {
 					//TODO IMPLEMENTAR
 				case "SJF-SD":
 					pcbMasChico := ColaReady.Obtener(0)
+					
 					for _, pcb := range(ColaReady.Cola) {
-						if TiempoEstimado[pcb.PID] < TiempoEstimado[pcbMasChico.PID] {
+						estimadoA, _ := TiempoEstimado.Obtener(pcb.PID)
+						estimadoB, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
+						if estimadoA < estimadoB {
 							pcbMasChico = pcb
 						}
 					}
+					
 					aEjecutar = pcbMasChico
 					//1 estimar todos los procesos en la cola de ready
 					//2 elegir el mas chico
@@ -124,13 +128,10 @@ func PlanificadorCortoPlazo() {
 				}
 
 				// Marca como ejecutando
-				cpu := InstanciasCPU[nombreCPU]
-				cpu.Ejecutando = true
-				cpu.PID = aEjecutar.PID
-				InstanciasCPU[nombreCPU] = cpu
+				cpu := InstanciasCPU.Ocupar(nombreCPU,aEjecutar.PID)
 
 				// Envia el proceso
-				TiempoEnColaExecute[aEjecutar.PID] = time.Now().UnixMilli() // Inicia el timer de ejecución, se para cuando se interrumpe
+				TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
 				utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
 				MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
 			}
