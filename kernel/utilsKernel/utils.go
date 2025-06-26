@@ -45,6 +45,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
 	pcb.MetricasConteo[structs.EstadoNew]++
+	pcb.MetricasTiempo[structs.EstadoNew] = time.Now().UnixMilli()
 	ColaNew.Agregar(pcb)
 	contadorProcesos++
 	TiempoEstimado[pcb.PID] = float64(Config.InitialEstimate)
@@ -109,6 +110,8 @@ func Interrumpir(nombreCpu string) {
 	if err != nil {
 		logueador.Error("No se pudo interrumpir la CPU %s: %v", nombreCpu, err)
 	}
+	<-chCambioDeContexto
+	logueador.Info("supuestamente ya se hizo el cambio de contexto")
 }
 
 func IniciarTimerSuspension(pid uint) {

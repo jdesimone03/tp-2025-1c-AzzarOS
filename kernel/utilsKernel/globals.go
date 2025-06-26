@@ -36,3 +36,5 @@ var Interfaces = make(map[string]structs.InterfazIO)
 
 var ListaExecIO = structs.NewMapSeguro[structs.EjecucionIO]()
 var ListaWaitIO = structs.NewMapSeguro[structs.EjecucionIO]()
+
+var chCambioDeContexto = make(chan bool)

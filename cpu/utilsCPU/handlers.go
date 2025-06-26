@@ -26,9 +26,7 @@ func RecibirEjecucion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Ejecucion(*ejecucion) 
-
-	// chEjecucion <- *ejecucion
+	chEjecucion <- *ejecucion
 
 	w.WriteHeader(http.StatusOK)
 }

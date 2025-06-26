@@ -115,13 +115,9 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Busca el proceso a guardar en la cola execute
-	/* 	for i := range ColaExecute {
-		if ColaExecute[i].PID == contexto.PID {
-			ColaExecute[i].PC = contexto.PC
-			break
-		}
-	} */
+	ColaExecute.Actualizar(contexto.PID,contexto.PC)
 
+	chCambioDeContexto <- true
 	w.WriteHeader(http.StatusOK)
 }
 
