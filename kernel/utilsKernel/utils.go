@@ -16,6 +16,11 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 		estadoActual := pcb.Estado
 		pcb.Estado = estadoNuevo // cambiar el estado del PCB
 
+		pcb.MetricasTiempo[estadoActual] = time.Now().UnixMilli() - pcb.MetricasTiempo[estadoActual]
+		if estadoNuevo != structs.EstadoExit {
+			pcb.MetricasTiempo[estadoNuevo] = time.Now().UnixMilli()
+		}
+
 		pcb.MetricasConteo[estadoNuevo]++
 
 		destino.Agregar(pcb)
@@ -42,6 +47,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	pcb.MetricasConteo[structs.EstadoNew]++
 	ColaNew.Agregar(pcb)
 	contadorProcesos++
+	TiempoEstimado[pcb.PID] = float64(Config.InitialEstimate)
 
 	// Log obligatorio 2/8
 	logueador.KernelCreacionDeProceso(pcb.PID)
@@ -75,7 +81,9 @@ func GetCPU(pid uint) string {
 	return ""
 }
 
-func EstimarRafaga(estimadoAnterior float64, realAnterior float64) float64 {
+func EstimarRafaga(pid uint) float64 {
+	estimadoAnterior := float64(TiempoEstimado[pid])
+	realAnterior := float64(time.Now().UnixMilli() - TiempoEnColaExecute[pid])
 	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
 }
 
@@ -101,7 +109,6 @@ func Interrumpir(nombreCpu string) {
 	if err != nil {
 		logueador.Error("No se pudo interrumpir la CPU %s: %v", nombreCpu, err)
 	}
-
 }
 
 func IniciarTimerSuspension(pid uint) {

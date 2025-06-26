@@ -22,6 +22,7 @@ var ColaSuspReady = structs.NewColaSegura()
 // Map para trackear los timers de los procesos
 var TiempoEnColaBlocked = make(map[uint]*time.Timer)
 var TiempoEnColaExecute = make(map[uint]int64)
+var TiempoEstimado = make(map[uint]float64)
 
 var contadorProcesos uint = 0
 

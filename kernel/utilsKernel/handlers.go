@@ -104,6 +104,8 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	logueador.Info("(%d) Guardando contexto en PC: %d", contexto.PID, contexto.PC)
 
+	TiempoEstimado[contexto.PID] = EstimarRafaga(contexto.PID)
+
 	// Desaloja las cpu que se estén usando.
 	for nombre, instancia := range InstanciasCPU {
 		if instancia.Ejecutando && instancia.PID == contexto.PID {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log/slog"
 	"os"
+	"time"
 	"utils"
 	"utils/logueador"
 	"utils/structs"
@@ -77,26 +78,14 @@ func PlanificadorCortoPlazo() {
 
 	// var estimado = float64(Config.InitialEstimate)
 	// var real int64
+	var aEjecutar structs.PCB
 	for {
-		for _, pcb := range ColaReady.Cola {
+		if ColaReady.NoVacia() {
 			nombreCPU, hayDisponible := GetCPUDisponible()
 			if hayDisponible {
 				switch Config.ReadyIngressAlgorithm {
 				case "FIFO":
-					ejecucion := structs.EjecucionCPU{
-						PID: pcb.PID,
-						PC:  pcb.PC,
-					}
-
-					// Marca como ejecutando
-					cpu := InstanciasCPU[nombreCPU]
-					cpu.Ejecutando = true
-					cpu.PID = pcb.PID
-					InstanciasCPU[nombreCPU] = cpu
-
-					// Envia el proceso
-					utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
-					MoverPCB(pcb.PID, ColaReady, ColaExecute, structs.EstadoExec)
+					aEjecutar = ColaReady.Obtener(0)
 				case "SJF":
 					// Est(n)=Estimado de la ráfaga anterior =
 					// R(n) = Lo que realmente ejecutó de la ráfaga anterior en la CPU
@@ -113,6 +102,13 @@ func PlanificadorCortoPlazo() {
 
 					//TODO IMPLEMENTAR
 				case "SJF-SD":
+					pcbMasChico := ColaReady.Obtener(0)
+					for _, pcb := range(ColaReady.Cola) {
+						if TiempoEstimado[pcb.PID] < TiempoEstimado[pcbMasChico.PID] {
+							pcbMasChico = pcb
+						}
+					}
+					aEjecutar = pcbMasChico
 					//1 estimar todos los procesos en la cola de ready
 					//2 elegir el mas chico
 					//3 mandar a ejecutar el mas chico
@@ -122,6 +118,21 @@ func PlanificadorCortoPlazo() {
 					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
 					return
 				}
+				ejecucion := structs.EjecucionCPU{
+					PID: aEjecutar.PID,
+					PC:  aEjecutar.PC,
+				}
+
+				// Marca como ejecutando
+				cpu := InstanciasCPU[nombreCPU]
+				cpu.Ejecutando = true
+				cpu.PID = aEjecutar.PID
+				InstanciasCPU[nombreCPU] = cpu
+
+				// Envia el proceso
+				TiempoEnColaExecute[aEjecutar.PID] = time.Now().UnixMilli() // Inicia el timer de ejecución, se para cuando se interrumpe
+				utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
+				MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
 			}
 		}
 	}

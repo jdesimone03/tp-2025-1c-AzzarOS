@@ -46,7 +46,7 @@ type InterfazIO struct {
 }
 
 type EjecucionCPU struct {
-	PID uint 
+	PID uint
 	PC  uint
 }
 
@@ -87,7 +87,7 @@ type NoopInstruction struct{}
 type WriteInstruction struct {
 	Address int
 	Data    string
-	PID   uint
+	PID     uint
 }
 
 type ReadInstruction struct {
@@ -249,45 +249,45 @@ type TiempoEjecucion struct {
 // --------------------------------- Memoria --------------------------------- //
 
 type Tabla struct {
-	Punteros []*Tabla 
-	Valores []int 
+	Punteros []*Tabla
+	Valores  []int
 }
 
 type PaginaCache struct {
-	NumeroFrame int // Numero de pagina
-	NumeroPagina int // Numero de pagina en la tabla de paginas
-	BitPresencia bool // Indica si el frame esta presente en memoria
-	BitModificado bool // Indica si el frame ha sido modificado
-	BitDeUso bool // Indica si el frame ha sido usado recientemente
-	PID int // Identificador del proceso al que pertenece el frame
-	Contenido []byte // Contenido de la pagina
+	NumeroFrame   int    // Numero de pagina
+	NumeroPagina  int    // Numero de pagina en la tabla de paginas
+	BitPresencia  bool   // Indica si el frame esta presente en memoria
+	BitModificado bool   // Indica si el frame ha sido modificado
+	BitDeUso      bool   // Indica si el frame ha sido usado recientemente
+	PID           int    // Identificador del proceso al que pertenece el frame
+	Contenido     []byte // Contenido de la pagina
 }
-type FrameInfo struct{
+type FrameInfo struct {
 	EstaOcupado bool `json:"esta_ocupado"` // Indica si el frame está ocupado
-	PID uint `json:"pid"` // Identificador del proceso al que pertenece el frame
+	PID         uint `json:"pid"`          // Identificador del proceso al que pertenece el frame
 }
 
-type TablaDePaginas struct{
-	PID uint `json:"pid"` // Identificador del proceso
-	Entradas []EntradaDeTabla`json:"paginas"` // Lista de páginas, Por numero de pagina: cada una con su bit de presencia y modificado y nro frame en memoria
+type TablaDePaginas struct {
+	PID      uint             `json:"pid"`     // Identificador del proceso
+	Entradas []EntradaDeTabla `json:"paginas"` // Lista de páginas, Por numero de pagina: cada una con su bit de presencia y modificado y nro frame en memoria
 }
 
 type EntradaDeTabla struct {
-	BitPresencia bool `json:"bit_presencia"`
+	BitPresencia  bool `json:"bit_presencia"`
 	BitModificado bool `json:"bit_modificado"`
-	NumeroDeFrame int `json:"numero_frame"`  
+	NumeroDeFrame int  `json:"numero_frame"`
 	// PunteroATabla *TablaDePaginas `json:"puntero_a_tabla"`
 }
 
 type CuerpoSolicitud struct {
-    PID uint `json:"PID"`
-    PC  uint `json:"PC"`	
+	PID uint `json:"PID"`
+	PC  uint `json:"PC"`
 }
 
 type PedidoDeInicializacion struct {
-	PID uint `json:"PID"`
-	TamanioProceso uint `json:"TAM"`	
-	Path string `json:"PATH"`
+	PID            uint   `json:"PID"`
+	TamanioProceso uint   `json:"TAM"`
+	Path           string `json:"PATH"`
 }
 
 type ConfigMemoria struct {
