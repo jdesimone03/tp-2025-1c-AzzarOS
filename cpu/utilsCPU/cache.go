@@ -197,8 +197,6 @@ Para acceder a una página hay que:
 
 Preguntas: 
 1) Se cargan todas las paginas en cache de un proceso al iniciar?
-
-
 */
 
 // Posibilidad que sea la misma estructura que la TLB
