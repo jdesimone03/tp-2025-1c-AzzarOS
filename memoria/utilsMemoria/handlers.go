@@ -400,10 +400,12 @@ func check(mensaje string, e error) {
 
 func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		
-		decoder := json.NewDecoder(r.Body)
-		var data structs.PedidoDeInicializacion
-		err := decoder.Decode(&data)
-		check("Error decodificando", err)
+		data, err := utils.DecodificarMensaje[structs.PedidoDeInicializacion](r)
+		if err != nil {
+			logueador.Error("Error al decodificar el mensaje: %v", err)
+			http.Error(w, "Error al decodificar el mensaje", http.StatusBadRequest)
+			return
+		}
 		if ExisteElPID(data.PID) {
 			logueador.Info("El PID ya existe: %d", data.PID)
 			http.Error(w, "El PID ya existe", http.StatusBadRequest)

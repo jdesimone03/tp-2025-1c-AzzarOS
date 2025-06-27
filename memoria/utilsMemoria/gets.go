@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"utils/structs"
 )
 
 func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
@@ -28,10 +29,10 @@ func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	var procesos []ProcesoEnSwap
+	var procesos []structs.ProcesoEnSwap
 
 	for scanner.Scan() {
-		var proceso ProcesoEnSwap
+		var proceso structs.ProcesoEnSwap
 		err := json.Unmarshal(scanner.Bytes(), &proceso)
 		if err != nil {
 			logueador.Info("Error al decodificar el proceso: %s", err)

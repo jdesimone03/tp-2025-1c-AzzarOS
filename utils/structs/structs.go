@@ -340,6 +340,10 @@ type TiempoEjecucion struct {
 
 // --------------------------------- Memoria --------------------------------- //
 
+type ProcesoEnSwap struct {
+	PID uint `json:"pid"` // Identificador del proceso
+	Paginas []string `json:"paginas"` // Lista de páginas del proceso
+}
 type Tabla struct {
 	Punteros []*Tabla `json:"Tabla"`
 	Valores  []int `json:"Valores"` // Valores de los frames ocupados por las paginas

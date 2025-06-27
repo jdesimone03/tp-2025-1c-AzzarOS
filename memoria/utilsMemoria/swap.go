@@ -6,18 +6,16 @@ import (
 	"os"
 	"path/filepath"
 	"utils/logueador"
+	"utils/structs"
 )
 
 
 func Tamanioframe() int {
 	return Config.PageSize
 }
-type ProcesoEnSwap struct {
-	PID uint `json:"pid"` // Identificador del proceso
-	Paginas []string `json:"paginas"` // Lista de páginas del proceso
-}
 
-func EscribirProcesoEsSwap(proceso ProcesoEnSwap) {
+
+func EscribirProcesoEsSwap(proceso structs.ProcesoEnSwap) {
 	pathCorrecto := filepath.Base(Config.SwapfilePath)
 	file, err := os.OpenFile(pathCorrecto, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -70,7 +68,7 @@ func BuscarPaginasDeProceso(pid uint) []string {
 	return listaDePaginas
 }
 
-func BuscarProcesoEnSwap(pid uint) *ProcesoEnSwap {
+func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 	pathCorrecto := filepath.Base(Config.SwapfilePath)
 	file, err := os.Open(pathCorrecto)
 	if err != nil {
@@ -81,7 +79,7 @@ func BuscarProcesoEnSwap(pid uint) *ProcesoEnSwap {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		var proceso ProcesoEnSwap
+		var proceso structs.ProcesoEnSwap
 		err := json.Unmarshal(scanner.Bytes(), &proceso)
 		if err != nil {
 			logueador.Info("Error al deserializar el proceso desde el archivo SWAP:", err)
@@ -124,7 +122,7 @@ func SwapInProceso(pid uint) {
 		logueador.Info("No se encontraron páginas para el proceso", pid)
 		return
 	}
-	procesoEnSwap := ProcesoEnSwap{
+	procesoEnSwap := structs.ProcesoEnSwap{
 		PID: pid,
 		Paginas: paginas,
 	}
