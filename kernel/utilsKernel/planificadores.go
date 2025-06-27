@@ -10,7 +10,6 @@ import (
 	"utils/structs"
 )
 
-
 func PlanificadorIO(nombre string) {
 	for {
 		interfaz, encontrada := Interfaces.Obtener(nombre)
@@ -35,41 +34,41 @@ func PlanificadorIO(nombre string) {
 	}
 }
 
-
 func PlanificadorLargoPlazo() {
 	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
 	var procesoAEnviar structs.NuevoProceso
 	for {
-		if ColaNew.NoVacia() {
-			firstPCB := ColaNew.Obtener(0)
-			switch Config.SchedulerAlgorithm {
-			case "FIFO":
-				procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
-				// Si no, no hace nada. Sigue con el bucle hasta que se libere
-			case "PMCP":
-				procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
-				for _, pcb := range ColaNew.Cola {
-					nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
-					if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
-						procesoMinimo = nuevoProceso
-					}
-				}
-				procesoAEnviar = procesoMinimo
-			default:
-				logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
-				return
-			}
-			logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
-			// TODO Liberar map de nuevos procesos?
-			respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
-			if respuesta != "OK" {
-				logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", procesoAEnviar.PID)
-				// Implementar semaforos para que espere que termine un proceso
-			}
-			utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
-			MoverPCB(procesoAEnviar.PID, ColaNew, ColaReady, structs.EstadoReady)
-			//TODO timesleep?
+		if ColaNew.Vacia() {
+			continue // Espera a que haya un proceso en new
 		}
+		firstPCB := ColaNew.Obtener(0)
+		switch Config.SchedulerAlgorithm {
+		case "FIFO":
+			procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
+			// Si no, no hace nada. Sigue con el bucle hasta que se libere
+		case "PMCP":
+			procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
+			for _, pcb := range ColaNew.Cola {
+				nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
+				if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
+					procesoMinimo = nuevoProceso
+				}
+			}
+			procesoAEnviar = procesoMinimo
+		default:
+			logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
+			return
+		}
+		logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
+		// TODO Liberar map de nuevos procesos?
+		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
+		if respuesta != "OK" {
+			logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", procesoAEnviar.PID)
+			// Implementar semaforos para que espere que termine un proceso
+		}
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
+		MoverPCB(procesoAEnviar.PID, ColaNew, ColaReady, structs.EstadoReady)
+		//TODO timesleep?
 	}
 }
 
@@ -80,61 +79,51 @@ func PlanificadorCortoPlazo() {
 	// var real int64
 	var aEjecutar structs.PCB
 	for {
-		if ColaReady.NoVacia() {
-			nombreCPU, hayDisponible := InstanciasCPU.BuscarCPUDisponible()
-			if hayDisponible {
-				switch Config.ReadyIngressAlgorithm {
-				case "FIFO":
-					aEjecutar = ColaReady.Obtener(0)
-				case "SJF":
-					// Est(n)=Estimado de la ráfaga anterior =
-					// R(n) = Lo que realmente ejecutó de la ráfaga anterior en la CPU
-					// Est(n+1) = El estimado de la próxima ráfaga
-					// Est(n+1) =  alpha * R(n) + (1-alpha) * Est(n) ;    [0,1]
-					// real = time.Now().UnixMilli() - TiempoEnColaExecute[pcb.PID]
-					// estimadoSiguiente := EstimarRafaga(float64(estimado), float64(real))
+		if ColaReady.Vacia() {
+			continue
+		}
 
-					// if estimadoSiguiente > estimado {
-					// 	estimado = estimadoSiguiente
-					// 	//	desalojar ejecutando
-					// 	//	mandar proceso a ejecutar
-					// }
+		nombreCPU, hayDisponible := InstanciasCPU.BuscarCPUDisponible()
 
-					//TODO IMPLEMENTAR
-				case "SJF-SD":
-					pcbMasChico := ColaReady.Obtener(0)
-					
-					for _, pcb := range(ColaReady.Cola) {
-						estimadoA, _ := TiempoEstimado.Obtener(pcb.PID)
-						estimadoB, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
-						if estimadoA < estimadoB {
-							pcbMasChico = pcb
-						}
-					}
-					
-					aEjecutar = pcbMasChico
-					//1 estimar todos los procesos en la cola de ready
-					//2 elegir el mas chico
-					//3 mandar a ejecutar el mas chico
-					//4 iniciar el timer
-					//5 en base al ultimo timer reestimar todos los procesos en la cola de ready
-				default:
-					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
-					return
+		if !hayDisponible && Config.ReadyIngressAlgorithm == "SJF" {
+			var estimadoMasChico float64
+			aEjecutar, estimadoMasChico = ObtenerMasChico()
+
+			for _, pcb := range ColaExecute.Cola {
+				estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
+				if estimadoMasChico < estimadoActual {
+					// Manda a ejecutar el mas chico
+					cpuADesalojar := InstanciasCPU.BuscarCPUPorPID(pcb.PID)
+					Interrumpir(cpuADesalojar)
+					nombreCPU, hayDisponible = InstanciasCPU.BuscarCPUDisponible()
+					break
 				}
-				ejecucion := structs.EjecucionCPU{
-					PID: aEjecutar.PID,
-					PC:  aEjecutar.PC,
-				}
-
-				// Marca como ejecutando
-				cpu := InstanciasCPU.Ocupar(nombreCPU,aEjecutar.PID)
-
-				// Envia el proceso
-				TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
-				utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
-				MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
 			}
+		}
+
+		if hayDisponible {
+			switch Config.ReadyIngressAlgorithm {
+			case "FIFO":
+				aEjecutar = ColaReady.Obtener(0)
+			case "SJF-SD":
+				aEjecutar, _ = ObtenerMasChico()
+			default:
+				logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
+				return
+			}
+
+			ejecucion := structs.EjecucionCPU{
+				PID: aEjecutar.PID,
+				PC:  aEjecutar.PC,
+			}
+
+			// Marca como ejecutando
+			cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
+
+			// Envia el proceso
+			TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
+			MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
+			utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
 		}
 	}
 }
@@ -195,4 +184,25 @@ func IniciarPlanificadores() {
 		bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
 		go PlanificadorLargoPlazo()
 	}()
+}
+
+// ---------------------------- Funciones de utilidad ----------------------------//
+func ObtenerMasChico() (structs.PCB, float64) {
+	//1 estimar todos los procesos en la cola de ready
+	//2 elegir el mas chico
+	//3 mandar a ejecutar el mas chico
+	//4 iniciar el timer
+	//5 en base al ultimo timer reestimar todos los procesos en la cola de ready
+	pcbMasChico := ColaReady.Obtener(0)
+	estimadoMasChico, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
+
+	for _, pcb := range ColaReady.Cola {
+		estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
+		if estimadoActual < estimadoMasChico {
+			pcbMasChico = pcb
+			estimadoMasChico, _ = TiempoEstimado.Obtener(pcbMasChico.PID)
+		}
+	}
+
+	return pcbMasChico, estimadoMasChico
 }

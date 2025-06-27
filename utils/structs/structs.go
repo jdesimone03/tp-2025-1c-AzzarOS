@@ -206,6 +206,12 @@ func (ms *MapCPU) BuscarCPUPorPID(pid uint) string {
 	return ""
 }
 
+func (ms *MapCPU) ObtenerPID(nombre string) uint {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	return ms.Map[nombre].PID
+}
+
 // --------------------------------- SLICE MAP --------------------------------- //
 type SliceMapSeguro MapSeguro[string, []EjecucionIO]
 
@@ -313,8 +319,8 @@ func (cs *ColaSegura) Longitud() int {
 	return len(cs.Cola)
 }
 
-func (cs *ColaSegura) NoVacia() bool {
-	return len(cs.Cola) > 0
+func (cs *ColaSegura) Vacia() bool {
+	return !(len(cs.Cola) > 0)
 }
 
 // --------------------------------- Utilidades --------------------------------- //
