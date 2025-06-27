@@ -86,8 +86,10 @@ func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
 		return
 	}
+	IncrementarMetricaEn(uint(pidInt), "AccesoATablas") // Aumento la métrica de tablas de páginas solicitadas del PID
 	w.WriteHeader(http.StatusOK)
 	w.Write(tablaJSON)
+
 	logueador.Info("Tabla de páginas enviada para el PID: %d", pidInt)	
 }
 
@@ -234,6 +236,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
 		logueador.Error("Error al convertir PID a entero")
@@ -242,7 +245,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	SwapOutProceso(uint(pidInt))
-	IncrementarMetricaEn(uint(pidInt), "SubidasAMemoria") // Aumento la métrica de subidas a memoria principal del PID
+	IncrementarMetricaEn(uint(pidInt), "SubidasAmemoria") // Aumento la métrica de subidas a memoria principal del PID
 	
 	logueador.Info("Swapout del proceso con PID: %s", pid)
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
@@ -280,7 +283,7 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Write(uint(pid),write.Address, write.Data) // Aquí deberías convertir los datos a bytes antes de escribir	
-
+	IncrementarMetricaEn(uint(pid), "Escrituras") // Aumenta la métrica de escrituras de memoria del PID
 	// Log obligatorio 4/5
 	logueador.EscrituraEnEspacioDeUsuario(uint(pid), write.Address, len(write.Data))
 
@@ -315,9 +318,9 @@ func HandlerRead(w http.ResponseWriter, r *http.Request) {
 
 	// Log obligatorio 4/5
 	logueador.LecturaEnEspacioDeUsuario(uint(pid), read.Address, read.Size)
-
+	IncrementarMetricaEn(uint(pid), "Lecturas") // Aumenta la métrica de lecturas de memoria del PID
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(string(valorLeido))
+	json.NewEncoder(w).Encode(string(valorLeido)) // devuelve el valor leído como string
 }
 
 func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
@@ -346,9 +349,14 @@ func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		var data structs.EjecucionCPU 
 		err := decoder.Decode(&data)
-		logueador.Info("Error decodificando el cuerpo: %v", err)
-
+		
+		if err != nil {
+			http.Error(w, "Error decodificando el cuerpo", http.StatusBadRequest)
+			logueador.Info("Error decodificando el cuerpo: %v", err)
+		}
+		
 		// Primer chequeo por si el PID no existe
+
 		if !ExisteElPID(data.PID) {
 			logueador.Info("No existe el PID: %d", data.PID)
 			http.Error(w, "PID no existe", http.StatusBadRequest)

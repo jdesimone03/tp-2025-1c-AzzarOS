@@ -20,16 +20,21 @@ var Config config.ConfigMemory
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
 var EspacioUsuario []byte // memoriaPrincipal
 var Metricas = make(map[uint]structs.Metricas) // Metricas
-var Ocupadas map[uint]structs.FrameInfo
+var Ocupadas map[uint]structs.FrameInfo // Ver de cambiar a un vector de PID nomas 
 var TDPMultinivel map[uint]*structs.Tabla  
 
 func IniciarEstructuras() {
 	// Carga el espacio de usuario
 	EspacioUsuario = make([]byte, Config.MemorySize)
-	Ocupadas = make(map[uint]structs.FrameInfo, Config.MemorySize/Config.PageSize)
+	InicializarOcupadas()
 	TDPMultinivel = make(map[uint]*structs.Tabla)
 	CreacionArchivoSWAP()
 }
+
+func CantidadDeFrames() int {
+	return Config.MemorySize / Config.PageSize
+} 
+
 
 func EjecutarArchivo(path string) []string {
 	contenido, err := os.ReadFile(path)
@@ -150,7 +155,7 @@ func IncrementarMetricaEn(pid uint, campo string) {
 	metrica := Metricas[pid]
 	switch campo {
 	case "AccesoATablas":
-		metrica.AccesosATablas++
+		metrica.AccesosATablas += uint(Config.NumberOfLevels)
 	case "InstruccionesSolicitadas":
 		metrica.InstruccionesSolicitadas++
 	case "BajadasAlSWAP":

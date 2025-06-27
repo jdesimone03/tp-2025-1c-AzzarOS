@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 	"utils/logueador"
@@ -27,7 +26,7 @@ var tlb1 = make([]EntradaTLB, Config.TlbEntries)
 
 func InicializarTLB() {
 	if Config.TlbEntries == 0 {
-		log.Println("TLB deshabilitado, no se inicializa")
+		logueador.Info("TLB deshabilitado, no se inicializa")
 		return
 	}
 		for i := 0; i < Config.TlbEntries; i++ {
@@ -65,7 +64,7 @@ var tlb = TLB {
 
 func InicializarTLBStruct() {
 	if Config.TlbEntries == 0 {
-		log.Println("TLB deshabilitado, no se inicializa")
+		logueador.Info("TLB deshabilitado, no se inicializa")
 		return
 	}
 	for i := 0; i < Config.TlbEntries; i++ {
@@ -82,10 +81,10 @@ func InicializarTLBStruct() {
 func AccesoATLB(pid int, nropagina int) (int, bool) {
 	bool, indice := Hit(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
-		log.Println("PID: <", pid, "> - TLB HIT - Página:", nropagina)
+		logueador.Info("PID: <", pid, "> - TLB HIT - Página:", nropagina)
 		return tlb.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
 	} else {
-		log.Println("PID: <", pid, "> - TLB MISS - Página:", nropagina)
+		logueador.Info("PID: <", pid, "> - TLB MISS - Página:", nropagina)
 		return tlb.Entradas[indice].NumeroFrame, true
 		// Se busca en la tabla de paginas => GET a memoria 
 		// Se remplaza
@@ -132,7 +131,7 @@ func IndiceDeEntradaVictima() int {
 func ReemplzarEntradaTLB(pid int, nropagina int, nroframe int) {
 	
 	if len(tlb.Entradas) == 0 {
-		log.Println("No hay entradas en la TLB para reemplazar")
+		logueador.Info("No hay entradas en la TLB para reemplazar")
 		return
 	}
 
@@ -265,7 +264,7 @@ func MandarDatosAMP(paginas PaginaCache) {
 	url := fmt.Sprintf("http://%s:%d/actualizarMP", Config.IPMemory, Config.PortMemory)
 	body, err := json.Marshal(paginas)
 	if err != nil {
-		log.Println("Error al serializar la pagina a JSON:", err)
+		logueador.Info("Error al serializar la pagina a JSON:", err)
 		return
 	}
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))

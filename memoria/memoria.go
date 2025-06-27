@@ -36,6 +36,9 @@ func main() {
 	http.HandleFunc("/metricas", utilsMemoria.HandlerMostrarMetricas)
 	http.HandleFunc("/listaProcEinstrucciones", utilsMemoria.HandlerMostrarProcesoConInstrucciones)
 	http.HandleFunc("/ocupadas", utilsMemoria.MostrarOcupadas)
+	http.HandleFunc("/swap", utilsMemoria.HandlerMostrarSWAP) // para ver el contenido del swap
+	
+
 	
 	// http.HandleFunc("/mover-a-swap", utilsMemoria.MoverProcesoASwap)
 
