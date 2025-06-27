@@ -11,7 +11,6 @@ func FrameLibre(numero uint) bool {
 }
 
 func PrimerFrameLibre(arranque uint) int { // arranque => desde cual frame arranco a buscar
-	logueador.Info("Buscando frame libre...")
 	CantidadDeFrames := uint(len(Ocupadas)) // Cantidad de frames que hay en memoria
 	for i := arranque; i < uint(CantidadDeFrames); i++ {
 		if FrameLibre(i) {
@@ -23,15 +22,27 @@ func PrimerFrameLibre(arranque uint) int { // arranque => desde cual frame arran
 	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
 }
 
+func PrimerFrameLibreSinLogs(arranque uint) int { // arranque => desde cual frame arranco a buscar
+	CantidadDeFrames := uint(len(Ocupadas)) // Cantidad de frames que hay en memoria
+	for i := arranque; i < uint(CantidadDeFrames); i++ {
+		if FrameLibre(i) {
+			return int(i)
+		}
+	}
+	logueador.Warn("No se encontraron frames libres")
+	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
+}
+
+
 func CreaTablaJerarquica(pid uint, nivelesRestantes int, paginasRestantes *int) *structs.Tabla {
 
 	tabla := &structs.Tabla{}
 
-	if nivelesRestantes == 0 {
+	if nivelesRestantes == 1 {
 		// Nivel hoja: asignar solo las páginas necesarias
 		for i := 0; i < Config.EntriesPerPage; i++ {
 			if *paginasRestantes > 0 {
-				frameLibre := PrimerFrameLibre(uint(i)) // Busca el primer frame libre 
+				frameLibre := PrimerFrameLibreSinLogs(uint(i)) // Busca el primer frame libre 
  				MarcarFrameOcupado(uint(frameLibre), pid) // Lo marca como ocupado para el PID
 				tabla.Valores = append(tabla.Valores, frameLibre)
 				*paginasRestantes--

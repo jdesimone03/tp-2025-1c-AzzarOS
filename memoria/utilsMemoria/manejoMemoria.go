@@ -5,7 +5,7 @@ import (
 	"utils/structs"
 )
 
-var CantidadDeFrames = Config.MemorySize / Config.PageSize
+
 
 // -------------------------------- Tablas de Páginas --------------------------------
 
@@ -52,7 +52,6 @@ func CantidadDePaginasDeProceso(tamanio int) int {
 
 
 func Read(pid uint, direccion int, tamanio int) (string, error) {
-	logueador.Info("Leyendo de memoria")
 	finDeLectura := direccion + tamanio
 
 	if direccion < 0 || finDeLectura > Config.MemorySize {
@@ -64,8 +63,6 @@ func Read(pid uint, direccion int, tamanio int) (string, error) {
 	datosLeidos := make([]byte, tamanio)
 	copy(datosLeidos, EspacioUsuario[direccion:finDeLectura]) // Copia los datos de la memoria principal a los datosLeidos
 
-	IncrementarMetricaEn(pid, "LecturasDeMemoria") // Aumenta la métrica de lecturas de memoria del PID
-	logueador.Info("Lectura exitosa de memoria")
 	return string(datosLeidos), nil // Retorna los datos leídos como string
 }
 
@@ -127,15 +124,12 @@ func MarcarFrameOcupado(frame uint, pid uint) {
 	Ocupadas[frame] = info  // Actualiza el mapa con la información del frame
 }
 
-func InicializarFrameInfo() structs.FrameInfo {
-	return structs.FrameInfo{
-		EstaOcupado: false, // Inicialmente no está ocupado
-		PID:         0,     // Inicialmente no tiene PID asignado
-	}
-}
-
 func InicializarOcupadas() {
-	for i := 0; i < CantidadDeFrames; i++ {
-		Ocupadas[uint(i)] = InicializarFrameInfo()
+	Ocupadas = make(map[uint]structs.FrameInfo)
+	for i := uint(0); i < uint(Config.MemorySize/Config.PageSize); i++ {
+		Ocupadas[i] = structs.FrameInfo{
+			EstaOcupado: false,
+			PID:         0,
+		}
 	}
 }

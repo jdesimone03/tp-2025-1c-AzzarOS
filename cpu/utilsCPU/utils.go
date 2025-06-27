@@ -88,7 +88,7 @@ func MMU(pid uint, direccionLogica int) int {
 	}
 	
 	raiz := tabla
-	for nivel := 1; nivel < configMemoria.CantNiveles; nivel++ {
+	for nivel := 1; nivel <= configMemoria.CantNiveles; nivel++ {
 		entrada := entradaNiveln(direccionLogica, configMemoria.CantNiveles, nivel, configMemoria.TamanioPagina, configMemoria.EntradasPorTabla)
 
 		// Si llegamos al nivel final => queda buscar el frame unicamente 
