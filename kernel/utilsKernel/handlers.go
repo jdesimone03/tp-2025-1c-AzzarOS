@@ -21,7 +21,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			}
 
 			// Inicializa la interfaz y el planificador
-			Interfaces[interfaz.Nombre] = interfaz.Interfaz
+			Interfaces.Agregar(interfaz.Nombre, interfaz.Interfaz)
 			go PlanificadorIO(interfaz.Nombre)
 			// MoverAExecIO(interfaz.Nombre)
 
@@ -35,7 +35,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 				return
 			}
 
-			InstanciasCPU[instancia.Identificador] = instancia.CPU
+			InstanciasCPU.Agregar(instancia.Identificador,instancia.CPU)
 			logueador.Info("Nueva instancia CPU: %+v", instancia)
 
 		default:
@@ -104,15 +104,10 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	logueador.Info("(%d) Guardando contexto en PC: %d", contexto.PID, contexto.PC)
 
-	TiempoEstimado[contexto.PID] = EstimarRafaga(contexto.PID)
+	TiempoEstimado.Agregar(contexto.PID,EstimarRafaga(contexto.PID))
 
 	// Desaloja las cpu que se estén usando.
-	for nombre, instancia := range InstanciasCPU {
-		if instancia.Ejecutando && instancia.PID == contexto.PID {
-			instancia.Ejecutando = false
-			InstanciasCPU[nombre] = instancia
-		}
-	}
+	InstanciasCPU.Liberar(contexto.PID)
 
 	// Busca el proceso a guardar en la cola execute
 	ColaExecute.Actualizar(contexto.PID,contexto.PC)
@@ -122,26 +117,24 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
-	ifaz, err := utils.DecodificarMensaje[string](r)
+	nombreIfaz, err := utils.DecodificarMensaje[string](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	logueador.Warn("Se recibió notificación de desconexión de IO: %s", *ifaz)
+	logueador.Warn("Se recibió notificación de desconexión de IO: %s", *nombreIfaz)
 
 	// Borra cualquier proceso que este ejecutando
-	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
+	if ejecucion, existe := ListaExecIO.Obtener(*nombreIfaz); existe {
 		pid := ejecucion[0].PID
-		Interrumpir(GetCPU(pid))
+		Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
 		MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit)
 		// Borro el proceso de la lista de ejecución
-		ListaExecIO.EliminarPrimero(*ifaz)
+		ListaExecIO.EliminarPrimero(*nombreIfaz)
 	}
 
-	if _, existe := Interfaces[*ifaz]; existe {
-		delete(Interfaces, *ifaz)
-	}
+	Interfaces.Eliminar(*nombreIfaz)
 
 	w.WriteHeader(http.StatusOK)
 }

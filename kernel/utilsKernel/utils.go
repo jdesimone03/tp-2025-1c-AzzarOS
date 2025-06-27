@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	"utils"
 	"utils/logueador"
 	"utils/structs"
 )
@@ -40,7 +39,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	}
 
 	//utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
-	NuevosProcesos[proceso.PID] = proceso
+	NuevosProcesos.Agregar(proceso.PID, proceso)
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
@@ -48,7 +47,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	pcb.MetricasTiempo[structs.EstadoNew] = time.Now().UnixMilli()
 	ColaNew.Agregar(pcb)
 	contadorProcesos++
-	TiempoEstimado[pcb.PID] = float64(Config.InitialEstimate)
+	TiempoEstimado.Agregar(pcb.PID,float64(Config.InitialEstimate))
 
 	// Log obligatorio 2/8
 	logueador.KernelCreacionDeProceso(pcb.PID)
@@ -64,41 +63,15 @@ func CrearPCB() structs.PCB {
 	}
 }
 
-func GetCPUDisponible() (string, bool) {
-	for nombre, valores := range InstanciasCPU {
-		if !valores.Ejecutando {
-			return nombre, true
-		}
-	}
-	return "", false
-}
-
-func GetCPU(pid uint) string {
-	for nombre, valores := range InstanciasCPU {
-		if valores.PID == pid {
-			return nombre
-		}
-	}
-	return ""
-}
-
 func EstimarRafaga(pid uint) float64 {
-	estimadoAnterior := float64(TiempoEstimado[pid])
-	realAnterior := float64(time.Now().UnixMilli() - TiempoEnColaExecute[pid])
-	return realAnterior*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
-}
-
-func RecibirTiempoEjecucion(w http.ResponseWriter, r *http.Request) {
-	tiempo, err := utils.DecodificarMensaje[structs.TiempoEjecucion](r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	TiempoEnColaExecute[tiempo.PID] = tiempo.Tiempo
-	w.WriteHeader(http.StatusOK)
+	estimadoAnterior, _ := TiempoEstimado.Obtener(pid)
+	tiempoEnExecute, _ := TiempoEnColaExecute.Obtener(pid)
+	realAnterior := time.Now().UnixMilli() - tiempoEnExecute
+	return float64(realAnterior)*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
 }
 
 func Interrumpir(nombreCpu string) {
-	cpu, existe := InstanciasCPU[nombreCpu]
+	cpu, existe := InstanciasCPU.Obtener(nombreCpu)
 	if !existe {
 		logueador.Error("No se pudo interrumpir %s ya que no existe en el sistema.", nombreCpu)
 		return

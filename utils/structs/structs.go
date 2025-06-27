@@ -117,65 +117,146 @@ type ExitInstruction struct{}
 
 // --------------------------------- Estructuras seguras --------------------------------- //
 // --------------------------------- MAPS --------------------------------- //
-// Lo hice con tipo de dato generico por si alguna otra estructura lo necesitaba usar.
-// Si resulta que es la unica lo sacamos para que sea la estructura que valga
-type MapSeguro[T any] struct {
-	Map   map[string][]T
+type MapSeguro[K comparable, V any] struct {
+	Map   map[K]V
 	Mutex sync.Mutex
 }
 
-func NewMapSeguro[T any]() *MapSeguro[T] {
-	return &MapSeguro[T]{Map: make(map[string][]T)}
+func NewMapSeguro[K comparable, V any]() *MapSeguro[K, V] {
+	return &MapSeguro[K, V]{Map: make(map[K]V)}
 }
 
-func (ms *MapSeguro[T]) Agregar(key string, value T) {
+func (ms *MapSeguro[K, V]) Agregar(key K, value V) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	ms.Map[key] = append(ms.Map[key], value)
+	ms.Map[key] = value
 }
 
-func (ms *MapSeguro[T]) Obtener(key string) ([]T, bool) {
+func (ms *MapSeguro[K, V]) Obtener(key K) (V, bool) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	slice, ok := ms.Map[key]
-	return slice, ok
+	value, ok := ms.Map[key]
+	return value, ok
 }
 
-func (ms *MapSeguro[T]) ObtenerPrimero(key string) T {
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
-	slice, _ := ms.Obtener(key)
-	return slice[0]
-}
-
-func (ms *MapSeguro[T]) EliminarPrimero(key string) T {
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
-	if slice, ok := ms.Map[key]; ok && len(slice) > 0 {
-		primerElemento := slice[0]
-		ms.Map[key] = slice[1:]
-		return primerElemento
-	}
-	var valorVacio T
-	return valorVacio // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
-}
-
-func (ms *MapSeguro[T]) BorrarLista(key string) {
+func (ms *MapSeguro[K, V]) Eliminar(key K) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	delete(ms.Map, key)
 }
 
-func (ms *MapSeguro[T]) Longitud(key string) int {
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
-	return len(ms.Map[key])
+// --------------------------------- MAP CPU --------------------------------- //
+
+type MapCPU MapSeguro[string, InstanciaCPU]
+
+func NewMapCPU() *MapCPU {
+	return &MapCPU{Map: make(map[string]InstanciaCPU)}
 }
 
-func (ms *MapSeguro[T]) NoVacia(key string) bool {
+func (ms *MapCPU) Agregar(key string, value InstanciaCPU) {
+	(*MapSeguro[string, InstanciaCPU])(ms).Agregar(key, value)
+}
+
+func (ms *MapCPU) Obtener(key string) (InstanciaCPU, bool) {
+	return (*MapSeguro[string, InstanciaCPU])(ms).Obtener(key)
+}
+
+func (ms *MapCPU) Ocupar(nombre string, pid uint) InstanciaCPU {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	return len(ms.Map[key]) > 0
+
+	cpu := ms.Map[nombre]
+	cpu.Ejecutando = true
+	cpu.PID = pid
+	ms.Map[nombre] = cpu
+
+	return cpu
+}
+
+func (ms *MapCPU) Liberar(pid uint) {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+
+	nombreCPU := ms.BuscarCPUPorPID(pid)
+	cpu := ms.Map[nombreCPU]
+	cpu.Ejecutando = false
+	ms.Map[nombreCPU] = cpu
+}
+
+func (ms *MapCPU) BuscarCPUDisponible() (string, bool) {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+
+	for nombre, cpu := range ms.Map {
+		if !cpu.Ejecutando {
+			return nombre, true
+		}
+	}
+	return "", false
+}
+
+func (ms *MapCPU) BuscarCPUPorPID(pid uint) string {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	for nombre, cpu := range ms.Map {
+		if cpu.PID == pid {
+			return nombre
+		}
+	}
+	return ""
+}
+
+// --------------------------------- SLICE MAP --------------------------------- //
+type SliceMapSeguro MapSeguro[string, []EjecucionIO]
+
+func NewSliceMapSeguro() *SliceMapSeguro {
+	return &SliceMapSeguro{Map: make(map[string][]EjecucionIO)}
+}
+
+func (sms *SliceMapSeguro) Agregar(key string, value EjecucionIO) {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	sms.Map[key] = append(sms.Map[key], value)
+}
+
+func (sms *SliceMapSeguro) Obtener(key string) ([]EjecucionIO, bool) {
+	return (*MapSeguro[string, []EjecucionIO])(sms).Obtener(key)
+}
+
+func (sms *SliceMapSeguro) ObtenerPrimero(key string) EjecucionIO {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	slice, _ := sms.Obtener(key)
+	return slice[0]
+}
+
+func (sms *SliceMapSeguro) EliminarPrimero(key string) EjecucionIO {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	if slice, ok := sms.Map[key]; ok && len(slice) > 0 {
+		primerElemento := slice[0]
+		sms.Map[key] = slice[1:]
+		return primerElemento
+	}
+	return EjecucionIO{} // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
+}
+
+func (sms *SliceMapSeguro) BorrarLista(key string) {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	delete(sms.Map, key)
+}
+
+func (sms *SliceMapSeguro) Longitud(key string) int {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	return len(sms.Map[key])
+}
+
+func (sms *SliceMapSeguro) NoVacia(key string) bool {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	return len(sms.Map[key]) > 0
 }
 
 // --------------------------------- COLAS --------------------------------- //

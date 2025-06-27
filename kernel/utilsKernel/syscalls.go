@@ -9,12 +9,12 @@ import (
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(pid uint, instruccion structs.IOInstruction) {
 
-	Interrumpir(GetCPU(pid))
+	Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
 
 	nombre := instruccion.NombreIfaz
 	tiempoMs := instruccion.SuspensionTime
 
-	_, encontrada := Interfaces[nombre]
+	_, encontrada := Interfaces.Obtener(nombre)
 	if encontrada {
 		espera := structs.EjecucionIO{
 			PID:      pid,
@@ -55,12 +55,7 @@ func SyscallInitProc(pid uint, instruccion structs.InitProcInstruction) {
 
 func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 	// Seguir la logica de "Finalizacion de procesos"
-	for nombre, instancia := range InstanciasCPU {
-		if instancia.Ejecutando && instancia.PID == pid {
-			instancia.Ejecutando = false
-			InstanciasCPU[nombre] = instancia
-		}
-	}
+	InstanciasCPU.Liberar(pid)
 
 	MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit)
 }
