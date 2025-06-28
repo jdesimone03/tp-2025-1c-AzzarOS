@@ -85,7 +85,7 @@ const (
 type NoopInstruction struct{}
 
 type WriteInstruction struct {
-	Address int
+	LogicAddress int
 	Data    string
 	PID     uint
 }
@@ -347,6 +347,12 @@ type TiempoEjecucion struct {
 
 // --------------------------------- Memoria --------------------------------- //
 
+type TLB struct {
+	Entradas    []EntradaTLB `json:"entradas"`
+	MaxEntradas int          `json:"max_entradas"`
+	Algoritmo   string       `json:"algoritmo"`
+}
+
 type EntradaTLB struct {
 	NumeroPagina        int  `json:"numero_pagina"`
 	NumeroFrame         int  `json:"numero_frame"`
@@ -354,13 +360,6 @@ type EntradaTLB struct {
 	PID                 int  `json:"pid"`              // Identificador del proceso al que pertenece el frame
 	InstanteDeReferencia int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
 }
-
-type TLB struct {
-	Entradas    []EntradaTLB `json:"entradas"`
-	MaxEntradas int          `json:"max_entradas"`
-	Algoritmo   string       `json:"algoritmo"`
-}
-
 type ProcesoEnSwap struct {
 	PID uint `json:"pid"` // Identificador del proceso
 	Paginas []string `json:"paginas"` // Lista de páginas del proceso
@@ -411,4 +410,10 @@ type ConfigMemoria struct {
 	CantNiveles      int `json:"cant_niveles"`
 	EntradasPorTabla int `json:"entradas_por_tabla"`
 	TamanioPagina    int `json:"tam_pagina"`
+}
+
+type CacheStruct struct {
+	Paginas []PaginaCache 
+	Algoritmo string 
+	Clock int // dato para saber donde quedó la "aguja" del clock
 }

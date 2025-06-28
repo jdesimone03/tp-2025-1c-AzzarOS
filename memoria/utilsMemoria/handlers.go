@@ -13,6 +13,21 @@ import (
 	"utils/structs"
 )
 
+func MandarOK(w http.ResponseWriter) {
+		
+	respuesta := structs.Respuesta{
+		Mensaje: "OK",
+	}
+
+	// convertir a JSON
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(respuesta)
+	if err != nil {
+		http.Error(w, "No se pudo codificar la respuesta", http.StatusInternalServerError)
+		return
+	}
+}
+
 func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
@@ -36,7 +51,7 @@ func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 
 func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	
 	pid := r.URL.Query().Get("pid")
 	direccion := r.URL.Query().Get("direccion")
@@ -65,9 +80,8 @@ func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inicio := direccionInt * Config.PageSize
-	fin := inicio + Config.PageSize 
-	paginaADar := EspacioUsuario[inicio:fin] // Obtengo la pagina que corresponde a la direccion
+	frame := direccionInt / Config.PageSize
+	paginaADar := EspacioUsuario[frame:frame+Config.PageSize] // Obtengo la pagina que corresponde al frame
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -79,7 +93,7 @@ func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
 
 func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
 	
-	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != http.MethodGet {
@@ -148,7 +162,7 @@ func HandlerConfig(w http.ResponseWriter, r *http.Request) {
 
 func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 	
-	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	paginaJSON, err := utils.DecodificarMensaje[structs.PaginaCache](r)
 	if err != nil {
@@ -316,8 +330,9 @@ func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 
 func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
+	logueador.Info("HandlerWrite llamado")
 	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje: %e", err)
@@ -330,7 +345,7 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = Write(write.PID,write.Address, write.Data) // Aquí deberías convertir los datos a bytes antes de escribir	
+	err = Write(write.PID,write.LogicAddress, write.Data) // Aquí deberías convertir los datos a bytes antes de escribir	
 	if err != nil {
 		logueador.Error("Error al escribir en memoria: %e", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -339,15 +354,15 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 
 	IncrementarMetricaEn(write.PID, "Escrituras") // Aumenta la métrica de escrituras de memoria del PID
 	// Log obligatorio 4/5
-	logueador.EscrituraEnEspacioDeUsuario(write.PID, write.Address, len(write.Data))
+	logueador.EscrituraEnEspacioDeUsuario(write.PID, write.LogicAddress, len(write.Data))
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK")) // Envio el OK al kernel
+	MandarOK(w)
 }
 
 func HandlerRead(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	read, err := utils.DecodificarMensaje[structs.ReadInstruction](r)
 	if err != nil {

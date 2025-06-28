@@ -5,135 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 	"utils/logueador"
 	"utils/structs"
 )
-
-var TLB structs.TLB  // Inicializamos la TLB al inicio del programa
-
-func InicializarTLB() structs.TLB{
-	if Config.TlbEntries == 0 {
-		logueador.Error("TLB deshabilitado, no se inicializa")
-		return structs.TLB{} // Si no hay entradas en la TLB, no se inicializa
-	}
-
-	tlb := structs.TLB{
-		Entradas: make([]structs.EntradaTLB, Config.TlbEntries), // Inicializamos con un slice vacío con capacidad para TlbEntries
-		MaxEntradas: Config.TlbEntries, // Establecemos el número máximo de entradas
-		Algoritmo: Config.TlbReplacement, // Establecemos el algoritmo de reemplazo
-	}
-	for i := 0; i < Config.TlbEntries; i++ {
-		tlb.Entradas = append(tlb.Entradas, structs.EntradaTLB{
-			NumeroFrame: -1, // Inicialmente no hay frame asignado
-			BitPresencia: false, // Inicialmente no está presente
-			PID: -1, // Inicialmente no hay PID asignado
-			InstanteDeReferencia: 0, // Inicialmente el instante de referencia es 0
-		})
-	}
-
-	return tlb // Devolvemos la TLB inicializada
-}
-
-func AccesoATLB(pid int, nropagina int) (int, bool) {
-	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
-	if bool { 
-		logueador.Info("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
-		return TLB.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
-	} else {
-		logueador.Info("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)
-		return -1, false 
-	}
-}
-
-func DesalojarTLB(pid uint) {
-	logueador.Info("Desalojando TLB")
-	for i := 0; i < len(TLB.Entradas); i++ {
-		if TLB.Entradas[i].PID == int(pid) { // Si el PID coincide, desalojamos la entrada
-		TLB.Entradas[i] = structs.EntradaTLB{
-			NumeroFrame: -1, // Reinicializamos el frame
-			BitPresencia: false, // Reinicializamos el bit de presencia
-			PID: -1, // Reinicializamos el PID
-			InstanteDeReferencia: 0, // Reinicializamos el instante de referencia
-		}
-	}
-	}
-}
-
-// Al principio habia hecho que me devuelva la entrada victima pero era al pedo
-func IndiceDeEntradaVictima() int {
-		
-	if TLB.Algoritmo == "FIFO" {
-		return 0 
-	} else { // LRU
-		tiempoActual := int(time.Now().UnixNano()) // tiempo actual en nanosegundos (convertido a int)
-		indice := 0
-		victima := 0
-		for indice < len(TLB.Entradas) {
-			if TLB.Entradas[indice].InstanteDeReferencia < tiempoActual { // Si el instante de referencia es menor al tiempo actual, es una candidata a ser la victima
-				victima = indice 
-			}
-			indice++
-		}
-		return victima
-	}
-}
-
-func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
-
-	nuevaEntrada := structs.EntradaTLB{
-		NumeroPagina: nropagina,
-		NumeroFrame: nroframe,
-		BitPresencia: true, // La pagina esta presente en memoria
-		PID: pid, // Asignamos el PID del proceso
-		InstanteDeReferencia: int(time.Now().UnixNano()), // Asignamos el instante de referencia actual
-	}
-
-	if len(TLB.Entradas) == TLB.MaxEntradas { // si la cantidad de entradas es la maxima => hay que reemplazar
-		indiceVictima := IndiceDeEntradaVictima() 
-		TLB.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
-		return 
-	} else { // si no esta lleno, agrego la nueva entrada al final
-		TLB.Entradas = append(TLB.Entradas, nuevaEntrada)
-		return 
-	}
-}
-
-func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta cargada en el TLB
-	i := 0
-	for i < len(TLB.Entradas) {
-		if TLB.Entradas[i].NumeroPagina == pagina && TLB.Entradas[i].BitPresencia {
-			return true,i // La página está en la TLB y es válida
-		}
-	}
-	return false,-1 // La página no está en la TLB o no es válida
-}
-
 // --------------------------------------- Cache ---------------------------------------------
 
 
-// Posibilidad que sea la misma estructura que la TLB
-type PaginaCache struct {
-	NumeroPagina int // Numero de pagina en la tabla de paginas
-	BitPresencia bool // Indica si el frame esta presente en memoria
-	BitModificado bool // Indica si el frame ha sido modificado
-	BitDeUso bool // Indica si el frame ha sido usado recientemente
-	PID int // Identificador del proceso al que pertenece el frame
-	Contenido []byte // Contenido de la pagina
-}
+var Cache structs.CacheStruct = InicializarCache()
 
-type CacheStruct struct {
-	Paginas []PaginaCache 
-	Algoritmo string 
-	Clock int // dato para saber donde quedó la "aguja" del clock
-}
-
-var Cache CacheStruct
-
-func InicializarCache() CacheStruct {
-	return CacheStruct {
-		Paginas: make([]PaginaCache, Config.CacheEntries),
-		Algoritmo: Config.CacheReplacement, // FIFO o LRU => no esta en el config
+func InicializarCache() structs.CacheStruct {
+	paginas := make([]structs.PaginaCache, Config.CacheEntries) // Slice vacío, capacidad predefinida
+	
+		for i := 0; i < Config.CacheEntries; i++ {
+		paginas[i] = structs.PaginaCache{
+			NumeroPagina: -1,
+			PID: -1,
+			}
+		}
+	return structs.CacheStruct{
+		Paginas: paginas,
+		Algoritmo: Config.CacheReplacement,
 	}
 }
 
@@ -141,40 +32,44 @@ func CacheHabilitado() bool {
 	return len(Cache.Paginas) > 0 
 }
 
-func FueModificada(pagina PaginaCache) bool {
+func FueModificada(pagina structs.PaginaCache) bool {
 	return pagina.BitModificado
 }
 
-func EstaEnCache(pid uint, nropagina int) bool {
+func EstaEnCache(pid uint, direccionLogica int) bool {
 	if !CacheHabilitado() {
-		logueador.Error("Caché no habilitada, no se puede verificar si la página está en caché")
+		logueador.Info("Caché no habilitada, no se puede verificar si la página está en caché")
 		return false 
 	}
 
+	paginaLogica := direccionLogica / ConfigMemoria.TamanioPagina // Obtenemos el número de página
+
 	for _, pagina := range Cache.Paginas {
-		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
+		if pagina.PID == int(pid) && pagina.NumeroPagina == paginaLogica && pagina.BitPresencia {
 			return true // La página está en la caché
 		}
 	}
 	return false 
 }
 
-func ObtenerPaginaDeCache(pid uint, nropagina int) (int, error) {
+
+func ObtenerPaginaDeCache(pid uint, nropagina int) int {
+	
 	if !CacheHabilitado() {
-		logueador.Error("Caché no habilitada, no se puede obtener la página de caché")
-		return -1, fmt.Errorf("caché no habilitada")
+		logueador.Info("Caché no habilitada, no se puede obtener la página de caché")
+		return -1
 	}
 
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
 			logueador.Info("Página encontrada en caché: PID %d, Página %d", pid, nropagina)
-			return i, nil // Retorna la página y su índice en caché
+			return i // Retorna la página y su índice en caché
 		}
 	}
-	return -1, fmt.Errorf("página no encontrada en caché")
+	return -1
 }
 
-func MandarDatosAMP(paginas PaginaCache) {
+func MandarDatosAMP(paginas structs.PaginaCache) {
 	url := fmt.Sprintf("http://%s:%d/actualizarMP", Config.IPMemory, Config.PortMemory)
 	body, err := json.Marshal(paginas)
 	if err != nil {
@@ -194,8 +89,8 @@ func MandarDatosAMP(paginas PaginaCache) {
 	logueador.Info("Pagina enviada a la memoria correctamente")
 }
 
-func PaginasModificadas() []PaginaCache {
-	var paginasModificadas []PaginaCache
+func PaginasModificadas() []structs.PaginaCache {
+	var paginasModificadas []structs.PaginaCache
 	for _, pagina := range Cache.Paginas {
 		if FueModificada(pagina) {
 			paginasModificadas = append(paginasModificadas, pagina)
@@ -206,6 +101,7 @@ func PaginasModificadas() []PaginaCache {
 
 // Debe venir una request de memoria o kernel
 func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
+	
 	modificadas := PaginasModificadas()
 	
 	if len(modificadas) == 0 {
@@ -223,8 +119,18 @@ func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 	}
 }
 
-func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) PaginaCache {
-	return PaginaCache{
+func EliminarEntradasDeCache(pid uint) {
+	logueador.Info("Eliminando entradas de caché para el PID %d", pid)
+	for i := 0; i < len(Cache.Paginas); i++ {
+		if Cache.Paginas[i].PID == int(pid) { // Si el PID coincide, eliminamos la entrada
+			Cache.Paginas[i] = structs.PaginaCache{} // Reinicializamos la entrada
+			logueador.Info("Entrada de caché eliminada para el PID %d", pid)
+		}
+	}
+}
+
+func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) structs.PaginaCache {
+	return structs.PaginaCache{
 		NumeroPagina: nropagina,
 		BitPresencia: true, // La pagina esta presente en memoria
 		BitModificado: false, // Inicialmente no ha sido modificada
@@ -234,27 +140,28 @@ func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) PaginaCach
 	}
 }
 
-func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
+func PedirFrameAMemoria(pid uint, nropagina int) (structs.PaginaCache, error) {
 	
 	direccionFisica := MMU(pid, nropagina) 
 	url := fmt.Sprintf("http://%s:%d/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
+	
 	resp, err := http.Get(url)
 	if err != nil {
 		logueador.Error("Error al pedir el frame a memoria: %v", err)
-		return PaginaCache{}, err
+		return structs.PaginaCache{}, err
 	}
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusOK {
 		logueador.Error("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
-		return PaginaCache{}, fmt.Errorf("error al pedir el frame a memoria, status code: %d", resp.StatusCode)
+		return structs.PaginaCache{}, fmt.Errorf("error al pedir el frame a memoria, status code: %d", resp.StatusCode)
 	}
 
 	var frame []byte 
 	err = json.NewDecoder(resp.Body).Decode(&frame)
 	if err != nil {
 		logueador.Error("Error al decodificar el frame: %v", err)
-		return PaginaCache{}, err
+		return structs.PaginaCache{}, err
 	}
 
 	paginaCache := CreacionDePaginaCache(pid, nropagina, frame) 
@@ -262,7 +169,8 @@ func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
 	return paginaCache, nil
 }
 
-func AgregarPaginaACache(pagina PaginaCache) {
+func AgregarPaginaACache(pagina structs.PaginaCache) {
+	
 	if len(Cache.Paginas) == Config.CacheEntries {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
 		if FueModificada(pagina) {
@@ -277,7 +185,7 @@ func AgregarPaginaACache(pagina PaginaCache) {
 	}
 }
 
-func RemplazarPaginaEnCache(pagina PaginaCache) {
+func RemplazarPaginaEnCache(pagina structs.PaginaCache) {
 	indiceVictima := IndiceDeCacheVictima() // Obtenemos el indice de la pagina victima
 
 	if FueModificada(Cache.Paginas[indiceVictima]) { // Si la pagina victima fue modificada, debemos escribir su contenido en memoria
@@ -289,28 +197,35 @@ func RemplazarPaginaEnCache(pagina PaginaCache) {
 }
 
 
-func EscribirEnCache(pid uint, adress int, data string) {
+func EscribirEnCache(pid uint, logicAdress int, data string) {
 
-	indice, err := ObtenerPaginaDeCache(pid, adress)
-	if err != nil {
-		logueador.Error("Error al obtener la pagina de Cache: %v", err)
+	nropagina := logicAdress / ConfigMemoria.TamanioPagina // Obtenemos el numero de pagina
+	indice := ObtenerPaginaDeCache(pid, nropagina)
+	if indice == -1 {
+		logueador.Info("Error al obtener la pagina de Cache")
 		return
 	}
 
-	Cache.Paginas[indice].Contenido = []byte(data) // Actualizamos el contenido de la pagina en Cache
+	offset := logicAdress % ConfigMemoria.TamanioPagina
+	pagina := Cache.Paginas[indice].Contenido
+	
+	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
+	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
 	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
-	logueador.Info("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, adress, data)
+	logueador.Info("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
 }
 
 func LeerDeCache(pid uint, adress int, tam int) []byte {
-	indice, err := ObtenerPaginaDeCache(pid, adress)
-	if err != nil {
-		logueador.Error("Error al obtener la pagina de Cache: %v", err)
+	
+	indice := ObtenerPaginaDeCache(pid, adress)
+	
+	if indice == -1 {
+		logueador.Info("Println al obtener la pagina de Cache")
 		return nil
 	}
 
 	if indice < 0 || indice >= len(Cache.Paginas) {
-		logueador.Error("Indice de pagina fuera de rango: %d", indice)
+		logueador.Info("Indice de pagina fuera de rango: %d", indice)
 		return nil 
 	}
 
@@ -318,14 +233,12 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 	if pagina.BitPresencia && pagina.PID == int(pid) {
 		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en Cache
 		return contenido 
-		logueador.Info("Pagina leida de Cache: PID %d, Direccion %d, Contenido %s", pid, adress, string(contenido))
 	} else {
-		logueador.Error("Pagina no encontrada en Cache o no pertenece al PID %d", pid)
+		logueador.Info("Pagina no encontrada en Cache o no pertenece al PID %d", pid)
 		return nil 
 	}
-
-	return nil 
 }
+
 
 // Para CLOCK-M
 

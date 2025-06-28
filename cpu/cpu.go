@@ -21,12 +21,6 @@ func main() {
 	// Inicia la configuración
 	config.CargarConfiguracion("config.json", &utilsCPU.Config)
 
-	// Inicializar la TLB
-	utilsCPU.TLB = utilsCPU.InicializarTLB()
-
-	// Inicializar la cache
-	utilsCPU.Cache = utilsCPU.InicializarCache()
-
 	// Cargar la configuración de memoria
 	err := utilsCPU.PedirConfigMemoria()
 	if err != nil {

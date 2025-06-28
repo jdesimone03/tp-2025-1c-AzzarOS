@@ -36,10 +36,10 @@ func MostrarCache(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
-	}
+	}	
 
 	w.Header().Set("Content-Type", "application/json")
-	jsonData, err := json.Marshal(Cache)
+	jsonData, err := json.Marshal(Cache.Paginas)
 	if err != nil {
 		http.Error(w, "Error al serializar la cache", http.StatusInternalServerError)
 		return
@@ -55,7 +55,7 @@ func MostrarTLB(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	jsonData, err := json.Marshal(TLB)
+	jsonData, err := json.Marshal(tlb)
 	if err != nil {
 		http.Error(w, "Error al serializar la TLB", http.StatusInternalServerError)
 		return

@@ -9,11 +9,10 @@ import (
 	"fmt"
 	"net/http"
 	"encoding/json"
+	"math"
 )
 
 // -------------------------------- MMU --------------------------------- //
-
-var ConfigMemoria *structs.ConfigMemoria
 
 func PedirConfigMemoria() error  {
 	url := fmt.Sprintf("http://%s:%d/config", Config.IPMemory, Config.PortMemory)
@@ -38,6 +37,8 @@ func PedirConfigMemoria() error  {
 	return nil
 }
 
+var ConfigMemoria *structs.ConfigMemoria
+
 
 func nroPagina(direccionLogica int, pagesize int) int {
 	return direccionLogica / pagesize
@@ -47,8 +48,10 @@ func desplazamiento(direccionLogica int, pagesize int) int {
 	return direccionLogica % pagesize
 }
 
-func entradaNiveln(direccionlogica int, niveles int, idTabla int, pagesize int, cantEntradas int) int {
-	return (nroPagina(direccionlogica, (pagesize^(niveles - idTabla))) % cantEntradas )
+func entradaNiveln(direccionlogica int, niveles int, idTabla int) int {
+	pagina := direccionlogica / ConfigMemoria.TamanioPagina
+	divisor := int(math.Pow(float64(ConfigMemoria.EntradasPorTabla), float64(niveles - idTabla)))
+	return (pagina / divisor) % ConfigMemoria.EntradasPorTabla
 }
 
 func PedirTablaDePaginas(pid uint) *structs.Tabla {
@@ -77,40 +80,65 @@ func PedirTablaDePaginas(pid uint) *structs.Tabla {
 func MMU(pid uint, direccionLogica int) int {
 
 	desplazamiento := desplazamiento(direccionLogica, ConfigMemoria.TamanioPagina)
-	tabla := PedirTablaDePaginas(pid)
+	tabla := PedirTablaDePaginas(pid) // Obtengo la tabla de páginas del PID
 
 	if tabla == nil {	
-		logueador.Error("No se pudo obtener la tabla de páginas para el PID %d", pid)
+		logueador.Info("No se pudo obtener la tabla de páginas para el PID %d", pid)
 		return -1
 	}
 	
 	raiz := tabla
 	for nivel := 1; nivel <= ConfigMemoria.CantNiveles; nivel++ {
-		entrada := entradaNiveln(direccionLogica, ConfigMemoria.CantNiveles, nivel, ConfigMemoria.TamanioPagina, ConfigMemoria.EntradasPorTabla)
-
+		entrada := entradaNiveln(direccionLogica, ConfigMemoria.CantNiveles, nivel)
 		// Si llegamos al nivel final => queda buscar el frame unicamente 
 		if nivel == ConfigMemoria.CantNiveles {
-			
 			if entrada >= len(raiz.Valores) || raiz.Valores[entrada] == -1 { // verifico si la entrada es válida
-				logueador.Error("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
+				logueador.Info("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
 				return -1 // Dirección no mapeada
 			}
 		frame := raiz.Valores[entrada] // Obtengo el frame correspondiente a la entrada
 		return frame*ConfigMemoria.TamanioPagina + desplazamiento // Esto es el frame correspondiente a la dirección lógica 
 		}
-
 		// Si estamos en niveles intermedios => seguimos recorriendo la tabla de páginas
-		if entrada >= len(raiz.Punteros) || raiz.Punteros[entrada] == nil {
-			logueador.Error("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
+		if entrada >= len(raiz.Punteros) || raiz.Punteros[entrada] == nil { 
+			logueador.Info("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
 			return -1 // Dirección no mapeada
 		}
 		raiz = raiz.Punteros[entrada] // Avanzamos al siguiente nivel de la tabla de páginas
 	}
 
-	logueador.Error("Error al procesar la dirección lógica %d para el PID %d", direccionLogica, pid)
+	logueador.Info("Error al procesar la dirección lógica %d para el PID %d", direccionLogica, pid)
 	return -1 // Si llegamos hasta aca => error en el procesamiento de la dirección lógica
 }
 
+// ---------------------------------- TRADUCCIÓN DE DIRECCIONES ----------------------------------//
+
+func TraducirDireccion(pid uint, direccion int) int {
+
+	logueador.Info("Traduciendo dirección lógica a física")
+	paginaLogica := direccion / ConfigMemoria.TamanioPagina 
+	offset := desplazamiento(direccion, ConfigMemoria.TamanioPagina) // desplazamiento dentro de la página
+
+	logueador.Info("Accediendo a TLB")
+	// 1. Preguntamos a TLB
+	frame := AccesoATLB(int(pid), paginaLogica) // Verificamos si la página está en la TLB
+	if frame != -1{
+		return frame * ConfigMemoria.TamanioPagina + offset // Retornamos la dirección física
+	} 
+	logueador.Info("Página no encontrada en TLB, buscando en tabla de páginas - MMU")
+	// 2. Si no está en TLB, buscamos en la tabla de páginas
+	direccionFisica := MMU(pid, direccion) // Obtenemos el frame físico correspondiente a la página lógica
+	if direccionFisica == -1 {
+		logueador.Info("Error al traducir la dirección lógica %d para el PID %d", direccion, pid)
+		return -1 // Retornamos -1 para indicar que no se pudo traducir la dirección
+	}
+
+	frameFisico := direccionFisica / ConfigMemoria.TamanioPagina 
+
+	// HUBO MISS => AGREGAR A TLB
+	AgregarEntradaATLB(int(pid), paginaLogica, frameFisico) // Agregamos la entrada a la TLB
+	return direccionFisica// Retornamos la dirección física
+}
 
 
 // ---------------------------------- CICLO CPU ------------------------------------//
@@ -187,23 +215,35 @@ func Execute(ctxEjecucion *structs.EjecucionCPU, decodedInstruction any) string 
 
 // Instrucciones de memoria
 func Read(pid uint, inst structs.ReadInstruction) {
-	stringPID := strconv.Itoa(int(pid))
 
 	// Verificar si la página esta en Cache
-	if(EstaEnCache(pid, inst.Address)) {
+	if EstaEnCache(pid, inst.Address) {
 		logueador.Info("La dirección %d ya está en la cache del PID %d", inst.Address, pid)
 		LeerDeCache(pid, inst.Address, inst.Size) 
 		return 
 	}
 
-	// Si la página no estaba en cache, pedirla a memoria
+	direccionFisica := TraducirDireccion(pid, inst.Address) // Traducimos la dirección lógica a física
+	if direccionFisica == -1 {
+		logueador.Info("Error al traducir la dirección lógica %d para el PID %d", inst.Address, pid)
+		return
+	}
+
+	inst2 := structs.ReadInstruction{
+		Address: direccionFisica, // Asignamos la dirección física
+		Size:    inst.Size, // Asignamos el tamaño a leer
+		PID:     pid, // Asignamos el PID del proceso
+	}
+
 	pagina, err := PedirFrameAMemoria(pid, inst.Address)
 	if err != nil {
 		logueador.Error("Error al pedir el frame a memoria: %v", err)
 		return
 	}
+
 	AgregarPaginaACache(pagina)
-	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read?pid="+stringPID, inst)
+
+	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read", inst2)
 
 	// Log obligatorio 4/11
 	logueador.LecturaMemoria(pid, inst.Address, read)
@@ -212,29 +252,40 @@ func Read(pid uint, inst structs.ReadInstruction) {
 func Write(pid uint, inst structs.WriteInstruction) {
 
 	// Verificar si la página esta en Cache
-	if(EstaEnCache(pid, inst.Address)) {
-		logueador.Info("La dirección %d ya está en la cache del PID %d", inst.Address, pid)
-		EscribirEnCache(pid, inst.Address, inst.Data) 
-		return 
+	if EstaEnCache(pid, inst.LogicAddress) {
+		logueador.Info("Página encontrada en caché, escribiendo directamente en caché")
+		EscribirEnCache(pid, inst.LogicAddress, inst.Data) // Escribimos en la caché
+		return
 	}
 
-	// Si no está en cache, escribir en memoria
-	stringPID := strconv.Itoa(int(pid))
-	resp := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write?pid=" + stringPID, inst)
+	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
+	if direccionFisica == -1 {
+		logueador.Info("Error al traducir la dirección lógica %d para el PID %d", inst.LogicAddress, pid)
+		return
+	}
+
+	inst2 := structs.WriteInstruction{
+		LogicAddress: direccionFisica, // Asignamos la dirección física
+		Data:    inst.Data, // Asignamos los datos a escribir
+		PID:     pid, // Asignamos el PID del proceso
+	}
+
+	resp := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "write" , inst2)
 	if resp != "OK" {
-		logueador.Error("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.Address)
+		logueador.Info("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.LogicAddress)
 		return
 	}
 
 	// Si la página no estaba en cache, pedirla a memoria
-	pagina, err := PedirFrameAMemoria(pid, inst.Address)
+	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress)
 	if err != nil {
-		logueador.Error("Error al pedir el frame a memoria: %v", err)
+		logueador.Info("Error al pedir el frame a memoria: %v", err)
 		return
 	}
+
+	logueador.Info("PAGINA CACHE CREADA: ", pagina)
 	AgregarPaginaACache(pagina)
-	// Log obligatorio 4/11
-	logueador.EscrituraMemoria(pid, inst.Address, inst.Data)	
+	return 
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS
@@ -285,7 +336,7 @@ func Decode(line string) any {
 			logueador.Error("parámetro Dirección inválido para WRITE: %v", err)
 			return nil
 		}
-		return structs.WriteInstruction{Address: addr, Data: params[1]}
+		return structs.WriteInstruction{LogicAddress: addr, Data: params[1]}
 
 	case structs.INST_READ:
 		if len(params) != 2 {
