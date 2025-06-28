@@ -10,7 +10,15 @@ import (
 )
 // --------------------------------------- Cache ---------------------------------------------
 
+/*
+Cosas para testear:
 
+- Agregado de pagina a cache => Testeado
+- Remplazo de pagina en cache 
+- Verificacion de si una pagina esta en cache => Testeado
+- Verificacion de si una pagina fue modificada => Testeado
+- Envio de pagina a memoria 
+*/
 var Cache structs.CacheStruct = InicializarCache()
 
 func InicializarCache() structs.CacheStruct {
