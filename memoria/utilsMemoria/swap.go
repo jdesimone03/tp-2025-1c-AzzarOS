@@ -14,7 +14,6 @@ func Tamanioframe() int {
 	return Config.PageSize
 }
 
-
 func EscribirProcesoEsSwap(proceso structs.ProcesoEnSwap) {
 	pathCorrecto := filepath.Base(Config.SwapfilePath)
 	file, err := os.OpenFile(pathCorrecto, os.O_APPEND|os.O_WRONLY, 0644)
@@ -51,17 +50,17 @@ func BuscarPaginasDeProceso(pid uint) []string {
 	var listaDePaginas []string
 	
 	for i := 0; i < CantidadDeFrames(); i++ {
-		if Ocupadas[uint(i)].PID == pid {
+		if Ocupadas[i].PID == pid {
 			leido, err := Read(pid, i * Tamanioframe(), Tamanioframe())	
 			if err != nil {
 				logueador.Info("Error al leer la página del proceso:", err)
 				continue
 			}
 			listaDePaginas = append(listaDePaginas, leido)
-			frame := Ocupadas[uint(i)]
+			frame := Ocupadas[i]
 			frame.EstaOcupado = false // Marcar el frame como libre
 			frame.PID = 0 // Limpiar el PID del frame
-			Ocupadas[uint(i)] = frame
+			Ocupadas[i] = frame
 		}
 	}
 	logueador.Info("Páginas encontradas para el proceso" )
@@ -112,7 +111,7 @@ func SwapOutProceso(pid uint) {
 		frameLibre := PrimerFrameLibre(0)
 		dirFisica := frameLibre * Tamanioframe()
 		copy(EspacioUsuario[dirFisica:dirFisica + Tamanioframe()], []byte(procesoEnSwap.Paginas[i]))
-		MarcarFrameOcupado(uint(frameLibre), pid) 
+		MarcarFrameOcupado(frameLibre, pid) 
 	}
 }
 

@@ -7,157 +7,102 @@ import (
 	"net/http"
 	"time"
 	"utils/logueador"
+	"utils/structs"
 )
 
-type EntradaTLB struct {
-	NumeroPagina int
-	NumeroFrame int 
-	BitPresencia bool // Indica si el frame esta presente en memoria
-	BitModificado bool // Indica si el frame ha sido modificado
-	PID int // Identificador del proceso al que pertenece el frame
-	InstanteDeReferencia int // Marca el instante de referencia para LRU
-}
+var TLB structs.TLB  // Inicializamos la TLB al inicio del programa
 
-// Algoritmos => FIFO o LRU
-// TLB[Pagina] => marco
-// Primera opción:  
-
-var tlb1 = make([]EntradaTLB, Config.TlbEntries)
-
-func InicializarTLB() {
+func InicializarTLB() structs.TLB{
 	if Config.TlbEntries == 0 {
-		logueador.Info("TLB deshabilitado, no se inicializa")
-		return
+		logueador.Error("TLB deshabilitado, no se inicializa")
+		return structs.TLB{} // Si no hay entradas en la TLB, no se inicializa
 	}
-		for i := 0; i < Config.TlbEntries; i++ {
-		tlb1[i] = EntradaTLB{
-			NumeroFrame: -1, // Inicialmente no hay frame asignado
-			BitPresencia: false, // Inicialmente no está presente
-			BitModificado: false, // Inicialmente no ha sido modificado
-			PID: -1, // Inicialmente no hay PID asignado
-			InstanteDeReferencia: 0, // Inicialmente el instante de referencia es 0
-		}
-	}
-}
 
-func TLBLleno() bool {
-	for _, entrada := range tlb1 {
-		if entrada.NumeroFrame == -1 { // Si hay al menos una entrada sin asignar
-			return false
-		}
-	}
-	return true // Todas las entradas están ocupadas
-}
-
-// Segunda opción:
-type TLB struct {
-	Entradas []EntradaTLB 	
-	MaxEntradas int
-	Algoritmo string 
-}
-
-var tlb = TLB {
-	Entradas: make([]EntradaTLB, Config.TlbEntries),
-	MaxEntradas: Config.TlbEntries,
-	Algoritmo: Config.TlbReplacement, // FIFO o LRU => no esta en el config
-}
-
-func InicializarTLBStruct() {
-	if Config.TlbEntries == 0 {
-		logueador.Info("TLB deshabilitado, no se inicializa")
-		return
+	tlb := structs.TLB{
+		Entradas: make([]structs.EntradaTLB, Config.TlbEntries), // Inicializamos con un slice vacío con capacidad para TlbEntries
+		MaxEntradas: Config.TlbEntries, // Establecemos el número máximo de entradas
+		Algoritmo: Config.TlbReplacement, // Establecemos el algoritmo de reemplazo
 	}
 	for i := 0; i < Config.TlbEntries; i++ {
-		tlb.Entradas = append(tlb.Entradas, EntradaTLB{
+		tlb.Entradas = append(tlb.Entradas, structs.EntradaTLB{
 			NumeroFrame: -1, // Inicialmente no hay frame asignado
 			BitPresencia: false, // Inicialmente no está presente
-			BitModificado: false, // Inicialmente no ha sido modificado
 			PID: -1, // Inicialmente no hay PID asignado
 			InstanteDeReferencia: 0, // Inicialmente el instante de referencia es 0
 		})
 	}
+
+	return tlb // Devolvemos la TLB inicializada
 }
 
 func AccesoATLB(pid int, nropagina int) (int, bool) {
-	bool, indice := Hit(nropagina) // Verificamos si la página está en la TLB
+	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
-		logueador.Info("PID: <", pid, "> - TLB HIT - Página:", nropagina)
-		return tlb.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
+		logueador.Info("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
+		return TLB.Entradas[indice].NumeroFrame, true // Si la página está en la TLB, devolvemos el frame y true
 	} else {
-		logueador.Info("PID: <", pid, "> - TLB MISS - Página:", nropagina)
-		return tlb.Entradas[indice].NumeroFrame, true
-		// Se busca en la tabla de paginas => GET a memoria 
-		// Se remplaza
-		// Se devuelve el frame 
+		logueador.Info("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)
+		return -1, false 
 	}
 }
 
-
-// Caso hit => la página está en la TLB
-// Caso miss => la página no está en la TLB, se debe buscar en la memoria principal y agregar a la TLB
-
-// FIFO => victima => la que más tiempo lleva en el TLB
-// LRU => victima => la que menos tiempo ha sido referenciada
+func DesalojarTLB(pid uint) {
+	logueador.Info("Desalojando TLB")
+	for i := 0; i < len(TLB.Entradas); i++ {
+		if TLB.Entradas[i].PID == int(pid) { // Si el PID coincide, desalojamos la entrada
+		TLB.Entradas[i] = structs.EntradaTLB{
+			NumeroFrame: -1, // Reinicializamos el frame
+			BitPresencia: false, // Reinicializamos el bit de presencia
+			PID: -1, // Reinicializamos el PID
+			InstanteDeReferencia: 0, // Reinicializamos el instante de referencia
+		}
+	}
+	}
+}
 
 // Al principio habia hecho que me devuelva la entrada victima pero era al pedo
 func IndiceDeEntradaVictima() int {
-	var victima EntradaTLB
-	entradas := tlb.Entradas
-
-	if tlb.Algoritmo == "FIFO" {
-		victima = entradas[0] // Seguro la primera vez es la mas vieja, pero a medida que vamos sacando entradas, puede que no sea la más vieja
-		indice := 1 // si lo pongo como variable en el for, no puedo devoverlo 
-		for indice < len(entradas) {
-			if entradas[indice].InstanteDeReferencia < victima.InstanteDeReferencia { // El que entro en el instante 0 tiene que ser el más viejo
-				victima = entradas[indice]
-			}
-			indice++
-		}
-		return indice
-	} else { // no dice mas algoritmos => LRU 
+		
+	if TLB.Algoritmo == "FIFO" {
+		return 0 
+	} else { // LRU
 		tiempoActual := int(time.Now().UnixNano()) // tiempo actual en nanosegundos (convertido a int)
 		indice := 0
-		for indice < len(entradas) {
-			if entradas[indice].InstanteDeReferencia < tiempoActual { // Si el instante de referencia es menor al tiempo actual, es una candidata a ser la victima
-				victima = entradas[indice]
+		victima := 0
+		for indice < len(TLB.Entradas) {
+			if TLB.Entradas[indice].InstanteDeReferencia < tiempoActual { // Si el instante de referencia es menor al tiempo actual, es una candidata a ser la victima
+				victima = indice 
 			}
 			indice++
 		}
-		return indice
+		return victima
 	}
-
 }
 
-func ReemplzarEntradaTLB(pid int, nropagina int, nroframe int) {
-	
-	if len(tlb.Entradas) == 0 {
-		logueador.Info("No hay entradas en la TLB para reemplazar")
-		return
-	}
+func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 
-	nuevaEntrada := EntradaTLB{
+	nuevaEntrada := structs.EntradaTLB{
 		NumeroPagina: nropagina,
 		NumeroFrame: nroframe,
-		BitPresencia: true, // La pagina esta presente en la TLB	
-		BitModificado: false, // Inicialmente no ha sido modificada
+		BitPresencia: true, // La pagina esta presente en memoria
 		PID: pid, // Asignamos el PID del proceso
 		InstanteDeReferencia: int(time.Now().UnixNano()), // Asignamos el instante de referencia actual
 	}
 
-	if len(tlb.Entradas) == tlb.MaxEntradas { // si la cantidad de entradas es la maxima => hay que reemplazar
+	if len(TLB.Entradas) == TLB.MaxEntradas { // si la cantidad de entradas es la maxima => hay que reemplazar
 		indiceVictima := IndiceDeEntradaVictima() 
-		tlb.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
+		TLB.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
 		return 
 	} else { // si no esta lleno, agrego la nueva entrada al final
-		tlb.Entradas = append(tlb.Entradas, nuevaEntrada)
+		TLB.Entradas = append(TLB.Entradas, nuevaEntrada)
 		return 
 	}
 }
 
-func Hit(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta cargada en el TLB
+func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta cargada en el TLB
 	i := 0
-	for i < len(tlb.Entradas) {
-		if tlb.Entradas[i].NumeroPagina == pagina && tlb.Entradas[i].BitPresencia {
+	for i < len(TLB.Entradas) {
+		if TLB.Entradas[i].NumeroPagina == pagina && TLB.Entradas[i].BitPresencia {
 			return true,i // La página está en la TLB y es válida
 		}
 	}
@@ -166,37 +111,6 @@ func Hit(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta c
 
 // --------------------------------------- Cache ---------------------------------------------
 
-/*
-A la hora de modificar una página:
-	1. Se debe corroborar si la Cache esta habilitada => tiene al menos 1 frame
-		De ser asi: 
-			a. Se hacen las operaciones en caché 
-		Si no esta habilitada:
-			b. Se hace un write a memoria directamente => pedido a memoria 
-
-
-A la hora de cargar una página en cache => HECHO
-	1. Hay que corroborar si se encuentra llena 
-		De ser asi:
-			a. Se debe reemplazar una página según el algoritmo de reemplazo => HECHO
-			b. Si la página fue modificada, los cambios deben ser escritos en memoria
-
-
-Al la hora de desojar un proceso: 
-	1. Las páginas que se encuentran modificadas deben ser actualizadas en memoria principal
-		a. Primero se consultan las direcciones fisicas 
-		b. Se envian a escribir su contenido a memoria 
-		c. Se eliminan todas las entradas de la caché
-	
-	
-Para acceder a una página hay que:
-1. Verificar que este en caché
-2. Despues se pasa a la TLB
-3. Como ultima instancia la tabla de paginas en memoria 
-
-Preguntas: 
-1) Se cargan todas las paginas en cache de un proceso al iniciar?
-*/
 
 // Posibilidad que sea la misma estructura que la TLB
 type PaginaCache struct {
@@ -208,23 +122,23 @@ type PaginaCache struct {
 	Contenido []byte // Contenido de la pagina
 }
 
-type Cache struct {
+type CacheStruct struct {
 	Paginas []PaginaCache 
 	Algoritmo string 
 	Clock int // dato para saber donde quedó la "aguja" del clock
 }
 
-var cache = InicializarCache()
+var Cache CacheStruct
 
-func InicializarCache() Cache {
-	return Cache {
+func InicializarCache() CacheStruct {
+	return CacheStruct {
 		Paginas: make([]PaginaCache, Config.CacheEntries),
 		Algoritmo: Config.CacheReplacement, // FIFO o LRU => no esta en el config
 	}
 }
 
 func CacheHabilitado() bool {
-	return len(cache.Paginas) > 0 
+	return len(Cache.Paginas) > 0 
 }
 
 func FueModificada(pagina PaginaCache) bool {
@@ -237,7 +151,7 @@ func EstaEnCache(pid uint, nropagina int) bool {
 		return false 
 	}
 
-	for _, pagina := range cache.Paginas {
+	for _, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
 			return true // La página está en la caché
 		}
@@ -251,7 +165,7 @@ func ObtenerPaginaDeCache(pid uint, nropagina int) (int, error) {
 		return -1, fmt.Errorf("caché no habilitada")
 	}
 
-	for i, pagina := range cache.Paginas {
+	for i, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
 			logueador.Info("Página encontrada en caché: PID %d, Página %d", pid, nropagina)
 			return i, nil // Retorna la página y su índice en caché
@@ -282,7 +196,7 @@ func MandarDatosAMP(paginas PaginaCache) {
 
 func PaginasModificadas() []PaginaCache {
 	var paginasModificadas []PaginaCache
-	for _, pagina := range cache.Paginas {
+	for _, pagina := range Cache.Paginas {
 		if FueModificada(pagina) {
 			paginasModificadas = append(paginasModificadas, pagina)
 		}
@@ -349,7 +263,7 @@ func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
 }
 
 func AgregarPaginaACache(pagina PaginaCache) {
-	if len(cache.Paginas) == Config.CacheEntries {
+	if len(Cache.Paginas) == Config.CacheEntries {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
 		if FueModificada(pagina) {
 			logueador.Info("Pagina modificada, escribiendo en memoria")
@@ -357,8 +271,8 @@ func AgregarPaginaACache(pagina PaginaCache) {
 		}
 		return 
 	} else {
-		cache.Paginas = append(cache.Paginas, pagina)
-		logueador.Info("Pagina agregada a la cache") 
+		Cache.Paginas = append(Cache.Paginas, pagina)
+		logueador.Info("Pagina agregada a la Cache") 
 		return 
 	}
 }
@@ -366,12 +280,12 @@ func AgregarPaginaACache(pagina PaginaCache) {
 func RemplazarPaginaEnCache(pagina PaginaCache) {
 	indiceVictima := IndiceDeCacheVictima() // Obtenemos el indice de la pagina victima
 
-	if FueModificada(cache.Paginas[indiceVictima]) { // Si la pagina victima fue modificada, debemos escribir su contenido en memoria
+	if FueModificada(Cache.Paginas[indiceVictima]) { // Si la pagina victima fue modificada, debemos escribir su contenido en memoria
 		logueador.Info("Pagina modificada, escribiendo en memoria")
-		MandarDatosAMP(cache.Paginas[indiceVictima]) // Enviamos la pagina a memoria
+		MandarDatosAMP(Cache.Paginas[indiceVictima]) // Enviamos la pagina a memoria
 	}
-	cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
-	logueador.Info("Pagina reemplazada en cache") 
+	Cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
+	logueador.Info("Pagina reemplazada en Cache") 
 }
 
 
@@ -379,34 +293,34 @@ func EscribirEnCache(pid uint, adress int, data string) {
 
 	indice, err := ObtenerPaginaDeCache(pid, adress)
 	if err != nil {
-		logueador.Error("Error al obtener la pagina de cache: %v", err)
+		logueador.Error("Error al obtener la pagina de Cache: %v", err)
 		return
 	}
 
-	cache.Paginas[indice].Contenido = []byte(data) // Actualizamos el contenido de la pagina en cache
-	cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
-	logueador.Info("Pagina escrita en cache: PID %d, Direccion %d, Contenido %s", pid, adress, data)
+	Cache.Paginas[indice].Contenido = []byte(data) // Actualizamos el contenido de la pagina en Cache
+	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
+	logueador.Info("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, adress, data)
 }
 
 func LeerDeCache(pid uint, adress int, tam int) []byte {
 	indice, err := ObtenerPaginaDeCache(pid, adress)
 	if err != nil {
-		logueador.Error("Error al obtener la pagina de cache: %v", err)
+		logueador.Error("Error al obtener la pagina de Cache: %v", err)
 		return nil
 	}
 
-	if indice < 0 || indice >= len(cache.Paginas) {
+	if indice < 0 || indice >= len(Cache.Paginas) {
 		logueador.Error("Indice de pagina fuera de rango: %d", indice)
 		return nil 
 	}
 
-	pagina := cache.Paginas[indice]
+	pagina := Cache.Paginas[indice]
 	if pagina.BitPresencia && pagina.PID == int(pid) {
-		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en cache
+		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en Cache
 		return contenido 
-		logueador.Info("Pagina leida de cache: PID %d, Direccion %d, Contenido %s", pid, adress, string(contenido))
+		logueador.Info("Pagina leida de Cache: PID %d, Direccion %d, Contenido %s", pid, adress, string(contenido))
 	} else {
-		logueador.Error("Pagina no encontrada en cache o no pertenece al PID %d", pid)
+		logueador.Error("Pagina no encontrada en Cache o no pertenece al PID %d", pid)
 		return nil 
 	}
 
@@ -417,25 +331,25 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 
 func IndiceDeCacheVictima() int {
 
-	if cache.Algoritmo == "CLOCK" {
+	if Cache.Algoritmo == "CLOCK" {
 		for {
-			i := cache.Clock 
-			if !cache.Paginas[i].BitDeUso {
-				cache.Clock = (i + 1) % len(cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
+			i := Cache.Clock 
+			if !Cache.Paginas[i].BitDeUso {
+				Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
 				return i
 			}
-			cache.Paginas[i].BitDeUso = false  // false = 1
-			cache.Clock = (i + 1) % len(cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
+			Cache.Paginas[i].BitDeUso = false  // false = 1
+			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
 		}  
 	} else {
 		i := 0
-		for i < len(cache.Paginas) {
-			if !cache.Paginas[i].BitDeUso && !cache.Paginas[i].BitModificado {
-				cache.Paginas[i].BitDeUso = true 
+		for i < len(Cache.Paginas) {
+			if !Cache.Paginas[i].BitDeUso && !Cache.Paginas[i].BitModificado {
+				Cache.Paginas[i].BitDeUso = true 
 				return i // Retorna el indice de la primera pagina con bits 00
 			} else {
-				if !cache.Paginas[i].BitDeUso && cache.Paginas[i].BitModificado { 
-					cache.Paginas[i].BitDeUso = true
+				if !Cache.Paginas[i].BitDeUso && Cache.Paginas[i].BitModificado { 
+					Cache.Paginas[i].BitDeUso = true
 					return i;
 				}
 			}

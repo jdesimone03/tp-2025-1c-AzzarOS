@@ -93,6 +93,7 @@ type WriteInstruction struct {
 type ReadInstruction struct {
 	Address int
 	Size    int
+	PID    uint
 }
 
 type GotoInstruction struct {
@@ -345,6 +346,20 @@ type TiempoEjecucion struct {
 }
 
 // --------------------------------- Memoria --------------------------------- //
+
+type EntradaTLB struct {
+	NumeroPagina        int  `json:"numero_pagina"`
+	NumeroFrame         int  `json:"numero_frame"`
+	BitPresencia        bool `json:"bit_presencia"`    // Indica si el frame esta presente en memoria
+	PID                 int  `json:"pid"`              // Identificador del proceso al que pertenece el frame
+	InstanteDeReferencia int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+}
+
+type TLB struct {
+	Entradas    []EntradaTLB `json:"entradas"`
+	MaxEntradas int          `json:"max_entradas"`
+	Algoritmo   string       `json:"algoritmo"`
+}
 
 type ProcesoEnSwap struct {
 	PID uint `json:"pid"` // Identificador del proceso

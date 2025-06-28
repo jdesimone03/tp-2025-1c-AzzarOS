@@ -20,7 +20,7 @@ var Config config.ConfigMemory
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
 var EspacioUsuario []byte // memoriaPrincipal
 var Metricas = make(map[uint]structs.Metricas) // Metricas
-var Ocupadas map[uint]structs.FrameInfo // Ver de cambiar a un vector de PID nomas 
+var Ocupadas map[int]structs.FrameInfo // Ver de cambiar a un vector de PID nomas 
 var TDPMultinivel map[uint]*structs.Tabla  
 
 func IniciarEstructuras() {
@@ -187,18 +187,35 @@ func InformarMetricasDe(pid uint) {
 
 // ---------------------------- Archivo Dump -------------------------------------- // 
 
-var pathCorrectoDump string = filepath.Base(Config.DumpPath)
 
 func NombreDelArchivoDMP(pid string) string {
-	return "" + pid + "-" + time.Now().Format("2006-01-02-15-04-05") + ".dmp"
+	return pid + "-" + time.Now().Format("2006-01-02-15-04-05") + ".dmp"
 }
 
 func CreacionArchivoDump(pid uint) (*os.File, error) {
+	
+	err := os.MkdirAll(Config.DumpPath, 0755)
+	if err != nil {
+    return nil, fmt.Errorf("error al crear el directorio de dumps: %w", err)
+	}
+
+	pathCorrectoDump := filepath.Base(Config.DumpPath)
 	nombreArchivo := NombreDelArchivoDMP(strconv.Itoa(int(pid)))
 	rutaCompleta := fmt.Sprintf("%s/%s", pathCorrectoDump, nombreArchivo)
+
 	file, err := os.Create(rutaCompleta)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear el archivo de dump: %w", err)
 	}
 	return file, nil
+}
+
+func EscribirDumpEnArchivo(file *os.File, pid uint, frames []string) error {
+	contenido := []byte(strings.Join(frames, "\n"))
+	_, err := file.Write(contenido)
+	if err != nil {
+		return fmt.Errorf("error al escribir en el archivo de dump: %w", err)
+	}
+	logueador.Info("Dump del PID %d guardado exitosamente en %s", pid, file.Name())
+	return nil
 }

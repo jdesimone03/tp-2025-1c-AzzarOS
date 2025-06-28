@@ -13,28 +13,31 @@ import (
 
 // -------------------------------- MMU --------------------------------- //
 
+var ConfigMemoria *structs.ConfigMemoria
 
-func PedirConfigMemoria() (*structs.ConfigMemoria, error)  {
+func PedirConfigMemoria() error  {
 	url := fmt.Sprintf("http://%s:%d/config", Config.IPMemory, Config.PortMemory)
 	logueador.Info("Solicitando configuración de Memoria en: %s", url)
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("falló el GET a memoria: %w", err)
+		return fmt.Errorf("falló el GET a memoria: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("memoria respondió con error HTTP %d", resp.StatusCode)
+		return fmt.Errorf("memoria respondió con error HTTP %d", resp.StatusCode)
 	}
 
 	var config structs.ConfigMemoria
 	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
-		return nil, fmt.Errorf("falló el decode del JSON: %w", err)
+		return fmt.Errorf("falló el decode del JSON: %w", err)
 	}
 
-	return &config, nil
+	ConfigMemoria = &config
+	return nil
 }
+
 
 func nroPagina(direccionLogica int, pagesize int) int {
 	return direccionLogica / pagesize
@@ -73,13 +76,7 @@ func PedirTablaDePaginas(pid uint) *structs.Tabla {
 
 func MMU(pid uint, direccionLogica int) int {
 
-	configMemoria, err := PedirConfigMemoria()
-	if err != nil {
-		logueador.Error("No se pudo obtener la configuración de memoria: %v", err)
-		return -1
-	}
-	
-	desplazamiento := desplazamiento(direccionLogica, configMemoria.TamanioPagina)
+	desplazamiento := desplazamiento(direccionLogica, ConfigMemoria.TamanioPagina)
 	tabla := PedirTablaDePaginas(pid)
 
 	if tabla == nil {	
@@ -88,18 +85,18 @@ func MMU(pid uint, direccionLogica int) int {
 	}
 	
 	raiz := tabla
-	for nivel := 1; nivel <= configMemoria.CantNiveles; nivel++ {
-		entrada := entradaNiveln(direccionLogica, configMemoria.CantNiveles, nivel, configMemoria.TamanioPagina, configMemoria.EntradasPorTabla)
+	for nivel := 1; nivel <= ConfigMemoria.CantNiveles; nivel++ {
+		entrada := entradaNiveln(direccionLogica, ConfigMemoria.CantNiveles, nivel, ConfigMemoria.TamanioPagina, ConfigMemoria.EntradasPorTabla)
 
 		// Si llegamos al nivel final => queda buscar el frame unicamente 
-		if nivel == configMemoria.CantNiveles {
+		if nivel == ConfigMemoria.CantNiveles {
 			
 			if entrada >= len(raiz.Valores) || raiz.Valores[entrada] == -1 { // verifico si la entrada es válida
 				logueador.Error("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
 				return -1 // Dirección no mapeada
 			}
 		frame := raiz.Valores[entrada] // Obtengo el frame correspondiente a la entrada
-		return frame*configMemoria.TamanioPagina + desplazamiento // Esto es el frame correspondiente a la dirección lógica 
+		return frame*ConfigMemoria.TamanioPagina + desplazamiento // Esto es el frame correspondiente a la dirección lógica 
 		}
 
 		// Si estamos en niveles intermedios => seguimos recorriendo la tabla de páginas

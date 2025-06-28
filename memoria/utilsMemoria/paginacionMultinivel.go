@@ -6,31 +6,28 @@ import (
 )
 
 
-func FrameLibre(numero uint) bool {
+func FrameLibre(numero int) bool {
 	return !Ocupadas[numero].EstaOcupado
 }
 
-func PrimerFrameLibre(arranque uint) int { // arranque => desde cual frame arranco a buscar
-	CantidadDeFrames := uint(len(Ocupadas)) // Cantidad de frames que hay en memoria
-	for i := arranque; i < uint(CantidadDeFrames); i++ {
-		if FrameLibre(i) {
-			logueador.Info("Frame libre encontrado - NRO Frame %d", i)
-			return int(i)
-		}
-	}
-	logueador.Warn("No se encontraron frames libres")
-	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
+func PrimerFrameLibre(arranque int) int { // arranque => desde cual frame arranco a buscar
+	CantidadDeFrames := len(Ocupadas)
+    for i := arranque; i < CantidadDeFrames; i++ {
+        if !Ocupadas[i].EstaOcupado {
+            return i
+        }
+    }
+    return -1
 }
 
-func PrimerFrameLibreSinLogs(arranque uint) int { // arranque => desde cual frame arranco a buscar
-	CantidadDeFrames := uint(len(Ocupadas)) // Cantidad de frames que hay en memoria
-	for i := arranque; i < uint(CantidadDeFrames); i++ {
-		if FrameLibre(i) {
-			return int(i)
-		}
-	}
-	logueador.Warn("No se encontraron frames libres")
-	return -1 // Si no encuentra un frame libre => memoria llena => devuelvo -1
+func PrimerFrameLibreSinLogs(arranque int) int {
+	CantidadDeFrames := len(Ocupadas)
+    for i := arranque; i < CantidadDeFrames; i++ {
+        if !Ocupadas[i].EstaOcupado {
+            return i
+        }
+    }
+    return -1
 }
 
 
@@ -42,8 +39,8 @@ func CreaTablaJerarquica(pid uint, nivelesRestantes int, paginasRestantes *int) 
 		// Nivel hoja: asignar solo las páginas necesarias
 		for i := 0; i < Config.EntriesPerPage; i++ {
 			if *paginasRestantes > 0 {
-				frameLibre := PrimerFrameLibreSinLogs(uint(i)) // Busca el primer frame libre 
- 				MarcarFrameOcupado(uint(frameLibre), pid) // Lo marca como ocupado para el PID
+				frameLibre := PrimerFrameLibreSinLogs(i) // Busca el primer frame libre 
+ 				MarcarFrameOcupado(frameLibre, pid) // Lo marca como ocupado para el PID
 				tabla.Valores = append(tabla.Valores, frameLibre)
 				*paginasRestantes--
 			} else {

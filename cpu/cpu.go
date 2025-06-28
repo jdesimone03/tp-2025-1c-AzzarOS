@@ -21,6 +21,19 @@ func main() {
 	// Inicia la configuración
 	config.CargarConfiguracion("config.json", &utilsCPU.Config)
 
+	// Inicializar la TLB
+	utilsCPU.TLB = utilsCPU.InicializarTLB()
+
+	// Inicializar la cache
+	utilsCPU.Cache = utilsCPU.InicializarCache()
+
+	// Cargar la configuración de memoria
+	err := utilsCPU.PedirConfigMemoria()
+	if err != nil {
+		logueador.Error("No se pudo obtener la configuración de memoria: %v", err)
+		return
+	}
+
 	cpu := structs.InstanciaCPU{
 		IP:         utilsCPU.Config.IPCPU,
 		Puerto:     utilsCPU.Config.PortCPU,
@@ -32,12 +45,12 @@ func main() {
 		CPU:           cpu,
 	}
 
-	
-
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel, "handshake/CPU", peticion)
 
 	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
 	http.HandleFunc("/interrupt", utilsCPU.RecibirInterrupcion)
+	http.HandleFunc("/tlb", utilsCPU.MostrarTLB)
+	http.HandleFunc("/cache", utilsCPU.MostrarCache)
 
 	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }

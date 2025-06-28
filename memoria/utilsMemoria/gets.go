@@ -10,6 +10,27 @@ import (
 	"utils/structs"
 )
 
+func MostrarMemoria(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	
+	memoriaJSON, err := json.Marshal(EspacioUsuario)
+	if err != nil {
+		logueador.Info("Error al convertir los procesos a JSON: %s", err)
+		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(memoriaJSON)
+	logueador.Info("Memoria enviada")
+}
+
+
 func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
