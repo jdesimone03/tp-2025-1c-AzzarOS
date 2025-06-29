@@ -358,7 +358,8 @@ type EntradaTLB struct {
 	NumeroFrame         int  `json:"numero_frame"`
 	BitPresencia        bool `json:"bit_presencia"`    // Indica si el frame esta presente en memoria
 	PID                 int  `json:"pid"`              // Identificador del proceso al que pertenece el frame
-	InstanteDeReferencia int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+	Llegada int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+	Referencia int  `json:"referencia"` // Marca el instante de referencia para LRU
 }
 type ProcesoEnSwap struct {
 	PID uint `json:"pid"` // Identificador del proceso

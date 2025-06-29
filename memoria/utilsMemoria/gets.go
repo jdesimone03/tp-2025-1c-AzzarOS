@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"utils/structs"
+	"fmt"
 )
 
 func MostrarMemoria(w http.ResponseWriter, r *http.Request) {
@@ -16,20 +17,26 @@ func MostrarMemoria(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	
-	memoriaJSON, err := json.Marshal(EspacioUsuario)
-	if err != nil {
-		logueador.Info("Error al convertir los procesos a JSON: %s", err)
-		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
-		return
+	w.Header().Set("Content-Type", "text/plain")
+
+	const ancho = 32 // Cuántos bytes mostrar por línea
+	for i := 0; i < len(EspacioUsuario); i += ancho {
+		fmt.Fprintf(w, "%04X  ", i)
+
+		// Mostrar bytes como caracteres legibles
+		for j := 0; j < ancho && i+j < len(EspacioUsuario); j++ {
+			b := EspacioUsuario[i+j]
+			if b >= 32 && b <= 126 {
+				fmt.Fprintf(w, "%c", b)
+			} else {
+				fmt.Fprintf(w, ".")
+			}
+		}
+		fmt.Fprintln(w)
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(memoriaJSON)
-	logueador.Info("Memoria enviada")
+	logueador.Info("Memoria enviada en formato texto legible")
 }
-
 
 func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
 

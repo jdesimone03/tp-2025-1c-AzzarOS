@@ -1,23 +1,26 @@
 package utilsCPU
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"utils"
 	"utils/logueador"
 	"utils/structs"
 )
+
 // --------------------------------------- Cache ---------------------------------------------
 
 /*
 Cosas para testear:
-
 - Agregado de pagina a cache => Testeado
-- Remplazo de pagina en cache 
-- Verificacion de si una pagina esta en cache => Testeado
+- Remplazo de pagina en cache:
+  - Con Algoritmo CLOCK 
+  - Con CLOCK - M 
+  - Con FIFO => en TLB Testeado
+  - Con LRU 
 - Verificacion de si una pagina fue modificada => Testeado
-- Envio de pagina a memoria 
+- Envio de pagina a memoria
 */
 var Cache structs.CacheStruct = InicializarCache()
 
@@ -27,6 +30,7 @@ func InicializarCache() structs.CacheStruct {
 		for i := 0; i < Config.CacheEntries; i++ {
 		paginas[i] = structs.PaginaCache{
 			NumeroPagina: -1,
+			NumeroFrame: -1,
 			PID: -1,
 			}
 		}
@@ -78,20 +82,10 @@ func ObtenerPaginaDeCache(pid uint, nropagina int) int {
 }
 
 func MandarDatosAMP(paginas structs.PaginaCache) {
-	url := fmt.Sprintf("http://%s:%d/actualizarMP", Config.IPMemory, Config.PortMemory)
-	body, err := json.Marshal(paginas)
-	if err != nil {
-		logueador.Info("Error al serializar la pagina a JSON:", err)
-		return
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		logueador.Error("Error al enviar la pagina a la memoria:", err)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		logueador.Error("Error al enviar la pagina a la memoria, status code: %d", resp.StatusCode)
+	
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "actualizarMP", paginas)
+	if respuesta != "OK	" {
+		logueador.Error("Error al enviar la pagina a memoria: %s", respuesta)
 		return
 	}
 	logueador.Info("Pagina enviada a la memoria correctamente")
@@ -137,9 +131,10 @@ func EliminarEntradasDeCache(pid uint) {
 	}
 }
 
-func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) structs.PaginaCache {
+func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte, frame int) structs.PaginaCache {
 	return structs.PaginaCache{
 		NumeroPagina: nropagina,
+		NumeroFrame: frame, // Asignamos el numero de frame
 		BitPresencia: true, // La pagina esta presente en memoria
 		BitModificado: false, // Inicialmente no ha sido modificada
 		BitDeUso: true, // Inicialmente se considera que la pagina ha sido usada
@@ -148,9 +143,9 @@ func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) structs.Pa
 	}
 }
 
-func PedirFrameAMemoria(pid uint, nropagina int) (structs.PaginaCache, error) {
+func PedirFrameAMemoria(pid uint, direccionLogica int, direccionFisica int) (structs.PaginaCache, error) {
 	
-	direccionFisica := MMU(pid, nropagina) 
+	nropagina := direccionLogica / ConfigMemoria.TamanioPagina // Obtenemos el numero de pagina
 	url := fmt.Sprintf("http://%s:%d/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
 	
 	resp, err := http.Get(url)
@@ -172,22 +167,37 @@ func PedirFrameAMemoria(pid uint, nropagina int) (structs.PaginaCache, error) {
 		return structs.PaginaCache{}, err
 	}
 
-	paginaCache := CreacionDePaginaCache(pid, nropagina, frame) 
+	paginaCache := CreacionDePaginaCache(pid, nropagina, frame, direccionFisica / ConfigMemoria.TamanioPagina) // Creamos la pagina cache con el frame obtenido
 
 	return paginaCache, nil
 }
 
+func CacheLleno() bool {
+	for i:= 0; i < len(Cache.Paginas); i++ {
+		if Cache.Paginas[i].NumeroPagina == -1 { // Si hay una pagina sin asignar, la cache no esta llena
+			return false 
+		}
+	}
+	return true // Si todas las paginas tienen un numero de pagina asignado, la cache esta llena
+}
+
+func IndiceLibreCache() int {
+	for i := 0; i < len(Cache.Paginas); i++ {
+		if Cache.Paginas[i].NumeroPagina == -1 { // Si hay una pagina sin asignar, retornamos su indice
+			return i
+		}
+	}
+	return -1 
+}
+
 func AgregarPaginaACache(pagina structs.PaginaCache) {
 	
-	if len(Cache.Paginas) == Config.CacheEntries {
+	if CacheLleno() {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
-		if FueModificada(pagina) {
-			logueador.Info("Pagina modificada, escribiendo en memoria")
-			MandarDatosAMP(pagina) 
-		}
 		return 
 	} else {
-		Cache.Paginas = append(Cache.Paginas, pagina)
+		indiceLibre := IndiceLibreCache() // Obtenemos el indice libre de la cache
+		Cache.Paginas[indiceLibre] = pagina // Asignamos la pagina al indice libre
 		logueador.Info("Pagina agregada a la Cache") 
 		return 
 	}
@@ -246,9 +256,6 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 		return nil 
 	}
 }
-
-
-// Para CLOCK-M
 
 func IndiceDeCacheVictima() int {
 

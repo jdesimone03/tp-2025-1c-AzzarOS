@@ -122,7 +122,7 @@ func TraducirDireccion(pid uint, direccion int) int {
 	logueador.Info("Accediendo a TLB")
 	// 1. Preguntamos a TLB
 	frame := AccesoATLB(int(pid), paginaLogica) // Verificamos si la página está en la TLB
-	if frame != -1{
+	if frame != -1 {
 		return frame * ConfigMemoria.TamanioPagina + offset // Retornamos la dirección física
 	} 
 	logueador.Info("Página no encontrada en TLB, buscando en tabla de páginas - MMU")
@@ -235,7 +235,7 @@ func Read(pid uint, inst structs.ReadInstruction) {
 		PID:     pid, // Asignamos el PID del proceso
 	}
 
-	pagina, err := PedirFrameAMemoria(pid, inst.Address)
+	pagina, err := PedirFrameAMemoria(pid, inst.Address, direccionFisica)
 	if err != nil {
 		logueador.Error("Error al pedir el frame a memoria: %v", err)
 		return
@@ -277,15 +277,12 @@ func Write(pid uint, inst structs.WriteInstruction) {
 	}
 
 	// Si la página no estaba en cache, pedirla a memoria
-	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress)
+	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress, direccionFisica)
 	if err != nil {
 		logueador.Info("Error al pedir el frame a memoria: %v", err)
 		return
 	}
-
-	logueador.Info("PAGINA CACHE CREADA: ", pagina)
 	AgregarPaginaACache(pagina)
-	return 
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS

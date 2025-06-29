@@ -42,8 +42,8 @@ func HayEspacioParaInicializar(tamanio int) bool {
 
 func CantidadDePaginasDeProceso(tamanio int) int {
 	tamanioPagina := int(Config.PageSize)
-	cantPaginas := (tamanio / tamanioPagina) // Cantidad de paginas que se necesitan
-	return cantPaginas
+	cantPaginas := (tamanio + tamanioPagina - 1) / tamanioPagina // Redondea hacia arriba la cantidad de páginas necesarias
+	return cantPaginas 
 }
 
 
@@ -81,15 +81,15 @@ func Read(pid uint, direccion int, tamanio int) (string, error) {
 	return string(datosLeidos), nil // Retorna los datos leídos como string
 }
 
-func Write(pid uint, direccion int, aEscribir string) (error) {
+func Write(pid uint, direccionFisica int, aEscribir string) (error) {
 
-	if direccion < 0 || direccion >= Config.MemorySize {
-		logueador.Error("Dirección fuera de rango: %d", direccion)
-		return fmt.Errorf("dirección fuera de rango: %d", direccion)
+	if direccionFisica < 0 || direccionFisica >= Config.MemorySize {
+		logueador.Error("Dirección fuera de rango: %d", direccionFisica)
+		return fmt.Errorf("dirección fuera de rango: %d", direccionFisica)
 	}
 
-	inicio := direccion
-	fin := direccion + len(aEscribir) - 1 // Verificar que la dirección de inicio y fin estén dentro del rango de memoria
+	inicio := direccionFisica
+	fin := direccionFisica + len(aEscribir) - 1 // Verificar que la dirección de inicio y fin estén dentro del rango de memoria
 
 	frameInicio := inicio / Config.PageSize
 	frameFin := fin / Config.PageSize
@@ -103,7 +103,8 @@ func Write(pid uint, direccion int, aEscribir string) (error) {
 	}
 
 	logueador.Info("Escribiendo en memoria")
-	copy(EspacioUsuario[direccion:], []byte(aEscribir))
+	copy(EspacioUsuario[direccionFisica:], []byte(aEscribir))
+
 	return nil 
 }
 
@@ -127,7 +128,7 @@ func CantidadDePaginas(pid uint) int {
 }
 
 func LiberarMemoria(pid uint) {
-	for i := 0; i < CantidadDePaginas(pid); i++ {
+	for i := 0; i < len(Ocupadas); i++ {
 		frame := Ocupadas[i]
 		if frame.PID == pid {
 			frame.EstaOcupado = false

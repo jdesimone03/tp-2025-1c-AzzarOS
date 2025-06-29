@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+	"bufio"
+
 )
 
 var Config config.ConfigMemory
@@ -143,7 +145,6 @@ func ExisteElPID(pid uint) bool {
 func CrearMetricaDeProceso(pid uint) {
 	metrica := structs.Metricas{}
 	Metricas[pid] = metrica
-	logueador.Info("Metrica creada para el PID %d", pid)
 }
 
 func IncrementarMetricaEn(pid uint, campo string) {
@@ -180,8 +181,8 @@ func InformarMetricasDe(pid uint) {
 		logueador.Info("No existe el PID %d", pid)
 		return
 	}
-	// metrica := Metricas[pid]
-	// log.Println(LogDestruccionDeProceso(pid, metrica)) => Log de finalización 
+	metrica := Metricas[pid]
+	logueador.DestruccionDeProceso(int(pid), metrica)
 	delete(Metricas, pid)
 }
 
@@ -218,4 +219,34 @@ func EscribirDumpEnArchivo(file *os.File, pid uint, frames []string) error {
 	}
 	logueador.Info("Dump del PID %d guardado exitosamente en %s", pid, file.Name())
 	return nil
+}
+
+
+func CargarPIDconInstrucciones(path string, pid int) {
+	instrucciones := LeerArchivoYGuardarInstrucciones(path)
+	Procesos[uint(pid)] = instrucciones
+}
+
+func LeerArchivoYGuardarInstrucciones(path string) []string {
+	var instrucciones []string
+	file , err := os.Open(path)
+	check("No se pudo abrir el archivo",err)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() { 
+		instruccion := strings.TrimSpace(scanner.Text()) 
+			if instruccion != ""{
+			instrucciones = append(instrucciones, instruccion)
+			}
+	}
+	if err := scanner.Err(); err != nil {
+		check("Error al leer la instruccion",err)
+	}
+	defer file.Close() 
+	return instrucciones // Devulve un ["JUMP 1", "ADD 2", "SUB 3"]
+}
+
+func check(mensaje string, e error) {
+	if e != nil {
+		logueador.Error(mensaje, "error", e)	
+	}
 }

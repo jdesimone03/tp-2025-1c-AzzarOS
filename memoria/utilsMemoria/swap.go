@@ -18,19 +18,19 @@ func EscribirProcesoEsSwap(proceso structs.ProcesoEnSwap) {
 	pathCorrecto := filepath.Base(Config.SwapfilePath)
 	file, err := os.OpenFile(pathCorrecto, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		logueador.Info("Error al abrir el archivo SWAP para escritura:", err)
+		logueador.Info("Error al abrir el archivo SWAP para escritura: %v", err)
 		return
 	}
 	defer file.Close()
 
 	dataJSON, error := json.Marshal(proceso)
 	if error != nil {
-		logueador.Info("Error al convertir el proceso a JSON:", error)
+		logueador.Info("Error al convertir el proceso a JSON")
 		return
 	}
 	_, err = file.Write(append(dataJSON, '\n')) // Agrego salto de linea para que esten uno abajo del otro 
 	if err != nil {
-		logueador.Info("Error al escribir el proceso en el archivo SWAP:", err)
+		logueador.Info("Error al escribir el proceso en el archivo SWAP: %v", err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func BuscarPaginasDeProceso(pid uint) []string {
 		if Ocupadas[i].PID == pid {
 			leido, err := Read(pid, i * Tamanioframe(), Tamanioframe())	
 			if err != nil {
-				logueador.Info("Error al leer la página del proceso:", err)
+				logueador.Info("Error al leer la página del proceso: %v", err)
 				continue
 			}
 			listaDePaginas = append(listaDePaginas, leido)
@@ -63,7 +63,7 @@ func BuscarPaginasDeProceso(pid uint) []string {
 			Ocupadas[i] = frame
 		}
 	}
-	logueador.Info("Páginas encontradas para el proceso" )
+	logueador.Info("Páginas encontradas para el proceso")
 	return listaDePaginas
 }
 
@@ -71,7 +71,7 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 	pathCorrecto := filepath.Base(Config.SwapfilePath)
 	file, err := os.Open(pathCorrecto)
 	if err != nil {
-		logueador.Info("Error al abrir el archivo SWAP: %d", err)
+		logueador.Info("Error al abrir el archivo SWAP: %v", err)
 		return nil
 	}
 	defer file.Close()
@@ -81,21 +81,23 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 		var proceso structs.ProcesoEnSwap
 		err := json.Unmarshal(scanner.Bytes(), &proceso)
 		if err != nil {
-			logueador.Info("Error al deserializar el proceso desde el archivo SWAP:", err)
+			logueador.Info("Error al deserializar el proceso desde el archivo SWAP: %v", err)
 			continue // error que no tiene que frenarnos 
 		}
 		if proceso.PID == pid {
-			logueador.Info("Proceso encontrado en SWAP:", proceso)
+			logueador.Info("Proceso encontrado en SWAP: %+v", proceso)
 			return &proceso // Retorna el proceso encontrado
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logueador.Info("Error al leer el archivo SWAP:", err)
+		logueador.Info("Error al leer el archivo SWAP: %v", err)
 	}
 
 	return nil
 }
+
+
 
 // Si hay espacio para inicializar => que entren las paginas del proceso en memoria principal
 func SwapOutProceso(pid uint) {
@@ -103,7 +105,7 @@ func SwapOutProceso(pid uint) {
 	logueador.Info("Buscando proceso en SWAP")
 	procesoEnSwap := BuscarProcesoEnSwap(pid)
 	if procesoEnSwap == nil {
-		logueador.Info("El proceso", pid, "no se encuentra en el SWAP")
+		logueador.Info("El proceso %d no se encuentra en el SWAP", pid)
 		return
 	}
 	// Volver a asignar las páginas al proceso en memoria principal
@@ -118,7 +120,7 @@ func SwapOutProceso(pid uint) {
 func SwapInProceso(pid uint) {
 	paginas := BuscarPaginasDeProceso(pid)
 	if len(paginas) == 0 {
-		logueador.Info("No se encontraron páginas para el proceso", pid)
+		logueador.Info("No se encontraron páginas para el proceso %d", pid)
 		return
 	}
 	procesoEnSwap := structs.ProcesoEnSwap{

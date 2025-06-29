@@ -1,7 +1,6 @@
 package utilsMemoria
 
 import (
-	"utils/logueador"
 	"utils/structs"
 )
 
@@ -58,7 +57,6 @@ func CreaTablaJerarquica(pid uint, nivelesRestantes int, paginasRestantes *int) 
 }
 
 func CrearTablaDePaginas(pid uint, tamanio int) {
-	logueador.Info("Creando tabla de paginas para el PID %d" , pid)
 	paginasRestantes := CantidadDePaginasDeProceso(tamanio)
 	tabla := CreaTablaJerarquica(pid, Config.NumberOfLevels, &paginasRestantes) // Crea una tabla jerárquica para el PID
 	TDPMultinivel[pid] = tabla // Asigna la tabla al mapa TDP

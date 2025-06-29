@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 	"utils"
 	"utils/logueador"
@@ -81,7 +80,9 @@ func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	frame := direccionInt / Config.PageSize
-	paginaADar := EspacioUsuario[frame:frame+Config.PageSize] // Obtengo la pagina que corresponde al frame
+	inicio := frame * Config.PageSize
+	fin := inicio + Config.PageSize
+	paginaADar := EspacioUsuario[inicio:fin] // Obtengo la pagina que corresponde al frame
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -177,8 +178,6 @@ func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-
-// Recibe un PID y PC, La memoria lo busca en sus procesos y lo devuelve.
 func HandlerFetch(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
@@ -318,6 +317,13 @@ func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 
 	pid := r.URL.Query().Get("pid")
 	pidInt, err := strconv.Atoi(pid)
+	
+	if !ExisteElPID(uint(pidInt)) {
+		logueador.Error("El PID %d no existe", pidInt)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	LiberarMemoria(uint(pidInt))
 	if err != nil {
 		logueador.Error("Error al convertir PID a entero")
@@ -332,7 +338,6 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 
 	// time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
-	logueador.Info("HandlerWrite llamado")
 	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje: %e", err)
@@ -466,15 +471,8 @@ func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Reques
 	logueador.Info("Instrucción enviada desde memoria - instruccion: %s", instruccion)
 }
 
-func check(mensaje string, e error) {
-	if e != nil {
-		logueador.Error(mensaje, "error", e)	
-	}
-}
-
 func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		
-
 		time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 		data, err := utils.DecodificarMensaje[structs.PedidoDeInicializacion](r)
@@ -483,6 +481,7 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error al decodificar el mensaje", http.StatusBadRequest)
 			return
 		}
+
 		if ExisteElPID(data.PID) {
 			logueador.Info("El PID ya existe: %d", data.PID)
 			http.Error(w, "El PID ya existe", http.StatusBadRequest)
@@ -496,38 +495,14 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "No hay espacio para inicializar el proceso", http.StatusBadRequest)
 			return
 		}
+		logueador.Info("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
 			
-		logueador.Info("Hay espacio para el proceso con PID: %d", data.PID)
-			
+		// Creación de Estructuras
 		CargarPIDconInstrucciones(data.Path, int(data.PID))  // Carga las instrucciones del PID en el map	
 		CrearMetricaDeProceso(data.PID) // Crea la metrica del proceso para ir guardando registro de las acciones
 		CrearTablaDePaginas(data.PID, int(data.TamanioProceso)) // Crea la tabla de paginas del PID
+		logueador.Info("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
 
 		w.WriteHeader(http.StatusOK) // Envio el OK al kernel
 		w.Write([]byte("OK")) // Envio el OK al kernel  
-}
-
-
-func CargarPIDconInstrucciones(path string, pid int) {
-	instrucciones := LeerArchivoYGuardarInstrucciones(path)
-	Procesos[uint(pid)] = instrucciones
-	logueador.Info("PID: %d cargado con sus instrucciones: %s", pid, strings.Join(instrucciones, "-"))
-}
-
-func LeerArchivoYGuardarInstrucciones(path string) []string {
-	var instrucciones []string
-	file , err := os.Open(path)
-	check("No se pudo abrir el archivo",err)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() { 
-		instruccion := strings.TrimSpace(scanner.Text()) 
-			if instruccion != ""{
-			instrucciones = append(instrucciones, instruccion)
-			}
-	}
-	if err := scanner.Err(); err != nil {
-		check("Error al leer la instruccion",err)
-	}
-	defer file.Close() 
-	return instrucciones // Devulve un ["JUMP 1", "ADD 2", "SUB 3"]
 }
