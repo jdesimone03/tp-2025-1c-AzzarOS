@@ -6,13 +6,13 @@ import (
 
 
 func FrameLibre(numero int) bool {
-	return !Ocupadas[numero].EstaOcupado
+	return Ocupadas[numero] != -1 
 }
 
 func PrimerFrameLibre(arranque int) int { // arranque => desde cual frame arranco a buscar
 	CantidadDeFrames := len(Ocupadas)
     for i := arranque; i < CantidadDeFrames; i++ {
-        if !Ocupadas[i].EstaOcupado {
+        if Ocupadas[i] == -1 { // Si el frame esta libre
             return i
         }
     }
@@ -22,7 +22,7 @@ func PrimerFrameLibre(arranque int) int { // arranque => desde cual frame arranc
 func PrimerFrameLibreSinLogs(arranque int) int {
 	CantidadDeFrames := len(Ocupadas)
     for i := arranque; i < CantidadDeFrames; i++ {
-        if !Ocupadas[i].EstaOcupado {
+        if Ocupadas[i] == -1 {
             return i
         }
     }

@@ -50,17 +50,14 @@ func BuscarPaginasDeProceso(pid uint) []string {
 	var listaDePaginas []string
 	
 	for i := 0; i < CantidadDeFrames(); i++ {
-		if Ocupadas[i].PID == pid {
+		if Ocupadas[i] == int(pid) {
 			leido, err := Read(pid, i * Tamanioframe(), Tamanioframe())	
 			if err != nil {
 				logueador.Info("Error al leer la página del proceso: %v", err)
 				continue
 			}
 			listaDePaginas = append(listaDePaginas, leido)
-			frame := Ocupadas[i]
-			frame.EstaOcupado = false // Marcar el frame como libre
-			frame.PID = 0 // Limpiar el PID del frame
-			Ocupadas[i] = frame
+			Ocupadas[i] = -1 // Marcar el frame como libre
 		}
 	}
 	logueador.Info("Páginas encontradas para el proceso")
@@ -91,7 +88,7 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 		listaProcesos = append(listaProcesos, proceso)
 	}
 
-	procesoEncontrado := ProcesoASacarDeSwap(listaProcesos, pid)
+	procesoEncontrado, listaProcesos := ProcesoASacarDeSwap(listaProcesos, pid)
 	if procesoEncontrado == nil {
 		logueador.Info("No se encontró el proceso con PID %d en SWAP", pid)
 		return nil
@@ -109,16 +106,18 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 	return procesoEncontrado
 }
 
-func ProcesoASacarDeSwap(procesos []structs.ProcesoEnSwap, pid uint) *structs.ProcesoEnSwap {
+func ProcesoASacarDeSwap(procesos []structs.ProcesoEnSwap, pid uint) (*structs.ProcesoEnSwap, []structs.ProcesoEnSwap) {
 	// Buscar el proceso en la lista de procesos
-	for _, proceso := range procesos {
+	for i,proceso := range procesos {
 		if proceso.PID == pid {
+			encontrado := proceso
 			logueador.Info("Proceso encontrado en SWAP: %+v", proceso)
-			return &proceso // Retorna el proceso encontrado
+			procesos = append(procesos[:i], procesos[i+1:]...) // Elimina el proceso encontrado de la lista
+			return &encontrado, procesos // Retorna el proceso encontrado
 		}
 	}
 	logueador.Info("Proceso con PID %d no encontrado en SWAP", pid)
-	return nil // Si no se encuentra, retorna nil
+	return nil, nil // Si no se encuentra, retorna nil
 }
 // Si hay espacio para inicializar => que entren las paginas del proceso en memoria principal
 func SwapOutProceso(pid uint) {

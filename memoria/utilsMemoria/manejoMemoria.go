@@ -20,13 +20,14 @@ func InicializarEntrada(pid uint, frameAsignado int, entrada structs.EntradaDeTa
 
 func HayFramesDisponibles(n int) bool {
     cant := 0
-    for _, frame := range Ocupadas {
-        if !frame.EstaOcupado {
-            cant++
-            if cant >= n {
-                return true
-            }
-        }
+    for i:=0; i < len(Ocupadas); i++ {
+		if Ocupadas[i] == -1 { // Si el frame está libre
+			cant++
+		}
+		if cant >= n { // Si hay suficientes frames libres
+			return true
+		}
+ 
     }
     return false
 }
@@ -68,9 +69,9 @@ func Read(pid uint, direccion int, tamanio int) (string, error) {
 
 	// Verificar que todos los frames involucrados pertenezcan al proceso
 	for frame := frameInicio; frame <= frameFin; frame++ {
-		if Ocupadas[frame].PID != pid {
-			logueador.Error("El proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame].PID)
-			return "", fmt.Errorf("el proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame].PID)
+		if Ocupadas[frame] != int(pid) {
+			logueador.Error("El proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame])
+			return "", fmt.Errorf("el proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame])
 		}
 	}
 
@@ -96,9 +97,9 @@ func Write(pid uint, direccionFisica int, aEscribir string) (error) {
 
 	// Verificar que todos los frames involucrados pertenezcan al proceso
 	for frame := frameInicio; frame <= frameFin; frame++ {
-		if Ocupadas[frame].PID != pid {
-			logueador.Error("El proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame].PID)
-			return fmt.Errorf("el proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame].PID)
+		if Ocupadas[frame] != int(pid) {
+			logueador.Error("El proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame])
+			return fmt.Errorf("el proceso %d intenta escribir en el frame %d, que pertenece al PID %d", pid, frame, Ocupadas[frame])
 		}
 	}
 
@@ -109,18 +110,17 @@ func Write(pid uint, direccionFisica int, aEscribir string) (error) {
 }
 
 func ProcesoEnMemoria(pid uint) bool {
-	for _, frame := range Ocupadas {
-		if frame.PID == pid{
-			return true // Si hay al menos un frame ocupado por el PID, el proceso está en memoria
+	for _, valor := range Ocupadas {
+		if valor == int(pid) {
+			return true
 		}
 	}
-	return false // Si no se encuentra ningún frame ocupado por el PID, el proceso no está en memoria
+	return false
 }
-
 func CantidadDePaginas(pid uint) int {
 	count := 0
 	for _, frame := range Ocupadas {
-		if frame.PID == pid && frame.EstaOcupado {
+		if Ocupadas[frame] == int(pid) {
 			count++
 		}
 	}
@@ -129,29 +129,22 @@ func CantidadDePaginas(pid uint) int {
 
 func LiberarMemoria(pid uint) {
 	for i := 0; i < len(Ocupadas); i++ {
-		frame := Ocupadas[i]
-		if frame.PID == pid {
-			frame.EstaOcupado = false
-			frame.PID = 0 // TODO
-			Ocupadas[i] = frame
+		if Ocupadas[i] == int(pid) {
+			Ocupadas[i] = -1 // Marca el frame como libre
 			logueador.Info("Liberando frame %d del proceso %d", i, pid)
 		}
 	}
 }
 
 func MarcarFrameOcupado(frame int, pid uint) {
-	info := Ocupadas[frame]
-	info.EstaOcupado = true // Marca el frame como ocupado
-	info.PID = pid          // Asigna el PID del proceso que ocupa el frame
-	Ocupadas[frame] = info  // Actualiza el mapa con la información del frame
+	Ocupadas[frame] = int(pid)
+	return
 }
 
 func InicializarOcupadas() {
-	Ocupadas = make(map[int]structs.FrameInfo)
+	tam := Config.MemorySize / Config.PageSize // Cantidad de frames
+	Ocupadas = make([]int, tam) // Inicializa la lista de frames ocupados con -1
 	for i := 0; i < Config.MemorySize/Config.PageSize; i++ {
-		Ocupadas[i] = structs.FrameInfo{
-			EstaOcupado: false,
-			PID:         0,
-		}
+		Ocupadas[i] = -1
 	}
 }

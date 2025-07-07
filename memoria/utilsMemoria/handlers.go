@@ -262,7 +262,8 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
+		
+	logueador.Info("Existe el PID")
 	SwapInProceso(uint(pidInt)) 
 	IncrementarMetricaEn(uint(pidInt), "BajadasAlSWAP") // Aumento la métrica de bajadas al SWAP del PID
 	logueador.Info("Swapin del proceso con PID: %d", pidInt)

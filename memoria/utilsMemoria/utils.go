@@ -22,11 +22,10 @@ var Config config.ConfigMemory
 var Procesos = make(map[uint][]string) // PID: lista de instrucciones
 var EspacioUsuario []byte // memoriaPrincipal
 var Metricas = make(map[uint]structs.Metricas) // Metricas
-var Ocupadas map[int]structs.FrameInfo // Ver de cambiar a un vector de PID nomas 
+var Ocupadas []int  // Lista de frames ocupados, -1 si esta libre
 var TDPMultinivel map[uint]*structs.Tabla  
 
 func IniciarEstructuras() {
-	// Carga el espacio de usuario
 	EspacioUsuario = make([]byte, Config.MemorySize)
 	InicializarOcupadas()
 	TDPMultinivel = make(map[uint]*structs.Tabla)
@@ -200,9 +199,9 @@ func CreacionArchivoDump(pid uint) (*os.File, error) {
     return nil, fmt.Errorf("error al crear el directorio de dumps: %w", err)
 	}
 
-	pathCorrectoDump := filepath.Base(Config.DumpPath)
+	pathCorrectoDump := Config.DumpPath
 	nombreArchivo := NombreDelArchivoDMP(strconv.Itoa(int(pid)))
-	rutaCompleta := fmt.Sprintf("%s/%s", pathCorrectoDump, nombreArchivo)
+	rutaCompleta := filepath.Join(pathCorrectoDump, nombreArchivo)
 
 	file, err := os.Create(rutaCompleta)
 	if err != nil {
