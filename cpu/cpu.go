@@ -45,6 +45,7 @@ func main() {
 	http.HandleFunc("/interrupt", utilsCPU.RecibirInterrupcion)
 	http.HandleFunc("/tlb", utilsCPU.MostrarTLB)
 	http.HandleFunc("/cache", utilsCPU.MostrarCache)
+	http.HandleFunc("/desalojo", utilsCPU.DesaolojoDeProceso) // El en query tiene que venir el PID del proceso a desalojar
 
 	utils.IniciarServidor(utilsCPU.Config.PortCPU)
 }

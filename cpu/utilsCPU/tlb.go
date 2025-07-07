@@ -148,3 +148,17 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 		return 
 	}
 }
+func DesalojoTlB(pid uint) {
+	for i := 0; i < len(tlb.Entradas); i++ {
+		if tlb.Entradas[i].PID == int(pid) { // Verificamos si la entrada pertenece al PID
+			tlb.Entradas[i] = structs.EntradaTLB{ // Desalojamos la entrada del PID
+				NumeroPagina: -1, // -1 indica que la entrada está vacía
+				NumeroFrame:  -1,
+				BitPresencia: false,
+				PID:          -1,
+				Referencia: -1,
+				Llegada: -1, // -1 indica que la entrada no ha sido utilizada
+			}
+		}
+	}
+}

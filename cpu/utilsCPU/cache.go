@@ -7,6 +7,7 @@ import (
 	"utils"
 	"utils/logueador"
 	"utils/structs"
+	"strconv"
 )
 
 // --------------------------------------- Cache ---------------------------------------------
@@ -91,10 +92,10 @@ func MandarDatosAMP(paginas structs.PaginaCache) {
 	logueador.Info("Pagina enviada a la memoria correctamente")
 }
 
-func PaginasModificadas() []structs.PaginaCache {
+func PaginasModificadasCache(pid uint) []structs.PaginaCache {
 	var paginasModificadas []structs.PaginaCache
 	for _, pagina := range Cache.Paginas {
-		if FueModificada(pagina) {
+		if FueModificada(pagina) && pagina.PID == int(pid) { // Verificamos si la pagina fue modificada y pertenece al PID
 			paginasModificadas = append(paginasModificadas, pagina)
 		}
 	}
@@ -104,22 +105,33 @@ func PaginasModificadas() []structs.PaginaCache {
 // Debe venir una request de memoria o kernel
 func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 	
-	modificadas := PaginasModificadas()
-	
+	pidStr := r.URL.Query().Get("pid") // Obtenemos el PID del proceso a desalojar
+	pidInt, err := strconv.Atoi(pidStr)
+	if err != nil {
+		logueador.Info("Error al convertir el PID a entero: %v", err)
+		http.Error(w, "PID inválido", http.StatusBadRequest)
+		return
+	}
+	modificadas := PaginasModificadasCache(uint(pidInt))
 	if len(modificadas) == 0 {
 		w.Write([]byte("No hay paginas modificadas. No se actualiza memoria"))
 		w.WriteHeader(http.StatusOK) // No hay paginas modificadas, todo bien
 		return 
 	}
-
-	for i:=0; i < len(modificadas); i++ {
-		// Consulto direccion fisica => TLB
-		// contenido := modificadas[i].Contenido
-		// Write de su contenido => pegarle al endpoint de memoria wirite
-		// eliminar todas las entradas del caché 
-		return
-	}
+	DesalojarCache(modificadas)
+	DesalojoTlB(uint(pidInt)) // Desalojamos las entradas de TLB del PID
+	EliminarEntradasDeCache(uint(pidInt)) // Eliminamos las entradas de cache del PID
+	return 
 }
+
+func DesalojarCache(modificadas []structs.PaginaCache) {
+	for i:=0; i < len(modificadas); i++ {
+		contenido := modificadas[i].Contenido // Obtenemos el contenido de la pagina modificada
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "actualizarMP", contenido) // Enviamos el contenido a memoria)	
+	}
+	return
+}
+
 
 func EliminarEntradasDeCache(pid uint) {
 	logueador.Info("Eliminando entradas de caché para el PID %d", pid)
@@ -258,10 +270,55 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 	}
 }
 
-func IndiceDeCacheVictima() int {
+// Para CLOCK-M
+func PrimeraVueltaClockM() int {
+	vueltas := 0
+	for vueltas < len(Cache.Paginas) {
+		i := Cache.Clock
+		if !Cache.Paginas[i].BitDeUso && !Cache.Paginas[i].BitModificado {
+			logueador.Info("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
+			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos circularmente
+			return i
+		}
+		Cache.Clock = (Cache.Clock + 1) % len(Cache.Paginas) // Seguimos recorriendo
+		vueltas++
+	}
+	// No se encontró ninguna página con (uso=0, modificado=0)
+	return -1
+}
 
-	if Cache.Algoritmo == "CLOCK" {
-		for {
+func SegundaVueltaClockM() int {
+	vueltas := 0
+	for vueltas < len(Cache.Paginas) {
+		i := Cache.Clock
+		if !Cache.Paginas[i].BitDeUso && Cache.Paginas[i].BitModificado {
+			logueador.Info("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
+			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos circularmente
+			return i
+		}
+		Cache.Paginas[i].BitDeUso = false // Reiniciamos el bit de uso
+		Cache.Clock = (Cache.Clock + 1) % len(Cache.Paginas) // Seguimos recorriendo
+		vueltas++
+	}
+	return -1 // Si no se encuentra una pagina con bits 00, retorna -1
+}
+
+func BuscarVictimaClockM() int {
+	for {
+		valor := PrimeraVueltaClockM()
+		if valor != -1 {
+			return valor
+		}
+
+		valor = SegundaVueltaClockM()
+		if valor != -1 {
+			return valor
+		}
+	}
+}
+
+func Clock() int {
+	for {
 			i := Cache.Clock 
 			if !Cache.Paginas[i].BitDeUso {
 				Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
@@ -270,21 +327,15 @@ func IndiceDeCacheVictima() int {
 			}
 			Cache.Paginas[i].BitDeUso = false  // false = 1
 			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
-		} 
-	} else {
-		i := 0
-		for i < len(Cache.Paginas) {
-			if !Cache.Paginas[i].BitDeUso && !Cache.Paginas[i].BitModificado {
-				Cache.Paginas[i].BitDeUso = true 
-				return i // Retorna el indice de la primera pagina con bits 00
-			} else {
-				if !Cache.Paginas[i].BitDeUso && Cache.Paginas[i].BitModificado { 
-					Cache.Paginas[i].BitDeUso = true
-					return i;
-				}
-			}
-		}
-	}
-	return -1 // Si no se encuentra una pagina con bits 00, retorna -1
+		}  
 }
 
+func IndiceDeCacheVictima() int {
+
+	logueador.Info("CLOCK INICIALMENTE EN: %d", Cache.Clock)
+	if Cache.Algoritmo == "CLOCK" {
+		return Clock() // Llamamos a la funcion que busca la victima segun el algoritmo CLOC
+	} else { // CLOCK - M
+		return BuscarVictimaClockM() // Llamamos a la funcion que busca la victima segun el algoritmo CLOCK-M
+	}
+}
