@@ -230,6 +230,7 @@ func EscribirEnCache(pid uint, logicAdress int, data string) {
 	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
 	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
 	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
+	ActualizarRereferencia(nropagina)
 	logueador.Info("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
 }
 
@@ -264,11 +265,12 @@ func IndiceDeCacheVictima() int {
 			i := Cache.Clock 
 			if !Cache.Paginas[i].BitDeUso {
 				Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
+				logueador.Info("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
 				return i
 			}
 			Cache.Paginas[i].BitDeUso = false  // false = 1
 			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
-		}  
+		} 
 	} else {
 		i := 0
 		for i < len(Cache.Paginas) {

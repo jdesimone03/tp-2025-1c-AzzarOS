@@ -58,7 +58,12 @@ func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la p
 	return false,-1 // La página no está en la TLB o no es válida
 }
 
-func ActualizarRereferencia(indice int ) {
+func ActualizarRereferencia(nroPagina int) {
+	bool, indice := BuscarDireccion(nroPagina) // Verificamos si la página está en la TLB
+	if !bool {
+		logueador.Error("No se pudo actualizar la referencia de la página %d en la TLB porque no está presente", nroPagina)
+		return // Si la página no está en la TLB, no se puede actualizar la referencia
+	}
 	entradaReferenciada := tlb.Entradas[indice]
 	entradaReferenciada.Referencia = int(time.Now().UnixNano()) // Actualizamos la referencia al instante actual
 	tlb.Entradas[indice] = entradaReferenciada // Actualizamos la entrada en la TLB
