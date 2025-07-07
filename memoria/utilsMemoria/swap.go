@@ -77,6 +77,10 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	if err := scanner.Err(); err != nil {
+		logueador.Info("Error al leer el archivo SWAP: %v", err)
+	}
+	var listaProcesos []structs.ProcesoEnSwap
 	for scanner.Scan() {
 		var proceso structs.ProcesoEnSwap
 		err := json.Unmarshal(scanner.Bytes(), &proceso)
@@ -84,21 +88,38 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 			logueador.Info("Error al deserializar el proceso desde el archivo SWAP: %v", err)
 			continue // error que no tiene que frenarnos 
 		}
+		listaProcesos = append(listaProcesos, proceso)
+	}
+
+	procesoEncontrado := ProcesoASacarDeSwap(listaProcesos, pid)
+	if procesoEncontrado == nil {
+		logueador.Info("No se encontró el proceso con PID %d en SWAP", pid)
+		return nil
+	}
+
+	err = os.WriteFile(pathCorrecto, []byte{}, 0644) // Limpiar el archivo SWAP
+	if err != nil {
+		logueador.Info("Error al limpiar el archivo SWAP: %v", err)
+		return nil
+	}
+
+	for i:= 0; i < len(listaProcesos); i++ {
+		EscribirProcesoEsSwap(listaProcesos[i])
+	} 
+	return procesoEncontrado
+}
+
+func ProcesoASacarDeSwap(procesos []structs.ProcesoEnSwap, pid uint) *structs.ProcesoEnSwap {
+	// Buscar el proceso en la lista de procesos
+	for _, proceso := range procesos {
 		if proceso.PID == pid {
 			logueador.Info("Proceso encontrado en SWAP: %+v", proceso)
 			return &proceso // Retorna el proceso encontrado
 		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		logueador.Info("Error al leer el archivo SWAP: %v", err)
-	}
-
-	return nil
+	logueador.Info("Proceso con PID %d no encontrado en SWAP", pid)
+	return nil // Si no se encuentra, retorna nil
 }
-
-
-
 // Si hay espacio para inicializar => que entren las paginas del proceso en memoria principal
 func SwapOutProceso(pid uint) {
 	
@@ -108,7 +129,11 @@ func SwapOutProceso(pid uint) {
 		logueador.Info("El proceso %d no se encuentra en el SWAP", pid)
 		return
 	}
-	// Volver a asignar las páginas al proceso en memoria principal
+	AcomodarProcesoEnMemoria(procesoEnSwap, pid)
+}
+
+func AcomodarProcesoEnMemoria(procesoEnSwap *structs.ProcesoEnSwap, pid uint) {
+		// Volver a asignar las páginas al proceso en memoria principal
 	for i:=0; i < len(procesoEnSwap.Paginas); i++ {
 		frameLibre := PrimerFrameLibre(0)
 		dirFisica := frameLibre * Tamanioframe()
