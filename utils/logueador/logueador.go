@@ -11,12 +11,42 @@ import (
 )
 
 // CREA ARCHIVO .LOG
-func ConfigurarLogger(nombreArchivoLog string) {
+func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 	logFile, err := os.OpenFile(nombreArchivoLog+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
+
+	// Configurar el logger básico
 	log.SetOutput(logFile)
+
+	// Determinar el nivel de log
+    var nivel slog.Level
+    switch strings.ToUpper(nivelLog) {
+    case "DEBUG":
+        nivel = slog.LevelDebug
+    case "INFO":
+        nivel = slog.LevelInfo
+    case "WARN", "WARNING":
+        nivel = slog.LevelWarn
+    case "ERROR":
+        nivel = slog.LevelError
+    default:
+        nivel = slog.LevelInfo // Default
+    }
+
+	slog.SetLogLoggerLevel(nivel)
+
+	log.SetFlags(log.Lmicroseconds)
+    /* 
+    // Crear el handler con el nivel configurado
+    handler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
+        Level: nivel,
+    })
+    
+    // Establecer como logger por defecto
+    slog.SetDefault(slog.New(handler)) */
+
 	Info("Logger %s.log configurado", nombreArchivoLog)
 }
 
@@ -31,6 +61,10 @@ func Error(formato string, args ...any) {
 
 func Warn(formato string, args ...any) {
 	slog.Warn(fmt.Sprintf(formato, args...))
+}
+
+func Debug(formato string, args ...any) {
+	slog.Debug(fmt.Sprintf(formato, args...))
 }
 
 // ---------------------------- KERNEL ----------------------------//

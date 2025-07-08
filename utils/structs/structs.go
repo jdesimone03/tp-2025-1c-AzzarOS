@@ -35,14 +35,14 @@ type Metricas struct {
 
 type InstanciaCPU struct {
 	IP         string
-	Puerto     int
+	Puerto     string
 	Ejecutando bool
 	PID        uint
 }
 
 type InterfazIO struct {
 	IP     string
-	Puerto int
+	Puerto string
 }
 
 type EjecucionCPU struct {

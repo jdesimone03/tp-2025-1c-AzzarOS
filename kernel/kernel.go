@@ -12,15 +12,23 @@ import (
 
 func main() {
 
-	// Inicia el logueador
-	logueador.ConfigurarLogger("log_KERNEL")
-
-	// Inicia la configuración
-	config.CargarConfiguracion("config.json", &utilsKernel.Config)
-
 	// Carga los argumentos
 	pscInicial := os.Args[1] //el pseudocodigo no va dentro de la memoria
 	tamanioProceso, err := strconv.Atoi(os.Args[2])
+
+	var rutaConfig string
+    if len(os.Args) > 3 {
+        rutaConfig = os.Args[3]
+    } else {
+        rutaConfig = "config/default.json"
+    }
+
+	// Inicia la configuración
+	config.CargarConfiguracion(rutaConfig, &utilsKernel.Config)
+
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_KERNEL", utilsKernel.Config.LogLevel)
+	
 	if err != nil {
 		logueador.Error("Error al convertir el tamaño del proceso a int")
 		return

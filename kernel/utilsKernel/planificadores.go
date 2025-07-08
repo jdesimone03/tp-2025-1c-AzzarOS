@@ -132,7 +132,10 @@ func PlanificadorMedianoPlazo() {
 	logueador.Info("Iniciando Planificador de Mediano Plazo.")
 
 	for {
-		slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
+		if ColaBlocked.Vacia() {
+			slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
+			continue
+		}
 
 		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
 		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.

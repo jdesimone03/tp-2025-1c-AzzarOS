@@ -2,7 +2,6 @@ package main
 
 import (
 	"cpu/utilsCPU"
-	"fmt"
 	"net/http"
 	"os"
 	"utils"
@@ -15,12 +14,19 @@ func main() {
 	// Carga los argumentos
 	identificador := os.Args[1]
 
-	// Inicia el logueador
-	logueador.ConfigurarLogger(fmt.Sprintf("log_CPU_%s", identificador))
-
+	var rutaConfig string
+    if len(os.Args) > 2 {
+        rutaConfig = os.Args[2]
+    } else {
+        rutaConfig = "config/default.json"
+    }
+	
 	// Inicia la configuración
-	config.CargarConfiguracion("config.json", &utilsCPU.Config)
+	config.CargarConfiguracion(rutaConfig, &utilsCPU.Config)
 
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_CPU_" + identificador, utilsCPU.Config.LogLevel)
+	
 	// Cargar la configuración de memoria
 	err := utilsCPU.PedirConfigMemoria()
 	if err != nil {

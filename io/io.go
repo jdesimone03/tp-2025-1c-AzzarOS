@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"tp/io/utilsIO"
@@ -16,11 +15,18 @@ func main() {
 	nombre := os.Args[1]
 	utilsIO.NombreInterfaz = nombre
 
-	// Inicia el logueador
-	logueador.ConfigurarLogger(fmt.Sprintf("log_IO_%s", nombre))
+	var rutaConfig string
+	if len(os.Args) > 2 {
+        rutaConfig = os.Args[2]
+    } else {
+        rutaConfig = "config/default.json"
+    }
 
 	// Inicia la configuración
-	config.CargarConfiguracion("config.json", &utilsIO.Config)
+	config.CargarConfiguracion(rutaConfig, &utilsIO.Config)
+	
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_IO_" + nombre, utilsIO.Config.LogLevel)
 
 	interfaz := structs.InterfazIO{
 		IP:     utilsIO.Config.IPIo,

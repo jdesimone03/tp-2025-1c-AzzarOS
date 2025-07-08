@@ -3,16 +3,26 @@ package main
 import (
 	"memoria/utilsMemoria"
 	"net/http"
+	"os"
 	"utils"
 	"utils/config"
 	"utils/logueador"
 )
 
 func main() {
-	logueador.ConfigurarLogger("log_MEMORIA")
-	
+
+	var rutaConfig string
+    if len(os.Args) > 1 {
+        rutaConfig = os.Args[1]
+    } else {
+        rutaConfig = "config/default.json"
+    }
+
 	// Inicia la configuración
-	config.CargarConfiguracion("config.json", &utilsMemoria.Config)
+	config.CargarConfiguracion(rutaConfig, &utilsMemoria.Config)
+	
+	// Inicia el logueador
+	logueador.ConfigurarLogger("log_MEMORIA", utilsMemoria.Config.LogLevel)
 
 	// Cargo las estructuras
 	utilsMemoria.IniciarEstructuras()

@@ -12,17 +12,17 @@ import (
 	"utils/structs"
 )
 
-func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
+func EnviarMensaje(ip string, puerto string, endpoint string, mensaje any) string {
 	body, err := json.Marshal(mensaje)
 	if err != nil {
 		logueador.Error("No se pudo codificar el mensaje (%v)", err)
 		return ""
 	}
 
-	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
+	url := fmt.Sprintf("http://%s:%s/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		logueador.Error("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err)
+		logueador.Error("No se pudo enviar mensaje a %s:%s/%s (%v)", ip, puerto, endpoint, err)
 		return ""
 	}
 	defer resp.Body.Close()
@@ -54,9 +54,9 @@ func DecodificarMensaje[T any](r *http.Request) (*T, error) {
 	return &mensaje, nil
 }
 
-func IniciarServidor(puerto int) error {
-	logueador.Info("Inicializando servidor en el puerto %d",puerto)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", puerto), nil)
+func IniciarServidor(puerto string) error {
+	logueador.Info("Inicializando servidor en el puerto %s",puerto)
+	err := http.ListenAndServe(":" + puerto, nil)
 	if err != nil {
 		panic(err)
 	}
