@@ -22,8 +22,12 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 			// Inicializa la interfaz y el planificador
 			Interfaces.Agregar(interfaz.Nombre, interfaz.Interfaz)
-			go PlanificadorIO(interfaz.Nombre)
+			// go PlanificadorIO(interfaz.Nombre)
 			// MoverAExecIO(interfaz.Nombre)
+			if ListaWaitIO.NoVacia(interfaz.Nombre) {
+				aEjecutar := ListaWaitIO.EliminarPrimero(interfaz.Nombre)
+				DispatchIO(interfaz.Nombre, aEjecutar)
+			}
 
 			logueador.Info("Nueva interfaz IO: %+v", interfaz)
 
@@ -35,7 +39,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 				return
 			}
 
-			InstanciasCPU.Agregar(instancia.Identificador,instancia.CPU)
+			InstanciasCPU.Agregar(instancia.Identificador, instancia.CPU)
 			logueador.Info("Nueva instancia CPU: %+v", instancia)
 
 		default:
@@ -50,6 +54,12 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rawPID := r.URL.Query().Get("pid")
 		pid, _ := strconv.ParseUint(rawPID, 10, 32)
+
+		rawPC := r.URL.Query().Get("pc")
+		pc, _ := strconv.ParseUint(rawPC, 10, 32)
+
+		// Actualiza el pid y pc del proceso
+		ColaExecute.Actualizar(uint(pid), uint(pc))
 
 		// Log obligatorio 1/8
 		logueador.SyscallRecibida(uint(pid), tipo)
@@ -71,7 +81,7 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 			}
 			SyscallDumpMemory(uint(pid), *syscall)
 		case "IO":
-			syscall, err := utils.DecodificarMensaje[structs.IOInstruction](r)
+			syscall, err := utils.DecodificarMensaje[structs.IoInstruction](r)
 			if err != nil {
 				logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 				w.WriteHeader(http.StatusBadRequest)
@@ -104,15 +114,15 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	logueador.Info("(%d) Guardando contexto en PC: %d", contexto.PID, contexto.PC)
 
-	TiempoEstimado.Agregar(contexto.PID,EstimarRafaga(contexto.PID))
+	TiempoEstimado.Agregar(contexto.PID, EstimarRafaga(contexto.PID))
 
 	// Desaloja las cpu que se estén usando.
 	InstanciasCPU.Liberar(contexto.PID)
 
 	// Busca el proceso a guardar en la cola execute
-	ColaExecute.Actualizar(contexto.PID,contexto.PC)
+	ColaExecute.Actualizar(contexto.PID, contexto.PC)
+	ColaBlocked.Actualizar(contexto.PID, contexto.PC)
 
-	chCambioDeContexto <- true
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -129,25 +139,25 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	if ejecucion, existe := ListaExecIO.Obtener(*nombreIfaz); existe {
 		pid := ejecucion[0].PID
 		Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
-		MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit)
+		MoverPCB(pid, ColaBlocked, ColaExit, structs.EstadoExit)
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*nombreIfaz)
 	}
 
-	Interfaces.Eliminar(*nombreIfaz)
+	//Interfaces.Eliminar(*nombreIfaz)
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
-	ifaz, err := utils.DecodificarMensaje[string](r)
+	nombreIfaz, err := utils.DecodificarMensaje[string](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	ejecucion, existe := ListaExecIO.Obtener(*ifaz)
+	ejecucion, existe := ListaExecIO.Obtener(*nombreIfaz)
 	if existe {
 		pid := ejecucion[0].PID
 
@@ -155,11 +165,17 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 		logueador.KernelFinDeIO(pid)
 
 		// Borro el proceso de la lista de ejecución
-		ListaExecIO.EliminarPrimero(*ifaz)
+		ListaExecIO.EliminarPrimero(*nombreIfaz)
 		MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
+
+		if ListaWaitIO.NoVacia(*nombreIfaz) {
+			aEjecutar := ListaWaitIO.EliminarPrimero(*nombreIfaz)
+			DispatchIO(*nombreIfaz, aEjecutar)
+		}
+
 		w.WriteHeader(http.StatusOK)
 	} else {
-		logueador.Error("No existe el proceso en la lista de ejecución: %s", *ifaz)
+		logueador.Error("No existe el proceso en la lista de ejecución: %s", *nombreIfaz)
 		w.WriteHeader(http.StatusBadRequest)
 	}
 

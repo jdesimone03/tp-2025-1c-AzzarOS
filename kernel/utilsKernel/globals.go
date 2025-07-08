@@ -20,7 +20,7 @@ var ColaSuspBlocked = structs.NewColaSegura()
 var ColaSuspReady = structs.NewColaSegura()
 
 // Map para trackear los timers de los procesos
-var TiempoEnColaBlocked = make(map[uint]*time.Timer)
+var TiempoEnColaBlocked = structs.NewMapSeguro[uint, *time.Timer]()
 var TiempoEnColaExecute = structs.NewMapSeguro[uint, int64]()
 var TiempoEstimado = structs.NewMapSeguro[uint, float64]()
 
@@ -36,5 +36,3 @@ var Interfaces = structs.NewMapSeguro[string,structs.InterfazIO]()
 
 var ListaExecIO = structs.NewSliceMapSeguro()
 var ListaWaitIO = structs.NewSliceMapSeguro()
-
-var chCambioDeContexto = make(chan bool)

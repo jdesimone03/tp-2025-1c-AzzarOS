@@ -2,7 +2,6 @@ package utilsMemoria
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -22,7 +21,7 @@ var Procesos = make(map[uint][]string)         // PID: lista de instrucciones
 var EspacioUsuario []byte                      // memoriaPrincipal
 var Metricas = make(map[uint]structs.Metricas) // Metricas
 var Ocupadas []int                             // Lista de frames ocupados, -1 si esta libre
-var TDPMultinivel map[uint]*structs.Tabla
+var TDPMultinivel map[uint]*structs.Tabla	 // Tabla de páginas por PID
 
 func IniciarEstructuras() {
 	EspacioUsuario = make([]byte, Config.MemorySize)
@@ -54,8 +53,6 @@ func EjecutarArchivo(path string) []string {
 }
 
 func CheckMemoria(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	tam, err := utils.DecodificarMensaje[int](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
@@ -63,70 +60,15 @@ func CheckMemoria(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !MemoriaDisponible(*tam) {
-		json.NewEncoder(w).Encode(structs.Respuesta{Mensaje: "No hay memoria disponible"})
+	if !HayEspacioParaInicializar(*tam) {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("No hay memoria disponible"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(structs.Respuesta{Mensaje: "OK"})
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
-
-func MemoriaDisponible(MemoriaSolicitada int) bool {
-	if Config.MemorySize >= MemoriaSolicitada {
-		logueador.Info("Memoria disponible: %d bytes", Config.MemorySize)
-		return true
-	} else {
-		logueador.Info("Memoria no disponible, me quedan: %d bytes", Config.MemorySize)
-		return false
-	}
-}
-
-// // Operaciones
-// func Read(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	rawPID := r.URL.Query().Get("pid")
-// 	pid, err := strconv.ParseUint(rawPID, 10, 32)
-
-// 	read, err := utils.DecodificarMensaje[structs.ReadInstruction](r)
-// 	if err != nil {
-// 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	leido := EspacioUsuario[read.Address:read.Size]
-
-// 	// Log obligatorio 4/5
-// 	logueador.LecturaEnEspacioDeUsuario(uint(pid), read.Address, read.Size)
-
-// 	w.WriteHeader(http.StatusOK)
-// 	json.NewEncoder(w).Encode(string(leido))
-// }
-
-// func Write(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	rawPID := r.URL.Query().Get("pid")
-// 	pid, err := strconv.ParseUint(rawPID, 10, 32)
-
-// 	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
-// 	if err != nil {
-// 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	copy(EspacioUsuario[write.Address:], []byte(write.Data))
-
-// 	// Log obligatorio 4/5
-// 	logueador.EscrituraEnEspacioDeUsuario(uint(pid), write.Address, len(write.Data))
-
-// 	w.WriteHeader(http.StatusOK)
-// 	json.NewEncoder(w).Encode("OK")
-// }
 
 func NoQuedanMasInstrucciones(pid uint, pc uint) bool {
 	return pc >= uint(len(Procesos[pid]))
@@ -175,7 +117,7 @@ func IncrementarMetricaEn(pid uint, campo string) {
 func InformarMetricasDe(pid uint) {
 	ok := ExisteElPID(pid)
 	if !ok {
-		logueador.Info("No existe el PID %d", pid)
+		logueador.Error("No existe el PID %d", pid)
 		return
 	}
 	metrica := Metricas[pid]
@@ -223,9 +165,16 @@ func CargarPIDconInstrucciones(path string, pid int) {
 }
 
 func LeerArchivoYGuardarInstrucciones(path string) []string {
-	var instrucciones []string
-	file, err := os.Open(path)
+	wd, err := os.Getwd()
+	if err != nil {
+        logueador.Error("No se pudo obtener el directorio de trabajo: %v", err)
+        return nil
+    }
+	pathAbsoluto := filepath.Join(wd, "..", "test", path)
+	file, err := os.Open(pathAbsoluto)
 	check("No se pudo abrir el archivo", err)
+
+	var instrucciones []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		instruccion := strings.TrimSpace(scanner.Text())

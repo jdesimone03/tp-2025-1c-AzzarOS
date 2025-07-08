@@ -2,7 +2,6 @@ package utilsKernel
 
 import (
 	"bufio"
-	"log/slog"
 	"os"
 	"time"
 	"utils"
@@ -10,34 +9,13 @@ import (
 	"utils/structs"
 )
 
-func PlanificadorIO(nombre string) {
-	for {
-		interfaz, encontrada := Interfaces.Obtener(nombre)
-		if encontrada {
-			if ListaExecIO.NoVacia(nombre) {
-				// Enviar al IO el PID y el tiempo en ms
-				proc := ListaExecIO.ObtenerPrimero(nombre)
-				utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", proc)
-			}
-			if ListaWaitIO.NoVacia(nombre) {
-				// Borra el primer elemento en la lista de espera
-				aEjecutar := ListaWaitIO.EliminarPrimero(nombre)
-				MoverPCB(aEjecutar.PID, ColaBlocked, ColaExecute, structs.EstadoExec)
-				ListaExecIO.Agregar(nombre, aEjecutar)
-			}
-		} else {
-			// Si se llega a desconectar el IO, se desconecta el planificador
-			// Tengo que ver como hacer para que se borre la interfaz de la lista de interfaces al momento que se desconecta
-			logueador.Error("Interfaz %s no encontrada, finalizando el planificador", nombre)
-			return
-		}
-	}
-}
-
 func PlanificadorLargoPlazo() {
 	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
 	var procesoAEnviar structs.NuevoProceso
 	for {
+		if !ColaSuspReady.Vacia() { // La cola susp ready debe estar vacia
+			continue
+		}
 		if ColaNew.Vacia() {
 			continue // Espera a que haya un proceso en new
 		}
@@ -48,7 +26,8 @@ func PlanificadorLargoPlazo() {
 			// Si no, no hace nada. Sigue con el bucle hasta que se libere
 		case "PMCP":
 			procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
-			for _, pcb := range ColaNew.Cola {
+			for i := range ColaNew.Longitud() {
+				pcb := ColaNew.Obtener(i)
 				nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
 				if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
 					procesoMinimo = nuevoProceso
@@ -64,11 +43,12 @@ func PlanificadorLargoPlazo() {
 		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
 		if respuesta != "OK" {
 			logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", procesoAEnviar.PID)
-			// Implementar semaforos para que espere que termine un proceso
+			// TODO Implementar semaforos para que espere que termine un proceso
+			time.Sleep(10 * time.Second)
+			continue
 		}
-		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", procesoAEnviar)
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", procesoAEnviar)
 		MoverPCB(procesoAEnviar.PID, ColaNew, ColaReady, structs.EstadoReady)
-		//TODO timesleep?
 	}
 }
 
@@ -89,7 +69,8 @@ func PlanificadorCortoPlazo() {
 			var estimadoMasChico float64
 			aEjecutar, estimadoMasChico = ObtenerMasChico()
 
-			for _, pcb := range ColaExecute.Cola {
+			for i := range ColaExecute.Longitud() {
+				pcb := ColaExecute.Obtener(i)
 				estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
 				if estimadoMasChico < estimadoActual {
 					// Manda a ejecutar el mas chico
@@ -132,10 +113,10 @@ func PlanificadorMedianoPlazo() {
 	logueador.Info("Iniciando Planificador de Mediano Plazo.")
 
 	for {
-		if ColaBlocked.Vacia() {
+		/* if ColaBlocked.Vacia() {
 			slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
 			continue
-		}
+		} */
 
 		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
 		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
@@ -146,7 +127,7 @@ func PlanificadorMedianoPlazo() {
 			currentPid := pcb.PID
 			moved := false // Flag to track if the PCB was moved in this iteration
 
-			if timer, timerExists := TiempoEnColaBlocked[currentPid]; timerExists {
+			if timer, timerExists := TiempoEnColaBlocked.Obtener(currentPid); timerExists {
 				// Verificar si el timer ha expirado de forma no bloqueante.
 				select {
 				case <-timer.C: // El timer ha disparado.
@@ -164,7 +145,7 @@ func PlanificadorMedianoPlazo() {
 					logueador.Info("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria)
 
 					MoverPCB(currentPid, ColaBlocked, ColaSuspBlocked, structs.EstadoSuspBlocked)
-					delete(TiempoEnColaBlocked, currentPid) // Eliminar el timer del mapa.
+					TiempoEnColaBlocked.Eliminar(currentPid) // Eliminar el timer del mapa.
 					moved = true                            // PCB fue movido, no se debe incrementar i.
 				default:
 					// Timer existe pero no ha expirado. No hacer nada con este PCB respecto al timer.
@@ -181,7 +162,7 @@ func PlanificadorMedianoPlazo() {
 
 func IniciarPlanificadores() {
 	go PlanificadorCortoPlazo()
-	go PlanificadorMedianoPlazo()
+	//go PlanificadorMedianoPlazo()
 	go func() {
 		logueador.Info("Esperando confirmación para iniciar el planificador de largo plazo...")
 		bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
@@ -199,7 +180,8 @@ func ObtenerMasChico() (structs.PCB, float64) {
 	pcbMasChico := ColaReady.Obtener(0)
 	estimadoMasChico, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
 
-	for _, pcb := range ColaReady.Cola {
+	for i := range ColaReady.Longitud() {
+		pcb := ColaReady.Obtener(i)
 		estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
 		if estimadoActual < estimadoMasChico {
 			pcbMasChico = pcb

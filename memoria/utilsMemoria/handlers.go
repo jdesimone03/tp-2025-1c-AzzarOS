@@ -12,21 +12,6 @@ import (
 	"utils/structs"
 )
 
-func MandarOK(w http.ResponseWriter) {
-
-	respuesta := structs.Respuesta{
-		Mensaje: "OK",
-	}
-
-	// convertir a JSON
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(respuesta)
-	if err != nil {
-		http.Error(w, "No se pudo codificar la respuesta", http.StatusInternalServerError)
-		return
-	}
-}
-
 func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
@@ -194,13 +179,8 @@ func HandlerFetch(w http.ResponseWriter, r *http.Request) {
 	// Log obligatorio 3/5
 	logueador.ObtenerInstruccion(proceso.PID, proceso.PC, linea)
 
-	respuesta := structs.Respuesta{
-		Mensaje: linea,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(respuesta)
+	w.Write([]byte(linea))
 }
 
 func NuevoProceso(w http.ResponseWriter, r *http.Request) {
@@ -243,31 +223,28 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	time.Sleep(time.Duration(Config.SwapDelay))
 
-	pid := r.URL.Query().Get("pid")
-	if pid == "" {
-		logueador.Error("PID no proporcionado")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	pidInt, err := strconv.Atoi(pid)
+	pid, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
-		logueador.Error("Error al convertir PID a entero")
+		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if !ExisteElPID(uint(pidInt)) {
-		logueador.Error("El PID %d no existe", pidInt)
+	if !ExisteElPID(*pid) {
+		logueador.Error("El PID %d no existe", *pid)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	logueador.Info("Existe el PID")
-	SwapInProceso(uint(pidInt))
-	IncrementarMetricaEn(uint(pidInt), "BajadasAlSWAP") // Aumento la métrica de bajadas al SWAP del PID
-	logueador.Info("Swapin del proceso con PID: %d", pidInt)
+
+	SwapInProceso(*pid)
+	IncrementarMetricaEn(*pid, "BajadasAlSWAP") // Aumento la métrica de bajadas al SWAP del PID
+
+	logueador.Info("Swapin del proceso con PID: %d", *pid)
+
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
+	w.Write([]byte("OK"))
 }
 
 func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
@@ -316,23 +293,24 @@ func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
-	pid := r.URL.Query().Get("pid")
-	pidInt, err := strconv.Atoi(pid)
-
-	if !ExisteElPID(uint(pidInt)) {
-		logueador.Error("El PID %d no existe", pidInt)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	LiberarMemoria(uint(pidInt))
+	pid, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
-		logueador.Error("Error al convertir PID a entero")
+		logueador.Error("No se pudo decodificar el mensaje: %e", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	InformarMetricasDe(uint(pidInt))
+
+	if !ExisteElPID(*pid) {
+		logueador.Error("El PID %d no existe", *pid)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	LiberarMemoria(*pid)
+	InformarMetricasDe(*pid)
+
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
+	w.Write([]byte("OK"))
 }
 
 func HandlerWrite(w http.ResponseWriter, r *http.Request) {
@@ -347,7 +325,7 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ProcesoEnMemoria(write.PID) {
-		logueador.Error("El proceso %d no está en memoria", write.PID)
+		logueador.Error("El proceso %d no está en memoria para poder escribir", write.PID)
 		return
 	}
 
@@ -362,7 +340,7 @@ func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 	// Log obligatorio 4/5
 	logueador.EscrituraEnEspacioDeUsuario(write.PID, write.LogicAddress, len(write.Data))
 	w.WriteHeader(http.StatusOK)
-	MandarOK(w)
+	w.Write([]byte("OK"))
 }
 
 func HandlerRead(w http.ResponseWriter, r *http.Request) {
@@ -384,6 +362,10 @@ func HandlerRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !ProcesoEnMemoria(read.PID) {
+		logueador.Error("El proceso %d no está en memoria. No se puede leer - ", read.PID)
+		return
+	}
 	// Log obligatorio 4/5
 	logueador.LecturaEnEspacioDeUsuario(read.PID, read.Address, read.Size)
 	IncrementarMetricaEn(read.PID, "Lecturas") // Aumenta la métrica de lecturas de memoria del PID
@@ -395,41 +377,34 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
-	pid := r.URL.Query().Get("pid")
-	if pid == "" {
-		http.Error(w, "PID no proporcionado", http.StatusBadRequest)
-		return
-	}
-
-	pidUint, err := strconv.ParseUint(pid, 10, 32)
+	pid, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
-		http.Error(w, "Error al convertir PID a entero", http.StatusBadRequest)
+		logueador.Error("No se pudo decodificar el mensaje: %e", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	file, err := CreacionArchivoDump(uint(pidUint))
+	file, err := CreacionArchivoDump(*pid)
 	if err != nil {
 		logueador.Error("Error al crear el archivo de dump de memoria: %v", err)
 		w.WriteHeader(http.StatusInternalServerError) // En el handler del kernel, si el httpStatus es este, manda el proceso a EXIT
 		return
 	}
 
-	paginasDeProceso := BuscarPaginasDeProceso(uint(pidUint))    // Obtengo las paginas del proceso
-	EscribirDumpEnArchivo(file, uint(pidUint), paginasDeProceso) // Escribo las paginas en el archivo de dump
+	paginasDeProceso := BuscarPaginasDeProceso(*pid)    // Obtengo las paginas del proceso
+	EscribirDumpEnArchivo(file, *pid, paginasDeProceso) // Escribo las paginas en el archivo de dump
 
 	defer file.Close()
-	logueador.MemoryDump(uint(pidUint))
+	logueador.MemoryDump(*pid)
 	w.WriteHeader(http.StatusOK) // Salió todo bien
+	w.Write([]byte("OK"))
 }
 
 func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
-
-	decoder := json.NewDecoder(r.Body)
-	var data structs.EjecucionCPU
-	err := decoder.Decode(&data)
-
+	
+	data, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
 		logueador.Error("Error decodificando el cuerpo: %v", err)
 		http.Error(w, "Error decodificando el cuerpo", http.StatusBadRequest)
@@ -452,11 +427,11 @@ func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 
 	instruccion := Procesos[data.PID][data.PC] // Obtengo la instrucción del PID y el PC.
 	logueador.ObtenerInstruccion(data.PID, data.PC, instruccion)
-	MandarInstruccion(instruccion, w, r)                       // Envio la instruccion a la CPU
+	// MandarInstruccion(instruccion, w, r)                       // Envio la instruccion a la CPU
 	IncrementarMetricaEn(data.PID, "InstruccionesSolicitadas") // Aumento la métrica de instrucciones solicitadas del PID
-
+	
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	w.Write([]byte(instruccion))
 }
 
 func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Request) {
@@ -476,7 +451,7 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 
 	time.Sleep(time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
-	data, err := utils.DecodificarMensaje[structs.PedidoDeInicializacion](r)
+	data, err := utils.DecodificarMensaje[structs.NuevoProceso](r)
 	if err != nil {
 		logueador.Error("Error al decodificar el mensaje: %v", err)
 		http.Error(w, "Error al decodificar el mensaje", http.StatusBadRequest)
@@ -489,20 +464,23 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tamanioInt := int(data.TamanioProceso)
+	// tamanioInt := int(data.Tamanio)
 
-	if !HayEspacioParaInicializar(tamanioInt) {
-		logueador.Error("No hay espacio para inicializar el proceso con PID: %d", data.PID)
-		http.Error(w, "No hay espacio para inicializar el proceso", http.StatusBadRequest)
-		return
-	}
+	// if !HayEspacioParaInicializar(tamanioInt) {
+	// 	logueador.Error("No hay espacio para inicializar el proceso con PID: %d", data.PID)
+	// 	http.Error(w, "No hay espacio para inicializar el proceso", http.StatusBadRequest)
+	// 	return
+	// }
 	logueador.Info("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
 
 	// Creación de Estructuras
-	CargarPIDconInstrucciones(data.Path, int(data.PID))     // Carga las instrucciones del PID en el map
+	CargarPIDconInstrucciones(data.Instrucciones, int(data.PID))     // Carga las instrucciones del PID en el map
 	CrearMetricaDeProceso(data.PID)                         // Crea la metrica del proceso para ir guardando registro de las acciones
-	CrearTablaDePaginas(data.PID, int(data.TamanioProceso)) // Crea la tabla de paginas del PID
+	CrearTablaDePaginas(data.PID, int(data.Tamanio)) // Crea la tabla de paginas del PID
 	logueador.Info("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
+
+	// Log obligatorio 1/5
+	logueador.MemoriaCreacionDeProceso(data.PID, data.Tamanio)
 
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
 	w.Write([]byte("OK"))        // Envio el OK al kernel

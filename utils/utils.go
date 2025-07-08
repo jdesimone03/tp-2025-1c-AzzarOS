@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strings"
 	"utils/logueador"
-	"utils/structs"
 )
 
 func EnviarMensaje(ip string, puerto string, endpoint string, mensaje any) string {
@@ -27,20 +26,16 @@ func EnviarMensaje(ip string, puerto string, endpoint string, mensaje any) strin
 	}
 	defer resp.Body.Close()
 
-	var resData structs.Respuesta
 	respuesta, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ""
 	}
 
-	err = json.Unmarshal(respuesta, &resData)
-	if err != nil {
-		return ""
-	}
+	respuestaStr := string(respuesta)
 
 	// log.Printf("respuesta del servidor: %s", resp.Status)
-	logueador.Info("Respuesta de %s:%d/%s %v", ip, puerto, endpoint, resData)
-	return resData.Mensaje
+	logueador.Info("Respuesta de %s:%s/%s %v", ip, puerto, endpoint, respuestaStr)
+	return respuestaStr
 }
 
 // Función genérica para decodificar un mensaje del body

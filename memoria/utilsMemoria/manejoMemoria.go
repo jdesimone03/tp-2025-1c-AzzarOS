@@ -127,6 +127,8 @@ func CantidadDePaginas(pid uint) int {
 }
 
 func LiberarMemoria(pid uint) {
+	delete(Procesos, pid) // Borramos el proceso de la tabla de procesos
+	delete(TDPMultinivel, pid) // Borramos su tabla de páginas
 	for i := range Ocupadas {
 		if Ocupadas[i] == int(pid) {
 			Ocupadas[i] = -1 // Marca el frame como libre

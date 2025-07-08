@@ -40,13 +40,13 @@ func main() {
 	http.HandleFunc("/config", utilsMemoria.HandlerConfig) // para que CPU sepa de la configuración de memoria
 	http.HandleFunc("/tabla-paginas", utilsMemoria.HandlerPedidoTDP) // para caché-CPU
 	http.HandleFunc("/pedirFrame", utilsMemoria.HandlerPedidoFrame) // para caché-CPU
-	http.HandleFunc("/hayespacio", utilsMemoria.CheckMemoria) // para ver si hay espacio en memoria
+	http.HandleFunc("/check-memoria", utilsMemoria.CheckMemoria) // para ver si hay espacio en memoria
 
 
 	// GETS para mostrar información
-	http.HandleFunc("/metricas", utilsMemoria.HandlerMostrarMetricas)
-	http.HandleFunc("/listaProcEinstrucciones", utilsMemoria.HandlerMostrarProcesoConInstrucciones)
-	http.HandleFunc("/ocupadas", utilsMemoria.MostrarOcupadas)
+	http.HandleFunc("/metricas", utilsMemoria.HandlerMostrarMetricas) // para ver las métricas de memoria
+	http.HandleFunc("/listaProcEinstrucciones", utilsMemoria.HandlerMostrarProcesoConInstrucciones) // para ver los procesos y sus instrucciones
+	http.HandleFunc("/ocupadas", utilsMemoria.MostrarOcupadas) // para ver los frames ocupados
 	http.HandleFunc("/swap", utilsMemoria.HandlerMostrarSWAP) // para ver el contenido del swap
 	http.HandleFunc("/memoriausuario", utilsMemoria.MostrarMemoria) // para ver los procesos en memoria
 

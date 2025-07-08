@@ -102,7 +102,7 @@ type GotoInstruction struct {
 
 // Syscalls
 
-type IOInstruction struct {
+type IoInstruction struct {
 	NombreIfaz     string
 	SuspensionTime int
 }
@@ -155,11 +155,16 @@ func NewMapCPU() *MapCPU {
 }
 
 func (ms *MapCPU) Agregar(key string, value InstanciaCPU) {
-	(*MapSeguro[string, InstanciaCPU])(ms).Agregar(key, value)
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	ms.Map[key] = value
 }
 
 func (ms *MapCPU) Obtener(key string) (InstanciaCPU, bool) {
-	return (*MapSeguro[string, InstanciaCPU])(ms).Obtener(key)
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	value, ok := ms.Map[key]
+	return value, ok
 }
 
 func (ms *MapCPU) Ocupar(nombre string, pid uint) InstanciaCPU {
@@ -178,7 +183,7 @@ func (ms *MapCPU) Liberar(pid uint) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 
-	nombreCPU := ms.BuscarCPUPorPID(pid)
+	nombreCPU := BuscarCPUPorPID(ms.Map, pid)
 	cpu := ms.Map[nombreCPU]
 	cpu.Ejecutando = false
 	ms.Map[nombreCPU] = cpu
@@ -199,12 +204,7 @@ func (ms *MapCPU) BuscarCPUDisponible() (string, bool) {
 func (ms *MapCPU) BuscarCPUPorPID(pid uint) string {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	for nombre, cpu := range ms.Map {
-		if cpu.PID == pid {
-			return nombre
-		}
-	}
-	return ""
+	return BuscarCPUPorPID(ms.Map, pid)
 }
 
 func (ms *MapCPU) ObtenerPID(nombre string) uint {
@@ -212,6 +212,17 @@ func (ms *MapCPU) ObtenerPID(nombre string) uint {
 	defer ms.Mutex.Unlock()
 	return ms.Map[nombre].PID
 }
+
+// Funcion sin mutex para uso interno
+func BuscarCPUPorPID(ms map[string]InstanciaCPU, pid uint) string {
+	for nombre, cpu := range ms {
+		if cpu.PID == pid {
+			return nombre
+		}
+	}
+	return ""
+}
+
 
 // --------------------------------- SLICE MAP --------------------------------- //
 type SliceMapSeguro MapSeguro[string, []EjecucionIO]
@@ -227,13 +238,16 @@ func (sms *SliceMapSeguro) Agregar(key string, value EjecucionIO) {
 }
 
 func (sms *SliceMapSeguro) Obtener(key string) ([]EjecucionIO, bool) {
-	return (*MapSeguro[string, []EjecucionIO])(sms).Obtener(key)
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	value, ok := sms.Map[key]
+	return value, ok
 }
 
 func (sms *SliceMapSeguro) ObtenerPrimero(key string) EjecucionIO {
 	sms.Mutex.Lock()
 	defer sms.Mutex.Unlock()
-	slice, _ := sms.Obtener(key)
+	slice, _ := sms.Map[key]
 	return slice[0]
 }
 
@@ -325,10 +339,6 @@ func (cs *ColaSegura) Vacia() bool {
 }
 
 // --------------------------------- Utilidades --------------------------------- //
-
-type Respuesta struct {
-	Mensaje string
-}
 
 const (
 	EstadoNew         = "NEW"

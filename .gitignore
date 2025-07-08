@@ -4,5 +4,5 @@
 # Enviorment variables
 *.env
 
-# Test files
-test/
+# Ejecutables
+*.bin
