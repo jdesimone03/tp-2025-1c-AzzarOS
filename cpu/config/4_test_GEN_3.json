@@ -1,6 +1,6 @@
 {
     "ip_cpu": "${IP_CPU}",
-    "port_cpu": "${PORT_CPU}",
+    "port_cpu": "${PORT_CPU+300}",
 
     "ip_memory": "${IP_MEMORY}",
     "port_memory": "${PORT_MEMORY}",
