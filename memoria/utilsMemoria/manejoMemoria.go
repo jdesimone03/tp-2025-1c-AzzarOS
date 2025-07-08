@@ -19,17 +19,17 @@ func InicializarEntrada(pid uint, frameAsignado int, entrada structs.EntradaDeTa
 // -------------------------------- Manejo de Memoria --------------------------------
 
 func HayFramesDisponibles(n int) bool {
-    cant := 0
-    for i:=0; i < len(Ocupadas); i++ {
+	cant := 0
+	for i := range Ocupadas {
 		if Ocupadas[i] == -1 { // Si el frame está libre
 			cant++
 		}
 		if cant >= n { // Si hay suficientes frames libres
 			return true
 		}
- 
-    }
-    return false
+
+	}
+	return false
 }
 
 func HayEspacioParaInicializar(tamanio int) bool {
@@ -44,9 +44,8 @@ func HayEspacioParaInicializar(tamanio int) bool {
 func CantidadDePaginasDeProceso(tamanio int) int {
 	tamanioPagina := int(Config.PageSize)
 	cantPaginas := (tamanio + tamanioPagina - 1) / tamanioPagina // Redondea hacia arriba la cantidad de páginas necesarias
-	return cantPaginas 
+	return cantPaginas
 }
-
 
 func Read(pid uint, direccion int, tamanio int) (string, error) {
 	finDeLectura := direccion + tamanio
@@ -57,7 +56,7 @@ func Read(pid uint, direccion int, tamanio int) (string, error) {
 	}
 
 	if !ProcesoEnMemoria(pid) {
-		logueador.Error("El proceso %d no está en memoria", pid)	
+		logueador.Error("El proceso %d no está en memoria", pid)
 		return "", fmt.Errorf("el proceso %d no está en memoria", pid)
 	}
 
@@ -82,7 +81,7 @@ func Read(pid uint, direccion int, tamanio int) (string, error) {
 	return string(datosLeidos), nil // Retorna los datos leídos como string
 }
 
-func Write(pid uint, direccionFisica int, aEscribir string) (error) {
+func Write(pid uint, direccionFisica int, aEscribir string) error {
 
 	if direccionFisica < 0 || direccionFisica >= Config.MemorySize {
 		logueador.Error("Dirección fuera de rango: %d", direccionFisica)
@@ -106,7 +105,7 @@ func Write(pid uint, direccionFisica int, aEscribir string) (error) {
 	logueador.Info("Escribiendo en memoria")
 	copy(EspacioUsuario[direccionFisica:], []byte(aEscribir))
 
-	return nil 
+	return nil
 }
 
 func ProcesoEnMemoria(pid uint) bool {
@@ -128,7 +127,7 @@ func CantidadDePaginas(pid uint) int {
 }
 
 func LiberarMemoria(pid uint) {
-	for i := 0; i < len(Ocupadas); i++ {
+	for i := range Ocupadas {
 		if Ocupadas[i] == int(pid) {
 			Ocupadas[i] = -1 // Marca el frame como libre
 			logueador.Info("Liberando frame %d del proceso %d", i, pid)
@@ -143,8 +142,8 @@ func MarcarFrameOcupado(frame int, pid uint) {
 
 func InicializarOcupadas() {
 	tam := Config.MemorySize / Config.PageSize // Cantidad de frames
-	Ocupadas = make([]int, tam) // Inicializa la lista de frames ocupados con -1
-	for i := 0; i < Config.MemorySize/Config.PageSize; i++ {
+	Ocupadas = make([]int, tam)                // Inicializa la lista de frames ocupados con -1
+	for i := range Config.MemorySize/Config.PageSize {
 		Ocupadas[i] = -1
 	}
 }

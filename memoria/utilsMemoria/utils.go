@@ -1,29 +1,28 @@
 package utilsMemoria
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"utils"
 	"utils/config"
 	"utils/logueador"
 	"utils/structs"
-	"fmt"
-	"path/filepath"
-	"time"
-	"bufio"
-
 )
 
 var Config config.ConfigMemory
 
-var Procesos = make(map[uint][]string) // PID: lista de instrucciones
-var EspacioUsuario []byte // memoriaPrincipal
+var Procesos = make(map[uint][]string)         // PID: lista de instrucciones
+var EspacioUsuario []byte                      // memoriaPrincipal
 var Metricas = make(map[uint]structs.Metricas) // Metricas
-var Ocupadas []int  // Lista de frames ocupados, -1 si esta libre
-var TDPMultinivel map[uint]*structs.Tabla  
+var Ocupadas []int                             // Lista de frames ocupados, -1 si esta libre
+var TDPMultinivel map[uint]*structs.Tabla
 
 func IniciarEstructuras() {
 	EspacioUsuario = make([]byte, Config.MemorySize)
@@ -34,8 +33,7 @@ func IniciarEstructuras() {
 
 func CantidadDeFrames() int {
 	return Config.MemorySize / Config.PageSize
-} 
-
+}
 
 func EjecutarArchivo(path string) []string {
 	contenido, err := os.ReadFile(path)
@@ -171,11 +169,11 @@ func IncrementarMetricaEn(pid uint, campo string) {
 		return
 	}
 	Metricas[pid] = metrica
-	logueador.Info("Metrica: %s - Incrementada para el PID: %d - Valor actual: %+v",campo, pid, metrica)
+	logueador.Info("Metrica: %s - Incrementada para el PID: %d - Valor actual: %+v", campo, pid, metrica)
 }
 
 func InformarMetricasDe(pid uint) {
-	ok := ExisteElPID(pid)	
+	ok := ExisteElPID(pid)
 	if !ok {
 		logueador.Info("No existe el PID %d", pid)
 		return
@@ -185,18 +183,17 @@ func InformarMetricasDe(pid uint) {
 	delete(Metricas, pid)
 }
 
-// ---------------------------- Archivo Dump -------------------------------------- // 
-
+// ---------------------------- Archivo Dump -------------------------------------- //
 
 func NombreDelArchivoDMP(pid string) string {
 	return pid + "-" + time.Now().Format("2006-01-02-15-04-05") + ".dmp"
 }
 
 func CreacionArchivoDump(pid uint) (*os.File, error) {
-	
+
 	err := os.MkdirAll(Config.DumpPath, 0755)
 	if err != nil {
-    return nil, fmt.Errorf("error al crear el directorio de dumps: %w", err)
+		return nil, fmt.Errorf("error al crear el directorio de dumps: %w", err)
 	}
 
 	pathCorrectoDump := Config.DumpPath
@@ -220,7 +217,6 @@ func EscribirDumpEnArchivo(file *os.File, pid uint, frames []string) error {
 	return nil
 }
 
-
 func CargarPIDconInstrucciones(path string, pid int) {
 	instrucciones := LeerArchivoYGuardarInstrucciones(path)
 	Procesos[uint(pid)] = instrucciones
@@ -228,24 +224,24 @@ func CargarPIDconInstrucciones(path string, pid int) {
 
 func LeerArchivoYGuardarInstrucciones(path string) []string {
 	var instrucciones []string
-	file , err := os.Open(path)
-	check("No se pudo abrir el archivo",err)
+	file, err := os.Open(path)
+	check("No se pudo abrir el archivo", err)
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() { 
-		instruccion := strings.TrimSpace(scanner.Text()) 
-			if instruccion != ""{
+	for scanner.Scan() {
+		instruccion := strings.TrimSpace(scanner.Text())
+		if instruccion != "" {
 			instrucciones = append(instrucciones, instruccion)
-			}
+		}
 	}
 	if err := scanner.Err(); err != nil {
-		check("Error al leer la instruccion",err)
+		check("Error al leer la instruccion", err)
 	}
-	defer file.Close() 
+	defer file.Close()
 	return instrucciones // Devulve un ["JUMP 1", "ADD 2", "SUB 3"]
 }
 
 func check(mensaje string, e error) {
 	if e != nil {
-		logueador.Error(mensaje, "error", e)	
+		logueador.Error(mensaje, "error", e)
 	}
 }

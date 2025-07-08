@@ -77,7 +77,7 @@ func Interrumpir(nombreCpu string) {
 		return
 	}
 
-	url := fmt.Sprintf("http://%s:%d/interrupt", cpu.IP, cpu.Puerto)
+	url := fmt.Sprintf("http://%s:%s/interrupt", cpu.IP, cpu.Puerto)
 	_, err := http.Get(url)
 
 	if err != nil {
