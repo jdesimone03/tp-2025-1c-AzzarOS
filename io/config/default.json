@@ -1,7 +1,9 @@
 {
-    "ip_kernel": "127.0.0.1",
-    "port_kernel": 8001,
-    "port_io": 8003,
-    "ip_io": "127.0.0.1",
-    "log_level": "DEBUG"
+    "ip_io": "${IP_IO}",
+    "port_io": "${PORT_IO}",
+
+    "ip_kernel": "${IP_KERNEL}",
+    "port_kernel": "${PORT_KERNEL}",
+
+    "log_level": "${LOG_LEVEL_IO}"
 }
