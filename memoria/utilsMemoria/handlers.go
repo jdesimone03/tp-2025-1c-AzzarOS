@@ -314,8 +314,8 @@ func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LiberarMemoria(*pid)
 	InformarMetricasDe(*pid)
+	LiberarMemoria(*pid)
 
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
 	w.Write([]byte("OK"))
