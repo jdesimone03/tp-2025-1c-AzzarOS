@@ -55,7 +55,7 @@ func RecibirEjecucionIO(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusInternalServerError)
     }
 
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
 }
 
 func Ejecucion(ctx structs.EjecucionIO) {
