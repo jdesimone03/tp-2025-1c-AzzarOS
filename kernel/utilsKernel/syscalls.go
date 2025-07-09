@@ -65,23 +65,44 @@ func SyscallInitProc(pid uint, instruccion structs.InitProcInstruction) {
 }
 
 func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
+	FinalizarProceso(pid)
+
+}
+
+func FinalizarProceso(pid uint) {
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "finalizarProceso", pid)
 	if respuesta != "OK" {
 		logueador.Error("Error al finalizar el proceso %d: %s", pid, respuesta)
 		return
 	}
+
 	InstanciasCPU.Liberar(pid)
 	MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
-	//VerificarProcesos()
+
+	pcb, _ := ColaExit.Buscar(pid)
+
+	// Log obligatorio 8/8
+	logueador.MetricasDeEstado(pcb)
+
+	VerificarInicializacion()
 }
 
-func VerificarProcesos() {
+func VerificarInicializacion() {
+	// Intentamos inicializar procesos en espera
 	for i := range ColaSuspReady.Longitud() {
 		pcb := ColaSuspReady.Obtener(i)
-		MoverPCB(pcb.PID, ColaSuspReady, ColaReady, structs.EstadoReady)
+		procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
+		if existe {
+			IntentarInicializarProceso(procesoEnEspera, ColaSuspReady)
+		}
 	}
-	for i := range ColaNew.Longitud() {
-		pcb := ColaNew.Obtener(i)
-		MoverPCB(pcb.PID, ColaNew, ColaReady, structs.EstadoReady)
+	if ColaSuspReady.Vacia(){
+		for i := range ColaNew.Longitud() {
+			pcb := ColaNew.Obtener(i)
+			procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
+			if existe {
+				IntentarInicializarProceso(procesoEnEspera, ColaNew)
+			}
+		}
 	}
 }

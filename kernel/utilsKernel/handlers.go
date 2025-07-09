@@ -119,9 +119,15 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	// Desaloja las cpu que se estén usando.
 	InstanciasCPU.Liberar(contexto.PID)
 
-	// Busca el proceso a guardar en la cola execute
-	ColaExecute.Actualizar(contexto.PID, contexto.PC)
-	ColaBlocked.Actualizar(contexto.PID, contexto.PC)
+	// Busca el proceso a guardar en la cola execute, o en la blocked o en la susp blocked
+	enExec := ColaExecute.Actualizar(contexto.PID, contexto.PC)
+	if !enExec {
+		enBlocked := ColaBlocked.Actualizar(contexto.PID, contexto.PC)
+		if !enBlocked {
+			ColaSuspBlocked.Actualizar(contexto.PID, contexto.PC)
+		}
+	}
+	// horror
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -166,7 +172,12 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*nombreIfaz)
-		MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
+
+		// Se fija si pasamos a ready o susp. ready
+		existe := MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
+		if !existe { // Si no está en la cola blocked, está en la cola susp. blocked
+			MoverPCB(pid, ColaSuspBlocked, ColaSuspReady, structs.EstadoSuspReady)
+		}
 
 		if ListaWaitIO.NoVacia(*nombreIfaz) {
 			aEjecutar := ListaWaitIO.EliminarPrimero(*nombreIfaz)

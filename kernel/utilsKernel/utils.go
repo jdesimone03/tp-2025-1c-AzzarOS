@@ -10,7 +10,7 @@ import (
 )
 
 // Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado
-func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura, estadoNuevo string) {
+func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura, estadoNuevo string) bool {
 	pcb, indice := origen.Buscar(pid)
 	if indice > -1 { // Si encuentra el indice
 		estadoActual := pcb.Estado
@@ -44,8 +44,9 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 
 		// Log obligatorio 3/8
 		logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
-		return
+		return true
 	}
+	return false
 }
 
 func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
@@ -57,6 +58,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 
 	//utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
 	NuevosProcesos.Agregar(proceso.PID, proceso)
+	ProcesosActuales.Agregar(proceso.PID, proceso)
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
@@ -127,6 +129,7 @@ func Suspender(pcb structs.PCB) {
 		}
 		logueador.Info("Proceso PID %d pasa a SWAP", pcb.PID)
 		MoverPCB(pcb.PID, ColaBlocked, ColaSuspBlocked, structs.EstadoSuspBlocked)
+		VerificarInicializacion()
 	}
 }
 

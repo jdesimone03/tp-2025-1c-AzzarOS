@@ -319,15 +319,16 @@ func (cs *ColaSegura) Buscar(pid uint) (PCB, int) {
 	return PCB{}, -1
 }
 
-func (cs *ColaSegura) Actualizar(pid uint, nuevoPC uint) {
+func (cs *ColaSegura) Actualizar(pid uint, nuevoPC uint) bool {
 	cs.Mutex.Lock()
 	defer cs.Mutex.Unlock()
 	for i, pcb := range cs.Cola {
 		if pcb.PID == pid {
 			cs.Cola[i].PC = nuevoPC
-			return
+			return true
 		}
 	}
+	return false
 }
 
 func (cs *ColaSegura) Longitud() int {

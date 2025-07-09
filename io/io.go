@@ -28,6 +28,20 @@ func main() {
 	// Inicia el logueador
 	logueador.ConfigurarLogger("log_IO_" + nombre, utilsIO.Config.LogLevel)
 
+	http.HandleFunc("/ejecutarIO", utilsIO.RecibirEjecucionIO)
+
+	// Canal para confirmar que el servidor está listo
+    servidorListo := make(chan bool)
+
+    // Inicia el servidor en una goroutine
+    go func() {
+        servidorListo <- true // Señala que está listo para iniciar
+        utils.IniciarServidor(utilsIO.Config.PortIo)
+    }()
+
+    // Espera confirmación de que el servidor está iniciando
+    <-servidorListo
+
 	interfaz := structs.InterfazIO{
 		IP:     utilsIO.Config.IPIo,
 		Puerto: utilsIO.Config.PortIo,
@@ -40,7 +54,7 @@ func main() {
 
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
-	http.HandleFunc("/ejecutarIO", utilsIO.RecibirEjecucionIO)
+	//utils.IniciarServidor(utilsIO.Config.PortIo)
 
-	utils.IniciarServidor(utilsIO.Config.PortIo)
+	select{}
 }

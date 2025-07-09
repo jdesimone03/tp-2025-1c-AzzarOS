@@ -132,16 +132,16 @@ func FinDeProceso(pid uint) {
 }
 
 // Log obligatorio 8/8
-func MetricasDeEstado(pid uint, metricasConteo map[string]int, metricasTiempo map[string]int64) {
+func MetricasDeEstado(pcb structs.PCB) {
 	// Esto construye el string con todas las métricas
 	var metricasString string
-	for estado, conteo := range metricasConteo {
-		tiempo := metricasTiempo[estado]
+	for estado, conteo := range pcb.MetricasConteo {
+		tiempo := pcb.MetricasTiempo[estado]
 		metricasString += fmt.Sprintf("%s %d %d, ", estado, conteo, tiempo)
 	}
 
 	// Finalmente loguea las métricas
-	Info("## (%d) - Métricas de estado: %s", pid, metricasString)
+	Info("## (%d) - Métricas de estado: %s", pcb.PID, metricasString)
 }
 
 // ---------------------------- MEMORIA ----------------------------//
