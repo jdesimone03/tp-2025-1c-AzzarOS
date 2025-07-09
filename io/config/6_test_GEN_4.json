@@ -1,0 +1,9 @@
+{
+    "ip_io": "${IP_IO}",
+    "port_io": "${PORT_IO+300}",
+
+    "ip_kernel": "${IP_KERNEL}",
+    "port_kernel": "${PORT_KERNEL}",
+
+    "log_level": "${LOG_LEVEL_IO}"
+}

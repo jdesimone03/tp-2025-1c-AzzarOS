@@ -1,0 +1,17 @@
+{
+    "ip_memory": "${IP_MEMORY}",
+    "port_memory": "${PORT_MEMORY}",
+
+    "memory_size": 512,
+    "page_size": 32,
+    "entries_per_page": 32,
+    "number_of_levels": 1,
+    "memory_delay": 500,
+    "swap_delay": 2500,
+
+    "swapfile_path": "${SWAPFILE_PATH}",
+    "dump_path": "${DUMP_PATH}",
+    "scripts_path": "${SCRIPTS_PATH}",
+
+    "log_level": "${LOG_LEVEL_MEMORY}"
+}

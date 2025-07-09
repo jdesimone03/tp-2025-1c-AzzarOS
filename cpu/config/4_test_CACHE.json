@@ -1,6 +1,6 @@
 {
     "ip_cpu": "${IP_CPU}",
-    "port_cpu": "${PORT_CPU+300}",
+    "port_cpu": "${PORT_CPU+100}",
 
     "ip_memory": "${IP_MEMORY}",
     "port_memory": "${PORT_MEMORY}",
@@ -12,7 +12,7 @@
     "tlb_replacement": "FIFO",
     "cache_entries": 0,
     "cache_replacement": "CLOCK",
-    "cache_delay": 0,
+    "cache_delay": 250,
 
     "log_level": "${LOG_LEVEL_CPU}"
 }

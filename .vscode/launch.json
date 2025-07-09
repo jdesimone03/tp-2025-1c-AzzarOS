@@ -1,7 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
-        // TEST 1
+        // TEST 1 -  Planificación Corto Plazo
         {
             "name": "Memoria - Test 1",
             "type": "go",
@@ -69,7 +69,7 @@
                 "order": 5
             }
         },
-        // TEST 2
+        // TEST 2 - Planificación Mediano/Largo Plazo
         {
             "name": "Memoria - Test 2",
             "type": "go",
@@ -123,11 +123,312 @@
                 "group": "Test 2 - Configs",
                 "order": 4
             }
+        },
+        // TEST 3 - Memoria SWAP
+        {
+            "name": "Memoria - Test 3",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go",
+            "args": ["${workspaceFolder}/memoria/config/3_test_SWAP.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 3 - Configs",
+                "order": 1
+            }
+            
+        },
+        {
+            "name": "Kernel - Test 3",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["MEMORIA_IO", "90", "${workspaceFolder}/kernel/config/3_test_SWAP.json"],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": true,
+                "group": "Test 3 - Configs",
+                "order": 2
+            }
+        },
+        {
+            "name": "CPU - Test 3",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1", "${workspaceFolder}/cpu/config/3_test_SWAP.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 3 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "IO - Test 3",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 3 - Configs",
+                "order": 4
+            }
+        },
+        // TEST 4 - Memoria - Caché
+        {
+            "name": "Memoria - Test 4",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go",
+            "args": ["${workspaceFolder}/memoria/config/4_test_CACHE.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 4 - Configs",
+                "order": 1
+            }
+            
+        },
+        {
+            "name": "Kernel - Test 4",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["MEMORIA_BASE", "256", "${workspaceFolder}/kernel/config/4_test_CACHE.json"],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": true,
+                "group": "Test 4 - Configs",
+                "order": 2
+            }
+        },
+        {
+            "name": "CPU - Test 4",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1", "${workspaceFolder}/cpu/config/4_test_CACHE.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 4 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "IO - Test 4",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 4 - Configs",
+                "order": 4
+            }
+        },
+        // TEST 5 - Memoria - TLB
+        {
+            "name": "Memoria - Test 5",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go",
+            "args": ["${workspaceFolder}/memoria/config/5_test_TLB.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 5 - Configs",
+                "order": 1
+            }
+            
+        },
+        {
+            "name": "Kernel - Test 5",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["MEMORIA_BASE", "256", "${workspaceFolder}/kernel/config/5_test_TLB.json"],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": true,
+                "group": "Test 5 - Configs",
+                "order": 2
+            }
+        },
+        {
+            "name": "CPU - Test 5",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1", "${workspaceFolder}/cpu/config/5_test_TLB.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 5 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "IO - Test 5",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 5 - Configs",
+                "order": 4
+            }
+        },
+        // TEST 6 - Estabilidad General
+        {
+            "name": "Memoria - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/memoria/memoria.go",
+            "args": ["${workspaceFolder}/memoria/config/6_test_GEN.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 1
+            }
+            
+        },
+        {
+            "name": "Kernel - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/kernel/kernel.go",
+            "args": ["ESTABILIDAD_GENERAL", "0", "${workspaceFolder}/kernel/config/6_test_GEN.json"],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 2
+            }
+        },
+        {
+            "name": "CPU1 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU1", "${workspaceFolder}/cpu/config/6_test_GEN_1.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "CPU2 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU2", "${workspaceFolder}/cpu/config/6_test_GEN_2.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "CPU3 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU3", "${workspaceFolder}/cpu/config/6_test_GEN_3.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "CPU4 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cpu/cpu.go",
+            "args": ["CPU4", "${workspaceFolder}/cpu/config/6_test_GEN_4.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 3
+            }
+        },
+        {
+            "name": "IO1 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO1", "${workspaceFolder}/io/config/6_test_GEN_1.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 4
+            }
+        },
+        {
+            "name": "IO2 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO2", "${workspaceFolder}/io/config/6_test_GEN_2.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 4
+            }
+        },
+        {
+            "name": "IO3 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO3", "${workspaceFolder}/io/config/6_test_GEN_3.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 4
+            }
+        },
+        {
+            "name": "IO4 - Test 6",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO4", "${workspaceFolder}/io/config/6_test_GEN_4.json"],
+            "presentation": {
+                "hidden": true,
+                "group": "Test 6 - Configs",
+                "order": 4
+            }
         }
     ],
     "compounds": [
+
+        // --------------------------------- TEST 1 - Planificación Corto Plazo --------------------------------- //
+
         {
-            "name": "Iniciar Memoria y Kernel (Test 1)",
+            "name": "Test 1 - Memoria y Kernel",
             "configurations": ["Memoria - Test 1", "Kernel - Test 1"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -138,7 +439,7 @@
             }
         },
         {
-            "name": "Iniciar CPUS e IO (Test 1)",
+            "name": "Test 1 - CPUS e IO",
             "configurations": ["CPU1 - Test 1", "CPU2 - Test 1", "IO - Test 1"],
             "stopAll": true,
             "presentation": {
@@ -147,8 +448,11 @@
                 "order": 2
             }
         },
+
+        // --------------------------------- TEST 2 - Planificación Mediano/Largo Plazo --------------------------------- //
+
         {
-            "name": "Iniciar Memoria y Kernel (Test 2)",
+            "name": "Test 2 - Memoria y Kernel",
             "configurations": ["Memoria - Test 2", "Kernel - Test 2"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -159,7 +463,7 @@
             }
         },
         {
-            "name": "Iniciar CPUS e IO (Test 2)",
+            "name": "Test 2 - CPUS e IO",
             "configurations": ["CPU - Test 2", "IO - Test 2"],
             "stopAll": true,
             "presentation": {
@@ -167,6 +471,113 @@
                 "group": "Test 2 - Compounds",
                 "order": 2
             }
+        },
+
+        // --------------------------------- TEST 3 - Memoria SWAP --------------------------------- //
+
+        {
+            "name": "Test 3 - Memoria y Kernel",
+            "configurations": ["Memoria - Test 3", "Kernel - Test 3"],
+            "stopAll": true,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "Test 3 - Compounds",
+                "order": 1
+            }
+        },
+        {
+            "name": "Test 3 - CPUS e IO",
+            "configurations": ["CPU - Test 3", "IO - Test 3"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Test 3 - Compounds",
+                "order": 2
+            }
+        },
+
+        // --------------------------------- TEST 4 - Memoria - Caché --------------------------------- //
+
+        {
+            "name": "Test 4 - Memoria y Kernel",
+            "configurations": ["Memoria - Test 4", "Kernel - Test 4"],
+            "stopAll": true,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "Test 4 - Compounds",
+                "order": 1
+            }
+        },
+        {
+            "name": "Test 4 - CPUS e IO",
+            "configurations": ["CPU - Test 4", "IO - Test 4"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Test 4 - Compounds",
+                "order": 2
+            }
+        },
+
+        // --------------------------------- TEST 5 - Memoria - TLB --------------------------------- //
+
+        {
+            "name": "Test 5 - Memoria y Kernel",
+            "configurations": ["Memoria - Test 5", "Kernel - Test 5"],
+            "stopAll": true,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "Test 5 - Compounds",
+                "order": 1
+            }
+        },
+        {
+            "name": "Test 5 - CPUS e IO",
+            "configurations": ["CPU - Test 5", "IO - Test 5"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Test 5 - Compounds",
+                "order": 2
+            }
+        },
+
+        // --------------------------------- TEST 6 - Estabilidad General --------------------------------- //
+
+        {
+            "name": "Test 6 - Memoria y Kernel",
+            "configurations": ["Memoria - Test 6", "Kernel - Test 6"],
+            "stopAll": true,
+            "preLaunchTask": "Clear Logs",
+            "presentation": {
+                "hidden": false,
+                "group": "Test 6 - Compounds",
+                "order": 1
+            }
+        },
+        {
+            "name": "Test 6 - CPUS",
+            "configurations": ["CPU1 - Test 6", "CPU2 - Test 6", "CPU3 - Test 6", "CPU4 - Test 6"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Test 6 - Compounds",
+                "order": 2
+            }
+        },
+        {
+            "name": "Test 6 - IOS",
+            "configurations": ["IO1 - Test 6", "IO2 - Test 6", "IO3 - Test 6", "IO4 - Test 6"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "Test 6 - Compounds",
+                "order": 3
+            }
         }
+
     ]
 }
