@@ -10,8 +10,8 @@
 
     "tlb_entries": 0,
     "tlb_replacement": "FIFO",
-    "cache_entries": 0,
-    "cache_replacement": "CLOCK",
+    "cache_entries": 2,
+    "cache_replacement": "CLOCK-M",
     "cache_delay": 250,
 
     "log_level": "${LOG_LEVEL_CPU}"

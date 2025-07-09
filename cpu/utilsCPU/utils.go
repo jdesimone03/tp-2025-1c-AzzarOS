@@ -124,6 +124,7 @@ func TraducirDireccion(pid uint, direccion int) int {
 		return frame * ConfigMemoria.TamanioPagina + offset // Retornamos la dirección física
 	} 
 	logueador.Info("Página no encontrada en TLB, buscando en tabla de páginas - MMU")
+	
 	// 2. Si no está en TLB, buscamos en la tabla de páginas
 	direccionFisica := MMU(pid, direccion) // Obtenemos el frame físico correspondiente a la página lógica
 	if direccionFisica == -1 {

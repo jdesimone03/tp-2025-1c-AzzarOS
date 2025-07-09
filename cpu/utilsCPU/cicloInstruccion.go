@@ -104,15 +104,21 @@ func Read(pid uint, inst structs.ReadInstruction) {
 		PID:     pid,             // Asignamos el PID del proceso
 	}
 
+	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read", inst2)
+	if read == "" {
+		logueador.Info("Se leyó un string vacio")
+		return
+	}
+
+	if CacheHabilitado() {
 	pagina, err := PedirFrameAMemoria(pid, inst.Address, direccionFisica)
 	if err != nil {
 		logueador.Error("Error al pedir el frame a memoria: %v", err)
 		return
 	}
-
+	logueador.Info("Página leída de memoria: %v - Agregandola a caché", pagina)
 	AgregarPaginaACache(pagina)
-
-	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read", inst2)
+	}
 
 	// Log obligatorio 4/11
 	logueador.LecturaMemoria(pid, inst.Address, read)
@@ -126,12 +132,14 @@ func Write(pid uint, inst structs.WriteInstruction) {
 		EscribirEnCache(pid, inst.LogicAddress, inst.Data) // Escribimos en la caché
 		return
 	}
+	logueador.Info("Página no encontrada en caché, escribiendo en memoria")
 
 	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {
 		logueador.Info("Error al traducir la dirección lógica %d para el PID %d", inst.LogicAddress, pid)
 		return
 	}
+	logueador.Info("Direccion traducida: %d para el PID %d", direccionFisica, pid)
 
 	inst2 := structs.WriteInstruction{
 		LogicAddress: direccionFisica, // Asignamos la dirección física
@@ -145,13 +153,14 @@ func Write(pid uint, inst structs.WriteInstruction) {
 		return
 	}
 
-	// Si la página no estaba en cache, pedirla a memoria
-	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress, direccionFisica)
-	if err != nil {
-		logueador.Info("Error al pedir el frame a memoria: %v", err)
-		return
+	if CacheHabilitado(){
+		pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress, direccionFisica)
+		if err != nil {
+			logueador.Info("Error al pedir el frame a memoria: %v", err)
+			return
+		}
+		AgregarPaginaACache(pagina)
 	}
-	AgregarPaginaACache(pagina)
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS

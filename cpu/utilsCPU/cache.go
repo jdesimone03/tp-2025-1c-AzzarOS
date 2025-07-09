@@ -23,9 +23,9 @@ Cosas para testear:
 - Verificacion de si una pagina fue modificada => Testeado
 - Envio de pagina a memoria
 */
-var Cache structs.CacheStruct = InicializarCache()
+var Cache structs.CacheStruct
 
-func InicializarCache() structs.CacheStruct {
+func InicializarCache() {
 	paginas := make([]structs.PaginaCache, Config.CacheEntries) // Slice vacío, capacidad predefinida
 	
 		for i := 0; i < Config.CacheEntries; i++ {
@@ -35,14 +35,14 @@ func InicializarCache() structs.CacheStruct {
 			PID: -1,
 			}
 		}
-	return structs.CacheStruct{
+	Cache = structs.CacheStruct{
 		Paginas: paginas,
 		Algoritmo: Config.CacheReplacement,
 	}
 }
 
 func CacheHabilitado() bool {
-	return len(Cache.Paginas) > 0 
+	return Config.CacheEntries > 0 
 }
 
 func FueModificada(pagina structs.PaginaCache) bool {
@@ -85,7 +85,7 @@ func ObtenerPaginaDeCache(pid uint, nropagina int) int {
 func MandarDatosAMP(paginas structs.PaginaCache) {
 	
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "actualizarMP", paginas)
-	if respuesta != "OK	" {
+	if respuesta != "OK" {
 		logueador.Error("Error al enviar la pagina a memoria: %s", respuesta)
 		return
 	}
@@ -156,9 +156,15 @@ func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte, frame int)
 }
 
 func PedirFrameAMemoria(pid uint, direccionLogica int, direccionFisica int) (structs.PaginaCache, error) {
+
+	if !CacheHabilitado() {
+		logueador.Error("Cache no habilitada, no se puede pedir frame a memoria")
+		return structs.PaginaCache{}, fmt.Errorf("cache no habilitada, no se puede pedir frame a memoria")
+	}
 	
+	logueador.Info("Pidiendo frame a memoria para PID %d, direccion logica %d, direccion fisica %d", pid, direccionLogica, direccionFisica)
 	nropagina := direccionLogica / ConfigMemoria.TamanioPagina // Obtenemos el numero de pagina
-	url := fmt.Sprintf("http://%s:%d/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
+	url := fmt.Sprintf("http://%s:%s/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
 	
 	resp, err := http.Get(url)
 	if err != nil {
@@ -179,18 +185,14 @@ func PedirFrameAMemoria(pid uint, direccionLogica int, direccionFisica int) (str
 		return structs.PaginaCache{}, err
 	}
 
+	logueador.Info("Frame recibido de memoria")
 	paginaCache := CreacionDePaginaCache(pid, nropagina, frame, direccionFisica / ConfigMemoria.TamanioPagina) // Creamos la pagina cache con el frame obtenido
 
 	return paginaCache, nil
 }
 
 func CacheLleno() bool {
-	for i:= 0; i < len(Cache.Paginas); i++ {
-		if Cache.Paginas[i].NumeroPagina == -1 { // Si hay una pagina sin asignar, la cache no esta llena
-			return false 
-		}
-	}
-	return true // Si todas las paginas tienen un numero de pagina asignado, la cache esta llena
+	return len(Cache.Paginas) == Config.CacheEntries // Verificamos si la cantidad de paginas en cache es igual a la cantidad de entradas configuradas
 }
 
 func IndiceLibreCache() int {
@@ -203,12 +205,18 @@ func IndiceLibreCache() int {
 }
 
 func AgregarPaginaACache(pagina structs.PaginaCache) {
+
+	if !CacheHabilitado() {
+		logueador.Info("Cache no habilitada, no se puede agregar pagina a cache")
+		return // Cache no habilitada, no se puede agregar pagina a cache
+	}
 	
 	if CacheLleno() {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
 		return 
 	} else {
 		indiceLibre := IndiceLibreCache() // Obtenemos el indice libre de la cache
+		logueador.Info("Indice libre encontrado en Cache: %d", indiceLibre)
 		Cache.Paginas[indiceLibre] = pagina // Asignamos la pagina al indice libre
 		logueador.Info("Pagina agregada a la Cache") 
 		return 

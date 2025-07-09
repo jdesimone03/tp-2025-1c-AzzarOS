@@ -1,10 +1,14 @@
 package utilsCPU
 
 import (
-	"utils/logueador"
 	"time"
+	"utils/logueador"
 	"utils/structs"
+
+	// "golang.org/x/tools/go/analysis/passes/appends"
 )
+
+var tlb structs.TLB 
 
 func DesalojarTLB(pid uint) {
 	
@@ -23,29 +27,29 @@ func DesalojarTLB(pid uint) {
 	}
 }
 
-func InicializarTLB() structs.TLB {
-	entradas := make([]structs.EntradaTLB, 0, Config.CacheEntries)
-	for i := 0; i < Config.CacheEntries; i++ {
-		entradas = append(entradas, structs.EntradaTLB{
+func InicializarTLB() {
+	entradas := make([]structs.EntradaTLB, Config.TlbEntries)
+	
+	for i := 0; i < Config.TlbEntries; i++ {
+		entradas[i] = structs.EntradaTLB{
 			NumeroPagina:        -1, // Inicialmente no hay páginas cargadas
 			NumeroFrame:         -1, // Inicialmente no hay frames asignados
 			BitPresencia:        false, // Inicialmente no hay páginas presentes
 			PID:                 -1, // Inicialmente no hay PID asignado
 			Llegada: -1, // Inicialmente no hay instante de referencia
 			Referencia: -1, // Inicialmente no hay referencia
-		})
+		}
 	}
-	return structs.TLB{
+	tlb = structs.TLB{
 		Entradas:    entradas,
 		MaxEntradas: Config.CacheEntries,
 		Algoritmo:   Config.CacheReplacement,
 	}
 }
 
-var tlb structs.TLB = InicializarTLB()
 
 func TLBHabilitada() bool {
-	return tlb.MaxEntradas != 0
+	return Config.TlbEntries > 0
 }
 
 func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta cargada en el TLB
@@ -103,17 +107,12 @@ func IndiceDeEntradaVictima(segun func(structs.EntradaTLB) int) int {
 }
 
 func TLBLleno() bool {
-	for i:= 0; i < len(tlb.Entradas); i++ {
-		if tlb.Entradas[i].NumeroPagina == -1 { // Si hay una entrada con número de página -1, significa que la TLB no está llena
-			return false // La TLB no está llena
-		}
-	}
-	return true 
+	return len(tlb.Entradas) == Config.TlbEntries // Verificamos si la TLB está llena
 }
 
 func EntradaTLBValida() int {
 	for i := 0; i < len(tlb.Entradas); i++ {
-		if tlb.Entradas[i].NumeroPagina == -1 { // Si hay una entrada con número de página -1, significa que la TLB tiene espacio
+		if tlb.Entradas[i].PID == -1 { // Si hay una entrada con número de página -1, significa que la TLB tiene espacio
 			return i // Retorna el índice de la entrada válida
 		}
 	}
@@ -122,6 +121,11 @@ func EntradaTLBValida() int {
 
 
 func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
+
+	if !TLBHabilitada() {
+		logueador.Error("TLB no habilitada, no se puede agregar una entrada a la TLB")
+		return // TLB no habilitada, no se puede agregar una entrada
+	}
 
 	nuevaEntrada := structs.EntradaTLB{
 		NumeroPagina: nropagina,
@@ -143,6 +147,7 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 		return 
 	} else { // si no esta lleno, agrego la nueva entrada al final
 		indiceValido := EntradaTLBValida() // Buscamos un indice valido para agregar la nueva entrada
+		logueador.Info("Indice libre en TLB: %d", indiceValido)
 		tlb.Entradas[indiceValido] = nuevaEntrada // Asignamos la nueva entrada al indice valido
 		logueador.Info("Agregando entrada a TLB - PID: %d, Página: %d, Frame: %d", pid, nropagina, nroframe)
 		return 
@@ -160,5 +165,13 @@ func DesalojoTlB(pid uint) {
 				Llegada: -1, // -1 indica que la entrada no ha sido utilizada
 			}
 		}
+	}
+}
+
+func MostrarContenidoTLB() {
+	logueador.Info("Contenido actual de la TLB:")
+	for i, entrada := range tlb.Entradas {
+		logueador.Info("Entrada %d: PID=%d, Pagina=%d, Frame=%d, Presente=%v, Llegada=%d, Referencia=%d",
+			i, entrada.PID, entrada.NumeroPagina, entrada.NumeroFrame, entrada.BitPresencia, entrada.Llegada, entrada.Referencia)
 	}
 }

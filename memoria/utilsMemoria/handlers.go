@@ -159,8 +159,13 @@ func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 
 	contenidoStr := string(paginaJSON.Contenido)
 	Write(uint(paginaJSON.PID), paginaJSON.NumeroFrame*Config.PageSize, contenidoStr)
+
+	logueador.Info("Se escribió correctamente en memoria el frame %d del PID %d", paginaJSON.NumeroFrame, paginaJSON.PID)
+	logueador.Info("[MEMORIA] Página actualizada: PID %d, Página %d, Contenido: %s\n", paginaJSON.PID, paginaJSON.NumeroPagina, paginaJSON.Contenido)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK")) // Envio un OK al kernel
 }
 
 func HandlerFetch(w http.ResponseWriter, r *http.Request) {

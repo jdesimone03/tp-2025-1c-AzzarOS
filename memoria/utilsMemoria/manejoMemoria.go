@@ -139,7 +139,6 @@ func LiberarMemoria(pid uint) {
 
 func MarcarFrameOcupado(frame int, pid uint) {
 	Ocupadas[frame] = int(pid)
-	return
 }
 
 func InicializarOcupadas() {

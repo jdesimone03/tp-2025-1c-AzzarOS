@@ -45,7 +45,14 @@ func main() {
 		CPU:           cpu,
 	}
 
+
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel, "handshake/CPU", peticion)
+
+	utilsCPU.InicializarCache()
+	utilsCPU.InicializarTLB()
+
+
+	utilsCPU.MostrarContenidoTLB()
 
 	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)
 	http.HandleFunc("/interrupt", utilsCPU.RecibirInterrupcion)
