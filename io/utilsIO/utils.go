@@ -15,7 +15,7 @@ import (
 var Config config.ConfigIO
 var NombreInterfaz string
 var Ejecutando structs.EjecucionIO
-var chEjecucion = make(chan structs.EjecucionIO)
+var chEjecucion = make(chan structs.EjecucionIO, 1)
 
 // Manejo de señales
 func init() {
@@ -47,7 +47,13 @@ func RecibirEjecucionIO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chEjecucion <- *ejecucion
+	select {
+    case chEjecucion <- *ejecucion:
+        w.WriteHeader(http.StatusOK)
+    case <-time.After(5 * time.Second): // Timeout de 5 segundos
+        logueador.Error("Timeout al enviar ejecución al canal")
+        w.WriteHeader(http.StatusInternalServerError)
+    }
 
 	w.WriteHeader(http.StatusOK)
 }
