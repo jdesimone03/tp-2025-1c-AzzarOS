@@ -6,3 +6,5 @@
 
 # Ejecutables
 *.bin
+*.exe
+__debug_bin_*

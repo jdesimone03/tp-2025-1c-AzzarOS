@@ -12,14 +12,18 @@ import (
 func PlanificadorLargoPlazo() {
 	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
 	var procesoAEnviar structs.NuevoProceso
+	var firstPCB structs.PCB
 	for {
-		if !ColaSuspReady.Vacia() { // La cola susp ready debe estar vacia
-			continue
+		if !ColaSuspReady.Vacia() { // Toma prioridad por sobre la cola new
+			firstPCB = ColaSuspReady.Obtener(0)
+		} else {
+			if ColaNew.Vacia() {
+				continue // Espera a que haya un proceso en new
+			} else {
+				firstPCB = ColaNew.Obtener(0)
+			}
 		}
-		if ColaNew.Vacia() {
-			continue // Espera a que haya un proceso en new
-		}
-		firstPCB := ColaNew.Obtener(0)
+
 		switch Config.SchedulerAlgorithm {
 		case "FIFO":
 			procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
@@ -38,17 +42,28 @@ func PlanificadorLargoPlazo() {
 			logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
 			return
 		}
-		logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
-		// TODO Liberar map de nuevos procesos?
-		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoAEnviar.Tamanio)
-		if respuesta != "OK" {
-			logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", procesoAEnviar.PID)
-			// TODO Implementar semaforos para que espere que termine un proceso
-			time.Sleep(10 * time.Second)
-			continue
+
+		// Si NO esta en los procesos en espera
+		_, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
+		if !existe {
+			logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
+			IntentarInicializarProceso(procesoAEnviar, ColaNew)
 		}
-		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", procesoAEnviar)
-		MoverPCB(procesoAEnviar.PID, ColaNew, ColaReady, structs.EstadoReady)
+
+	}
+}
+
+func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
+	if respuesta == "OK" {
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
+		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
+
+		NuevosProcesos.Eliminar(proceso.PID)
+		ProcesosEnEspera.Eliminar(proceso.PID)
+	} else {
+		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
+		ProcesosEnEspera.Agregar(proceso.PID, proceso)
 	}
 }
 
@@ -146,7 +161,7 @@ func PlanificadorMedianoPlazo() {
 
 					MoverPCB(currentPid, ColaBlocked, ColaSuspBlocked, structs.EstadoSuspBlocked)
 					TiempoEnColaBlocked.Eliminar(currentPid) // Eliminar el timer del mapa.
-					moved = true                            // PCB fue movido, no se debe incrementar i.
+					moved = true                             // PCB fue movido, no se debe incrementar i.
 				default:
 					// Timer existe pero no ha expirado. No hacer nada con este PCB respecto al timer.
 				}
