@@ -428,7 +428,7 @@
         // --------------------------------- TEST 1 - Planificación Corto Plazo --------------------------------- //
 
         {
-            "name": "Test 1 - Memoria y Kernel",
+            "name": "Test 1 (PCP) - Memoria y Kernel",
             "configurations": ["Memoria - Test 1", "Kernel - Test 1"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -439,7 +439,7 @@
             }
         },
         {
-            "name": "Test 1 - CPUS e IO",
+            "name": "Test 1 (PCP) - CPUS e IO",
             "configurations": ["CPU1 - Test 1", "CPU2 - Test 1", "IO - Test 1"],
             "stopAll": true,
             "presentation": {
@@ -452,7 +452,7 @@
         // --------------------------------- TEST 2 - Planificación Mediano/Largo Plazo --------------------------------- //
 
         {
-            "name": "Test 2 - Memoria y Kernel",
+            "name": "Test 2 (PLYMP) - Memoria y Kernel",
             "configurations": ["Memoria - Test 2", "Kernel - Test 2"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -463,7 +463,7 @@
             }
         },
         {
-            "name": "Test 2 - CPUS e IO",
+            "name": "Test 2 (PLYMP) - CPUS e IO",
             "configurations": ["CPU - Test 2", "IO - Test 2"],
             "stopAll": true,
             "presentation": {
@@ -476,7 +476,7 @@
         // --------------------------------- TEST 3 - Memoria SWAP --------------------------------- //
 
         {
-            "name": "Test 3 - Memoria y Kernel",
+            "name": "Test 3 (SWAP) - Memoria y Kernel",
             "configurations": ["Memoria - Test 3", "Kernel - Test 3"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -487,7 +487,7 @@
             }
         },
         {
-            "name": "Test 3 - CPUS e IO",
+            "name": "Test 3 (SWAP) - CPUS e IO",
             "configurations": ["CPU - Test 3", "IO - Test 3"],
             "stopAll": true,
             "presentation": {
@@ -500,7 +500,7 @@
         // --------------------------------- TEST 4 - Memoria - Caché --------------------------------- //
 
         {
-            "name": "Test 4 - Memoria y Kernel",
+            "name": "Test 4 (CACHE) - Memoria y Kernel",
             "configurations": ["Memoria - Test 4", "Kernel - Test 4"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -511,7 +511,7 @@
             }
         },
         {
-            "name": "Test 4 - CPUS e IO",
+            "name": "Test 4 (CACHE) - CPUS e IO",
             "configurations": ["CPU - Test 4", "IO - Test 4"],
             "stopAll": true,
             "presentation": {
@@ -524,7 +524,7 @@
         // --------------------------------- TEST 5 - Memoria - TLB --------------------------------- //
 
         {
-            "name": "Test 5 - Memoria y Kernel",
+            "name": "Test 5 (TLB) - Memoria y Kernel",
             "configurations": ["Memoria - Test 5", "Kernel - Test 5"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -535,7 +535,7 @@
             }
         },
         {
-            "name": "Test 5 - CPUS e IO",
+            "name": "Test 5 (TLB) - CPUS e IO",
             "configurations": ["CPU - Test 5", "IO - Test 5"],
             "stopAll": true,
             "presentation": {
@@ -548,7 +548,7 @@
         // --------------------------------- TEST 6 - Estabilidad General --------------------------------- //
 
         {
-            "name": "Test 6 - Memoria y Kernel",
+            "name": "Test 6 (ESTGEN) - Memoria y Kernel",
             "configurations": ["Memoria - Test 6", "Kernel - Test 6"],
             "stopAll": true,
             "preLaunchTask": "Clear Logs",
@@ -559,7 +559,7 @@
             }
         },
         {
-            "name": "Test 6 - CPUS",
+            "name": "Test 6 (ESTGEN) - CPUS",
             "configurations": ["CPU1 - Test 6", "CPU2 - Test 6", "CPU3 - Test 6", "CPU4 - Test 6"],
             "stopAll": true,
             "presentation": {
@@ -569,7 +569,7 @@
             }
         },
         {
-            "name": "Test 6 - IOS",
+            "name": "Test 6 (ESTGEN) - IOS",
             "configurations": ["IO1 - Test 6", "IO2 - Test 6", "IO3 - Test 6", "IO4 - Test 6"],
             "stopAll": true,
             "presentation": {
