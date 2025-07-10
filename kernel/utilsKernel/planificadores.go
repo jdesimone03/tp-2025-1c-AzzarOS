@@ -21,7 +21,7 @@ func PlanificadorLargoYMedianoPlazo() {
 		cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
 
 		if hayProceso {
-			switch Config.SchedulerAlgorithm {
+			switch Config.ReadyIngressAlgorithm {
 			case "FIFO":
 				procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
 			case "PMCP":
@@ -57,7 +57,7 @@ func PlanificadorCortoPlazo() {
 			cpu, hayDisponible := BuscarCPUDisponible()
 
 			if !hayDisponible {
-				if Config.ReadyIngressAlgorithm == "SRT" {
+				if Config.SchedulerAlgorithm == "SRT" {
 					var estimadoMasChico float64
 					aEjecutar, estimadoMasChico = ObtenerMasChico()
 
@@ -91,7 +91,7 @@ func PlanificadorCortoPlazo() {
 			}
 
 			if hayDisponible {
-				switch Config.ReadyIngressAlgorithm {
+				switch Config.SchedulerAlgorithm {
 				case "FIFO":
 					aEjecutar = ColaReady.Obtener(0)
 				case "SJF":
