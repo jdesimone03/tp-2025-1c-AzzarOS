@@ -70,10 +70,6 @@ func CheckMemoria(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func NoQuedanMasInstrucciones(pid uint, pc uint) bool {
-	return pc >= uint(len(Procesos[pid]))
-}
-
 // ----------------------------------------- Metricas ----------------------------------------- //
 
 func ExisteElPID(pid uint) bool {

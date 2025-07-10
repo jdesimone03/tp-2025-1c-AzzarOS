@@ -250,7 +250,9 @@ func EscribirEnCache(pid uint, logicAdress int, data string) {
 	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
 	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
 	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
-	ActualizarRereferencia(nropagina)
+	if TLBHabilitada() {
+		ActualizarReferencia(nropagina)
+	}
 	logueador.Info("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
 }
 

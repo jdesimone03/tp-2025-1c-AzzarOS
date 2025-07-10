@@ -62,7 +62,7 @@ func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la p
 	return false,-1 // La página no está en la TLB o no es válida
 }
 
-func ActualizarRereferencia(nroPagina int) {
+func ActualizarReferencia(nroPagina int) {
 	bool, indice := BuscarDireccion(nroPagina) // Verificamos si la página está en la TLB
 	if !bool {
 		logueador.Error("No se pudo actualizar la referencia de la página %d en la TLB porque no está presente", nroPagina)
@@ -84,7 +84,7 @@ func AccesoATLB(pid int, nropagina int) int {
 	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
 		logueador.Info("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
-		ActualizarRereferencia(indice) // Actualizamos la referencia al instante actual
+		ActualizarReferencia(indice) // Actualizamos la referencia al instante actual
 		return tlb.Entradas[indice].NumeroFrame // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		logueador.Info("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)
@@ -92,7 +92,9 @@ func AccesoATLB(pid int, nropagina int) int {
 	}
 }
 
-func IndiceDeEntradaVictima(segun func(structs.EntradaTLB) int) int {
+
+// "segun" es una función que recibe una entrada de TLB y devuelve un entero que representa el criterio de selección para la víctima.
+func IndiceDeEntradaVictima(segun func(structs.EntradaTLB) int) int { // Según llegada o referencia, dependiendo del algoritmo de reemplazo
 		
 	victima := tlb.Entradas[0] // Inicializamos la víctima con la primera entrada
 	indice := 0
@@ -133,13 +135,14 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 		BitPresencia: true, // La pagina esta presente en memoria
 		PID: pid, // Asignamos el PID del proceso
 		Llegada: int(time.Now().UnixNano()), // Asignamos el instante de referencia actual
+		Referencia: int(time.Now().UnixNano()), // Asignamos la referencia actual
 	}
 
 	if TLBLleno() { 
 		indiceVictima := IndiceDeEntradaVictima(func(e structs.EntradaTLB) int {
-			if Config.CacheReplacement == "FIFO" {
+			if Config.TlbReplacement == "FIFO" {
 				return e.Llegada
-			} else {
+			} else { // Como solamente dos algoritmos, el otro tiene que ser LRU 
 				return e.Referencia 
 			}
 		}) 

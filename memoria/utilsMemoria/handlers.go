@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
+	//"time"
 	"utils"
 	"utils/logueador"
 	"utils/structs"
@@ -14,7 +14,7 @@ import (
 
 func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	////time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	tam, err := utils.DecodificarMensaje[int](r)
 	if err != nil {
@@ -35,7 +35,7 @@ func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 
 func HandlerPedidoFrame(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	////time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	pid := r.URL.Query().Get("pid")
 	direccion := r.URL.Query().Get("direccion")
@@ -99,7 +99,7 @@ func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	////time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	tablaDeProceso := TDPMultinivel[uint(pidInt)]
 	if tablaDeProceso == nil {
@@ -142,7 +142,7 @@ func HandlerConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	////time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(configJSON)
@@ -160,7 +160,7 @@ func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contenidoStr := string(paginaJSON.Contenido)
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	Write(uint(paginaJSON.PID), paginaJSON.NumeroFrame*Config.PageSize, contenidoStr)
 
 	logueador.Info("Se escribió correctamente en memoria el frame %d del PID %d", paginaJSON.NumeroFrame, paginaJSON.PID)
@@ -173,7 +173,7 @@ func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 
 func HandlerFetch(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	proceso, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
@@ -228,7 +228,7 @@ func NuevoProceso(w http.ResponseWriter, r *http.Request) {
 
 func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	pid, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
@@ -244,7 +244,7 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logueador.Info("Existe el PID")
-	time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	SwapInProceso(*pid)
 	IncrementarMetricaEn(*pid, "BajadasAlSWAP") // Aumento la métrica de bajadas al SWAP del PID
@@ -261,7 +261,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 	pid := r.URL.Query().Get("pid")
 	tamInt, err := strconv.Atoi(tam)
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	if err != nil {
 		logueador.Error("Error al convertir el tamaño: %e", err)
@@ -289,7 +289,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
 	SwapOutProceso(uint(pidInt))
 	IncrementarMetricaEn(uint(pidInt), "SubidasAmemoria") // Aumento la métrica de subidas a memoria principal del PID
 
@@ -299,7 +299,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 
 func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	pid, err := utils.DecodificarMensaje[uint](r)
 	if err != nil {
@@ -323,7 +323,7 @@ func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
 
 func HandlerWrite(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	write, err := utils.DecodificarMensaje[structs.WriteInstruction](r)
 	if err != nil {
@@ -361,7 +361,7 @@ func HandlerRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	valorLeido, err := Read(read.PID, read.Address, read.Size) // Aquí deberías convertir los datos a bytes antes de escribir
 	if err != nil {
 		logueador.Error("Error al leer de memoria: %e", err)
@@ -390,7 +390,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	file, err := CreacionArchivoDump(*pid)
 	if err != nil {
 		logueador.Error("Error al crear el archivo de dump de memoria: %v", err)
@@ -408,7 +408,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 
 func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	
 	data, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
 	if err != nil {
@@ -421,13 +421,6 @@ func HandlerPedidoDeInstruccion(w http.ResponseWriter, r *http.Request) {
 	if !ExisteElPID(data.PID) {
 		logueador.Error("No existe el PID: %d", data.PID)
 		http.Error(w, "PID no existe", http.StatusBadRequest)
-		return
-	}
-
-	// Segundo chequeo por si el PC es mayor al tamaño de las instrucciones => ya no quedan más instrucciones por ejecutar
-	if NoQuedanMasInstrucciones(data.PID, data.PC) {
-		logueador.Error("No quedan más instrucciones para el PID: %d", data.PID)
-		http.Error(w, "No quedan más instrucciones", http.StatusBadRequest)
 		return
 	}
 
@@ -455,7 +448,7 @@ func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Reques
 
 func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
+	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	data, err := utils.DecodificarMensaje[structs.NuevoProceso](r)
 	if err != nil {
