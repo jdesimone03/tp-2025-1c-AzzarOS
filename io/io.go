@@ -13,38 +13,38 @@ import (
 func main() {
 	// Carga los argumentos
 	nombre := os.Args[1]
-	utilsIO.NombreInterfaz = nombre
 
 	var rutaConfig string
 	if len(os.Args) > 2 {
-        rutaConfig = os.Args[2]
-    } else {
-        rutaConfig = "config/default.json"
-    }
+		rutaConfig = os.Args[2]
+	} else {
+		rutaConfig = "config/default.json"
+	}
 
 	// Inicia la configuración
 	config.CargarConfiguracion(rutaConfig, &utilsIO.Config)
-	
+
 	// Inicia el logueador
-	logueador.ConfigurarLogger("log_IO_" + nombre, utilsIO.Config.LogLevel)
+	logueador.ConfigurarLogger("log_IO_"+nombre, utilsIO.Config.LogLevel)
 
 	http.HandleFunc("/ejecutarIO", utilsIO.RecibirEjecucionIO)
 
 	// Canal para confirmar que el servidor está listo
-    servidorListo := make(chan bool)
+	servidorListo := make(chan bool)
 
-    // Inicia el servidor en una goroutine
-    go func() {
-        servidorListo <- true // Señala que está listo para iniciar
-        utils.IniciarServidor(utilsIO.Config.PortIo)
-    }()
+	// Inicia el servidor en una goroutine
+	go func() {
+		servidorListo <- true // Señala que está listo para iniciar
+		utils.IniciarServidor(utilsIO.Config.PortIo)
+	}()
 
-    // Espera confirmación de que el servidor está iniciando
-    <-servidorListo
+	// Espera confirmación de que el servidor está iniciando
+	<-servidorListo
 
 	interfaz := structs.InterfazIO{
-		IP:     utilsIO.Config.IPIo,
-		Puerto: utilsIO.Config.PortIo,
+		Nombre:     nombre,
+		IP:         utilsIO.Config.IPIo,
+		Puerto:     utilsIO.Config.PortIo,
 	}
 
 	peticion := structs.HandshakeIO{
@@ -52,9 +52,11 @@ func main() {
 		Interfaz: interfaz,
 	}
 
+	utilsIO.Interfaz = interfaz
+
 	utils.EnviarMensaje(utilsIO.Config.IPKernel, utilsIO.Config.PortKernel, "handshake/IO", peticion)
 
 	//utils.IniciarServidor(utilsIO.Config.PortIo)
 
-	select{}
+	select {}
 }

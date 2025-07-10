@@ -7,4 +7,4 @@
 # Ejecutables
 *.bin
 *.exe
-__debug_bin_*
+__debug_bin*

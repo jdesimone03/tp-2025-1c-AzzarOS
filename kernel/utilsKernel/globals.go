@@ -34,7 +34,7 @@ var ProcesosActuales = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 var ProcesosEnEspera = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 
 var InstanciasCPU = structs.NewMapCPU()
-var Interfaces = structs.NewMapSeguro[string,structs.InterfazIO]()
+var Interfaces = structs.NewSliceSeguro[structs.InterfazIO]()
 
-var ListaExecIO = structs.NewSliceMapSeguro()
-var ListaWaitIO = structs.NewSliceMapSeguro()
+var ListaExecIO = structs.NewMapIOExec()
+var ListaWaitIO = structs.NewMapIOWait()

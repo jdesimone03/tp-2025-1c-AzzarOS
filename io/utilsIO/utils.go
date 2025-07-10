@@ -13,7 +13,7 @@ import (
 )
 
 var Config config.ConfigIO
-var NombreInterfaz string
+var Interfaz structs.InterfazIO
 var Ejecutando structs.EjecucionIO
 var chEjecucion = make(chan structs.EjecucionIO, 1)
 
@@ -33,7 +33,7 @@ func init() {
 	go func() {
 		sig := <-sigs
 		logueador.Warn("Señal recibida: %v. Notificando al Kernel.", sig)
-		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-disconnect", NombreInterfaz)
+		utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-disconnect", Interfaz)
 		logueador.Info("Notificación de desconexión enviada al Kernel.")
 		os.Exit(0)
 	}()
@@ -67,5 +67,5 @@ func Ejecucion(ctx structs.EjecucionIO) {
 	// Log obligatorio 2/2
 	logueador.FinalizacionIO(ctx.PID)
 
-	utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-end", NombreInterfaz)
+	utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "io-end", Interfaz)
 }

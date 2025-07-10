@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script to clear the content of all .log files in the current directory and subdirectories
+# Script to delete all .log files in the current directory and subdirectories
 
-echo "Clearing content of all .log files..."
+echo "Deleting all .log files..."
 
-find . -type f -name "*.log" -exec truncate -s 0 {} \;
+find . -type f -name "*.log" -delete
 
-echo "Content of all .log files has been cleared."
+echo "All .log files have been deleted."

@@ -68,14 +68,12 @@ func CargarConfiguracion(filePath string, configVar any) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		logueador.Error("No se pudo abrir el archivo de configuración  (%v)", err)
 		panic(err)
 	}
 	defer file.Close()
 
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		logueador.Error("No se pudo leer el archivo de configuración (%v)", err)
 		panic(err)
 	}
 
@@ -84,11 +82,10 @@ func CargarConfiguracion(filePath string, configVar any) {
 
 	// Decode the expanded JSON
 	if err := json.Unmarshal([]byte(expandedContent), configVar); err != nil {
-		logueador.Error("No se pudo decodificar el archivo JSON (%v)", err)
 		panic(err)
 	}
 
-	logueador.Info("Configuración cargada correctamente: %+v", configVar)
+	// logueador.Info("Configuración cargada correctamente: %+v", configVar)
 }
 
 // ----------------------------------------------- UTILIDADES .ENV --------------------------------------------

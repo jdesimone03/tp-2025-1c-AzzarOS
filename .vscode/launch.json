@@ -57,16 +57,31 @@
             }
         },
         {
-            "name": "IO - Test 1",
+            "name": "IO1 - Test 1",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
             "args": ["DISCO"],
+            "console": "integratedTerminal",
             "presentation": {
-                "hidden": true,
+                "hidden": false,
                 "group": "Test 1 - Configs",
                 "order": 5
+            }
+        },
+        {
+            "name": "IO2 - Test 1",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/io/io.go",
+            "args": ["DISCO", "${workspaceFolder}/io/config/1_test_PCP_2.json" ],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": false,
+                "group": "Test 1 - Configs",
+                "order": 6
             }
         },
         // TEST 2 - Planificación Mediano/Largo Plazo
@@ -440,7 +455,7 @@
         },
         {
             "name": "Test 1 (PCP) - CPUS e IO",
-            "configurations": ["CPU1 - Test 1", "CPU2 - Test 1", "IO - Test 1"],
+            "configurations": ["CPU1 - Test 1", "CPU2 - Test 1", "IO1 - Test 1"],
             "stopAll": true,
             "presentation": {
                 "hidden": false,

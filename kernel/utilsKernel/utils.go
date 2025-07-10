@@ -142,10 +142,7 @@ func CancelarTimerSuspension(pid uint)  {
 }
 
 
-func DispatchIO(nombreIfaz string, aEjecutar structs.EjecucionIO) {
-	ListaExecIO.Agregar(nombreIfaz, aEjecutar)
-
-	interfaz, _ := Interfaces.Obtener(nombreIfaz)
-
-	utils.EnviarMensaje(interfaz.IP, interfaz.Puerto, "ejecutarIO", aEjecutar)
+func DispatchIO(ifaz structs.InterfazIO, aEjecutar structs.EjecucionIO) {
+	ListaExecIO.Agregar(ifaz, aEjecutar)
+	utils.EnviarMensaje(ifaz.IP, ifaz.Puerto, "ejecutarIO", aEjecutar)
 }

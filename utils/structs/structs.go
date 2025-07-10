@@ -41,8 +41,9 @@ type InstanciaCPU struct {
 }
 
 type InterfazIO struct {
-	IP     string
-	Puerto string
+	Nombre     string
+	IP         string
+	Puerto     string
 }
 
 type EjecucionCPU struct {
@@ -86,14 +87,14 @@ type NoopInstruction struct{}
 
 type WriteInstruction struct {
 	LogicAddress int
-	Data    string
-	PID     uint
+	Data         string
+	PID          uint
 }
 
 type ReadInstruction struct {
 	Address int
 	Size    int
-	PID    uint
+	PID     uint
 }
 
 type GotoInstruction struct {
@@ -223,35 +224,59 @@ func BuscarCPUPorPID(ms map[string]InstanciaCPU, pid uint) string {
 	return ""
 }
 
+// --------------------------------- MAP IO WAIT --------------------------------- //
 
-// --------------------------------- SLICE MAP --------------------------------- //
-type SliceMapSeguro MapSeguro[string, []EjecucionIO]
+type MapIOWait MapSeguro[string, []EjecucionIO]
 
-func NewSliceMapSeguro() *SliceMapSeguro {
-	return &SliceMapSeguro{Map: make(map[string][]EjecucionIO)}
+func NewMapIOWait() *MapIOWait {
+	return &MapIOWait{Map: make(map[string][]EjecucionIO)}
 }
 
-func (sms *SliceMapSeguro) Agregar(key string, value EjecucionIO) {
+func (sms *MapIOWait) Agregar(key string, value EjecucionIO) {
 	sms.Mutex.Lock()
 	defer sms.Mutex.Unlock()
 	sms.Map[key] = append(sms.Map[key], value)
 }
 
-func (sms *SliceMapSeguro) Obtener(key string) ([]EjecucionIO, bool) {
+func (sms *MapIOWait) EliminarPrimero(key string) EjecucionIO {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	if slice, ok := sms.Map[key]; ok && len(slice) > 0 {
+		primerElemento := slice[0]
+		sms.Map[key] = slice[1:]
+		return primerElemento
+	}
+	return EjecucionIO{}
+}
+
+func (sms *MapIOWait) NoVacia(key string) bool {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	return len(sms.Map[key]) > 0
+}
+
+// --------------------------------- MAP IO EXEC --------------------------------- //
+
+type MapIOExec MapSeguro[InterfazIO, []EjecucionIO]
+
+func NewMapIOExec() *MapIOExec {
+	return &MapIOExec{Map: make(map[InterfazIO][]EjecucionIO)}
+}
+
+func (sms *MapIOExec) Agregar(key InterfazIO, value EjecucionIO) {
+	sms.Mutex.Lock()
+	defer sms.Mutex.Unlock()
+	sms.Map[key] = append(sms.Map[key], value)
+}
+
+func (sms *MapIOExec) Obtener(key InterfazIO) ([]EjecucionIO, bool) {
 	sms.Mutex.Lock()
 	defer sms.Mutex.Unlock()
 	value, ok := sms.Map[key]
 	return value, ok
 }
 
-func (sms *SliceMapSeguro) ObtenerPrimero(key string) EjecucionIO {
-	sms.Mutex.Lock()
-	defer sms.Mutex.Unlock()
-	slice, _ := sms.Map[key]
-	return slice[0]
-}
-
-func (sms *SliceMapSeguro) EliminarPrimero(key string) EjecucionIO {
+func (sms *MapIOExec) EliminarPrimero(key InterfazIO) EjecucionIO {
 	sms.Mutex.Lock()
 	defer sms.Mutex.Unlock()
 	if slice, ok := sms.Map[key]; ok && len(slice) > 0 {
@@ -262,29 +287,61 @@ func (sms *SliceMapSeguro) EliminarPrimero(key string) EjecucionIO {
 	return EjecucionIO{} // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
 }
 
-func (sms *SliceMapSeguro) BorrarLista(key string) {
-	sms.Mutex.Lock()
-	defer sms.Mutex.Unlock()
-	delete(sms.Map, key)
-}
-
-func (sms *SliceMapSeguro) Longitud(key string) int {
-	sms.Mutex.Lock()
-	defer sms.Mutex.Unlock()
-	return len(sms.Map[key])
-}
-
-func (sms *SliceMapSeguro) NoVacia(key string) bool {
-	sms.Mutex.Lock()
-	defer sms.Mutex.Unlock()
-	return len(sms.Map[key]) > 0
-}
-
-// --------------------------------- COLAS --------------------------------- //
-type ColaSegura struct {
-	Cola  []PCB
+// --------------------------------- SLICES --------------------------------- //
+type SliceSeguro[T any] struct {
+	Cola  []T
 	Mutex sync.Mutex
 }
+
+type ListaInterfaces SliceSeguro[InterfazIO]
+
+func NewSliceSeguro[T any]() *ListaInterfaces {
+	return &ListaInterfaces{Cola: make([]InterfazIO, 0)}
+}
+
+func (li *ListaInterfaces) Agregar(elemento InterfazIO) {
+	li.Mutex.Lock()
+	defer li.Mutex.Unlock()
+	li.Cola = append(li.Cola, elemento)
+}
+
+func (li *ListaInterfaces) Obtener(indice int) InterfazIO {
+	li.Mutex.Lock()
+	defer li.Mutex.Unlock()
+	value := li.Cola[indice]
+	return value
+}
+
+func (li *ListaInterfaces) Eliminar(elemento InterfazIO) {
+	li.Mutex.Lock()
+	defer li.Mutex.Unlock()
+	for i, interfaz := range li.Cola {
+		if interfaz == elemento {
+			li.Cola = slices.Delete(li.Cola, i, i+1)
+			return
+		}
+	}
+}
+
+func (li *ListaInterfaces) Buscar(nombre string) (InterfazIO, bool) {
+	li.Mutex.Lock()
+	defer li.Mutex.Unlock()
+	for _, interfaz := range li.Cola {
+		if interfaz.Nombre == nombre {
+			return interfaz, true
+		}
+	}
+	return InterfazIO{}, false
+}
+
+func (li *ListaInterfaces) Longitud() int {
+	li.Mutex.Lock()
+	defer li.Mutex.Unlock()
+	return len(li.Cola)
+}
+
+// --------------------------------- COLAS KERNEL --------------------------------- //
+type ColaSegura SliceSeguro[PCB]
 
 func NewColaSegura() *ColaSegura {
 	return &ColaSegura{Cola: make([]PCB, 0)}
@@ -332,10 +389,14 @@ func (cs *ColaSegura) Actualizar(pid uint, nuevoPC uint) bool {
 }
 
 func (cs *ColaSegura) Longitud() int {
+	cs.Mutex.Lock()
+	defer cs.Mutex.Unlock()
 	return len(cs.Cola)
 }
 
 func (cs *ColaSegura) Vacia() bool {
+	cs.Mutex.Lock()
+	defer cs.Mutex.Unlock()
 	return !(len(cs.Cola) > 0)
 }
 
@@ -365,30 +426,30 @@ type TLB struct {
 }
 
 type EntradaTLB struct {
-	NumeroPagina        int  `json:"numero_pagina"`
-	NumeroFrame         int  `json:"numero_frame"`
-	BitPresencia        bool `json:"bit_presencia"`    // Indica si el frame esta presente en memoria
-	PID                 int  `json:"pid"`              // Identificador del proceso al que pertenece el frame
-	Llegada int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
-	Referencia int  `json:"referencia"` // Marca el instante de referencia para LRU
+	NumeroPagina int  `json:"numero_pagina"`
+	NumeroFrame  int  `json:"numero_frame"`
+	BitPresencia bool `json:"bit_presencia"`       // Indica si el frame esta presente en memoria
+	PID          int  `json:"pid"`                 // Identificador del proceso al que pertenece el frame
+	Llegada      int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+	Referencia   int  `json:"referencia"`          // Marca el instante de referencia para LRU
 }
 type ProcesoEnSwap struct {
-	PID uint `json:"pid"` // Identificador del proceso
+	PID     uint     `json:"pid"`     // Identificador del proceso
 	Paginas []string `json:"paginas"` // Lista de páginas del proceso
 }
 type Tabla struct {
 	Punteros []*Tabla `json:"Tabla"`
-	Valores  []int `json:"Valores"` // Valores de los frames ocupados por las paginas
+	Valores  []int    `json:"Valores"` // Valores de los frames ocupados por las paginas
 }
 
 type PaginaCache struct {
-	NumeroFrame   int  `json:"numero_frame"`  // Numero de pagina
-	NumeroPagina  int   `json:"numero_pagina"`  // Numero de pagina en la tabla de paginas
-	BitPresencia  bool   `json:"bit_presencia"`	// Indica si el frame esta presente en memoria
-	BitModificado bool   `json:"bit_modificado"`// Indica si el frame ha sido modificado
-	BitDeUso      bool   `json:"bit_uso"`// Indica si el frame ha sido usado recientemente
-	PID           int    `json:"pid"`// Identificador del proceso al que pertenece el frame
-	Contenido     []byte `json:"contenido"`// Contenido de la pagina
+	NumeroFrame   int    `json:"numero_frame"`   // Numero de pagina
+	NumeroPagina  int    `json:"numero_pagina"`  // Numero de pagina en la tabla de paginas
+	BitPresencia  bool   `json:"bit_presencia"`  // Indica si el frame esta presente en memoria
+	BitModificado bool   `json:"bit_modificado"` // Indica si el frame ha sido modificado
+	BitDeUso      bool   `json:"bit_uso"`        // Indica si el frame ha sido usado recientemente
+	PID           int    `json:"pid"`            // Identificador del proceso al que pertenece el frame
+	Contenido     []byte `json:"contenido"`      // Contenido de la pagina
 }
 type FrameInfo struct {
 	EstaOcupado bool `json:"esta_ocupado"` // Indica si el frame está ocupado
@@ -425,7 +486,7 @@ type ConfigMemoria struct {
 }
 
 type CacheStruct struct {
-	Paginas []PaginaCache 
-	Algoritmo string 
-	Clock int // dato para saber donde quedó la "aguja" del clock
+	Paginas   []PaginaCache
+	Algoritmo string
+	Clock     int // dato para saber donde quedó la "aguja" del clock
 }

@@ -21,12 +21,12 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			}
 
 			// Inicializa la interfaz y el planificador
-			Interfaces.Agregar(interfaz.Nombre, interfaz.Interfaz)
+			Interfaces.Agregar(interfaz.Interfaz)
 			// go PlanificadorIO(interfaz.Nombre)
 			// MoverAExecIO(interfaz.Nombre)
-			if ListaWaitIO.NoVacia(interfaz.Nombre) {
-				aEjecutar := ListaWaitIO.EliminarPrimero(interfaz.Nombre)
-				DispatchIO(interfaz.Nombre, aEjecutar)
+			if ListaWaitIO.NoVacia(interfaz.Interfaz.Nombre) {
+				aEjecutar := ListaWaitIO.EliminarPrimero(interfaz.Interfaz.Nombre)
+				DispatchIO(interfaz.Interfaz, aEjecutar)
 			}
 
 			logueador.Info("Nueva interfaz IO: %+v", interfaz)
@@ -133,37 +133,39 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
-	nombreIfaz, err := utils.DecodificarMensaje[string](r)
+	ifaz, err := utils.DecodificarMensaje[structs.InterfazIO](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	logueador.Warn("Se recibió notificación de desconexión de IO: %s", *nombreIfaz)
+	logueador.Warn("Se recibió notificación de desconexión de IO: %s", ifaz.Nombre)
 
 	// Borra cualquier proceso que este ejecutando
-	if ejecucion, existe := ListaExecIO.Obtener(*nombreIfaz); existe {
+	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
 		pid := ejecucion[0].PID
+		
 		Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
 		MoverPCB(pid, ColaBlocked, ColaExit, structs.EstadoExit)
+		
 		// Borro el proceso de la lista de ejecución
-		ListaExecIO.EliminarPrimero(*nombreIfaz)
+		ListaExecIO.EliminarPrimero(*ifaz)
 	}
 
-	//Interfaces.Eliminar(*nombreIfaz)
+	Interfaces.Eliminar(*ifaz)
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
-	nombreIfaz, err := utils.DecodificarMensaje[string](r)
+	ifaz, err := utils.DecodificarMensaje[structs.InterfazIO](r)
 	if err != nil {
 		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	ejecucion, existe := ListaExecIO.Obtener(*nombreIfaz)
+	ejecucion, existe := ListaExecIO.Obtener(*ifaz)
 	if existe {
 		pid := ejecucion[0].PID
 
@@ -171,22 +173,22 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 		logueador.KernelFinDeIO(pid)
 
 		// Borro el proceso de la lista de ejecución
-		ListaExecIO.EliminarPrimero(*nombreIfaz)
-
+		ListaExecIO.EliminarPrimero(*ifaz)
+		
 		// Se fija si pasamos a ready o susp. ready
 		existe := MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
 		if !existe { // Si no está en la cola blocked, está en la cola susp. blocked
 			MoverPCB(pid, ColaSuspBlocked, ColaSuspReady, structs.EstadoSuspReady)
 		}
 
-		if ListaWaitIO.NoVacia(*nombreIfaz) {
-			aEjecutar := ListaWaitIO.EliminarPrimero(*nombreIfaz)
-			DispatchIO(*nombreIfaz, aEjecutar)
+		if ListaWaitIO.NoVacia(ifaz.Nombre) {
+			aEjecutar := ListaWaitIO.EliminarPrimero(ifaz.Nombre)
+			DispatchIO(*ifaz, aEjecutar)
 		}
 
 		w.WriteHeader(http.StatusOK)
 	} else {
-		logueador.Error("No existe el proceso en la lista de ejecución: %s", *nombreIfaz)
+		logueador.Error("No existe el proceso en la lista de ejecución: %s", ifaz.Nombre)
 		w.WriteHeader(http.StatusBadRequest)
 	}
 

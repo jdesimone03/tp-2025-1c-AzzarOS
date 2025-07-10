@@ -7,30 +7,45 @@ import (
 )
 
 // ---------------------------- Syscalls ----------------------------//
+func BuscarDisponible(nombre string) (structs.InterfazIO, bool) {
+	for i := range Interfaces.Longitud() {
+		ifaz := Interfaces.Obtener(i)
+		if ifaz.Nombre == nombre {
+			lista, _ := ListaExecIO.Obtener(ifaz)
+			if len(lista) == 0 {
+				return ifaz, true
+			}
+		}
+	}
+	return structs.InterfazIO{}, false
+}
+
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(pid uint, instruccion structs.IoInstruction) {
 
 	Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
-	
+
 	nombre := instruccion.NombreIfaz
 	tiempoMs := instruccion.SuspensionTime
 
-	_, encontrada := Interfaces.Obtener(nombre)
-	if encontrada {
+	_, existe := Interfaces.Buscar(nombre)
+	if existe {
+
 		ejecucion := structs.EjecucionIO{
 			PID:      pid,
 			TiempoMs: tiempoMs,
 		}
+
 		// Enviar proceso a BLOCKED
 		MoverPCB(pid, ColaExecute, ColaBlocked, structs.EstadoBlocked)
 
-		lista, _ := ListaExecIO.Obtener(nombre)
-		if len(lista) > 0 {
-			// Enviar proceso a ListaWaitIO
-			ListaWaitIO.Agregar(nombre, ejecucion)
-		} else {
+		interfaz, hayDisponible := BuscarDisponible(nombre)
+		if hayDisponible {
 			// Enviar al proceso a ejecutar el IO
-			DispatchIO(nombre, ejecucion)
+			DispatchIO(interfaz, ejecucion)
+		} else {
+			// Enviar al proceso a la lista de espera de la IO
+			ListaWaitIO.Agregar(interfaz.Nombre, ejecucion)
 		}
 	} else {
 		logueador.Error("La interfaz %s no existe en el sistema", nombre)
@@ -96,7 +111,7 @@ func VerificarInicializacion() {
 			IntentarInicializarProceso(procesoEnEspera, ColaSuspReady)
 		}
 	}
-	if ColaSuspReady.Vacia(){
+	if ColaSuspReady.Vacia() {
 		for i := range ColaNew.Longitud() {
 			pcb := ColaNew.Obtener(i)
 			procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)

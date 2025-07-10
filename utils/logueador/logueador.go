@@ -12,9 +12,21 @@ import (
 	"utils/structs"
 )
 
+// ArchivoExiste verifica si un archivo ya existe en el directorio de trabajo
+func ArchivoExiste(nombreArchivo string) bool {
+    _, err := os.Stat(nombreArchivo + ".log")
+    return !os.IsNotExist(err)
+}
+
 // CREA ARCHIVO .LOG
 func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
-	logFile, err := os.OpenFile(nombreArchivoLog+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	
+	nombreCompleto := nombreArchivoLog
+	if ArchivoExiste(nombreCompleto) {
+		nombreCompleto += "_1"
+	} 
+		
+	logFile, err := os.OpenFile(nombreCompleto+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +149,7 @@ func MetricasDeEstado(pcb structs.PCB) {
 	var metricasString string
 	for estado, conteo := range pcb.MetricasConteo {
 		tiempo := pcb.MetricasTiempo[estado]
-		metricasString += fmt.Sprintf("%s %d %d, ", estado, conteo, tiempo)
+		metricasString += fmt.Sprintf("[%s] %d accesos, tiempo %dms; ", estado, conteo, tiempo)
 	}
 
 	// Finalmente loguea las métricas
