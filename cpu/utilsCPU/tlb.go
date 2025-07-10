@@ -71,7 +71,7 @@ func ActualizarReferencia(indice int) {
 func AccesoATLB(pid int, nropagina int) int {
 	
 	if !TLBHabilitada() {
-		logueador.Info("TLB no habilitada, no se puede acceder a la TLB")
+		logueador.Warn("TLB no habilitada, no se puede acceder a la TLB")
 		return -1 // TLB no habilitada, no se puede acceder a la
 	}
 	
@@ -119,7 +119,7 @@ func EntradaTLBValida() int {
 func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 
 	if !TLBHabilitada() {
-		logueador.Error("TLB no habilitada, no se puede agregar una entrada a la TLB")
+		logueador.Warn("TLB no habilitada, no se puede agregar una entrada a la TLB")
 		return // TLB no habilitada, no se puede agregar una entrada
 	}
 
