@@ -37,11 +37,7 @@ func PlanificadorLargoYMedianoPlazo() {
 		// Verificar si aún hay procesos para procesar
 		_, _, hayMasProcesos := ObtenerProximaColaProceso()
 		if hayMasProcesos {
-			// Señalizar que aún hay procesos para procesar
-			select {
-			case ChColasLargoMedioPlazo <- struct{}{}:
-			default: // No bloquear si el canal ya tiene una señal
-			}
+			SeñalizarProcesoEnLargoMedioPlazo()
 		}
 	}
 }
@@ -132,11 +128,7 @@ func PlanificadorCortoPlazo() {
 		}
 
 		if !ColaReady.Vacia() {
-			// Señalizar que aún hay procesos para procesar
-			select {
-			case ChColaReady <- struct{}{}:
-			default: // No bloquear si el canal ya tiene una señal
-			}
+			SeñalizarProcesoEnCortoPlazo()
 		}
 	}
 }
