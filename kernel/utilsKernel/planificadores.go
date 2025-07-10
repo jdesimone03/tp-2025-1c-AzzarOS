@@ -10,47 +10,74 @@ import (
 )
 
 func PlanificadorLargoYMedianoPlazo() {
-	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
-	var procesoAEnviar structs.NuevoProceso
-	var firstPCB structs.PCB
-	for {
-		if !ColaSuspReady.Vacia() { // Toma prioridad por sobre la cola new
-			firstPCB = ColaSuspReady.Obtener(0)
-		} else {
-			if ColaNew.Vacia() {
-				continue // Espera a que haya un proceso en new
-			} else {
-				firstPCB = ColaNew.Obtener(0)
-			}
-		}
+    logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
+    var procesoAEnviar structs.NuevoProceso
+    
+    for {
+        // Obtener dinámicamente la cola y el PCB a procesar
+        cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
+        
+        if !hayProceso {
+            continue // Espera a que haya un proceso disponible
+        }
 
-		switch Config.SchedulerAlgorithm {
-		case "FIFO":
-			procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
-			// Si no, no hace nada. Sigue con el bucle hasta que se libere
-		case "PMCP":
-			procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
-			for i := range ColaNew.Longitud() {
-				pcb := ColaNew.Obtener(i)
-				nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
-				if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
-					procesoMinimo = nuevoProceso
-				}
-			}
-			procesoAEnviar = procesoMinimo
-		default:
-			logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
-			return
-		}
+        switch Config.SchedulerAlgorithm {
+        case "FIFO":
+            procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
+        case "PMCP":
+            procesoAEnviar = ObtenerProcesoMenorTamanio(cola)
+        default:
+            logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
+            return
+        }
 
-		// Si NO esta en los procesos en espera
-		_, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
-		if !existe {
-			logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
-			IntentarInicializarProceso(procesoAEnviar, ColaNew)
-		}
+        // Si NO esta en los procesos en espera
+        _, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
+        if !existe {
+            logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
+            IntentarInicializarProceso(procesoAEnviar, cola)
+        }
+    }
+}
 
-	}
+// Función para obtener dinámicamente la próxima cola a procesar
+func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
+    // Prioridad 1: Cola de suspendidos listos
+    if !ColaSuspReady.Vacia() {
+        firstPCB := ColaSuspReady.Obtener(0)
+        return ColaSuspReady, firstPCB, true
+    }
+    
+    // Prioridad 2: Cola de nuevos procesos
+    if !ColaNew.Vacia() {
+        firstPCB := ColaNew.Obtener(0)
+        return ColaNew, firstPCB, true
+    }
+    
+    // No hay procesos disponibles
+    return nil, structs.PCB{}, false
+}
+
+// Función para obtener el proceso con menor tamaño de una cola específica
+func ObtenerProcesoMenorTamanio(cola *structs.ColaSegura) structs.NuevoProceso {
+    if cola.Vacia() {
+        return structs.NuevoProceso{}
+    }
+    
+    // Inicializar con el primer proceso de la cola
+    firstPCB := cola.Obtener(0)
+    procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
+    
+    // Iterar sobre todos los procesos en la cola para encontrar el menor
+    for i := 1; i < cola.Longitud(); i++ {
+        pcb := cola.Obtener(i)
+        nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
+        if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
+            procesoMinimo = nuevoProceso
+        }
+    }
+    
+    return procesoMinimo
 }
 
 func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
