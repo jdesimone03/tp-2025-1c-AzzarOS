@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"utils/structs"
 )
@@ -22,9 +23,11 @@ func ArchivoExiste(nombreArchivo string) bool {
 func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 	
 	nombreCompleto := nombreArchivoLog
-	if ArchivoExiste(nombreCompleto) {
-		nombreCompleto += "_1"
-	} 
+	i := 1
+	for ArchivoExiste(nombreCompleto) {
+		nombreCompleto += "_" + strconv.Itoa(i)
+		i++
+	}
 		
 	logFile, err := os.OpenFile(nombreCompleto+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {

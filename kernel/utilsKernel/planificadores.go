@@ -54,7 +54,7 @@ func PlanificadorCortoPlazo() {
 
 		cpu, hayDisponible := BuscarCPUDisponible()
 
-		if !hayDisponible && Config.ReadyIngressAlgorithm == "SJF" {
+		if !hayDisponible && Config.ReadyIngressAlgorithm == "SRT" {
 			var estimadoMasChico float64
 			aEjecutar, estimadoMasChico = ObtenerMasChico()
 
@@ -66,6 +66,7 @@ func PlanificadorCortoPlazo() {
 					ok := BuscarEInterrumpir(pcb.PID)
 					if ok {
 						// TODO asegurar que la cpu se desaloja antes de buscar nuevamente
+						// <- chContexto
 						cpu, hayDisponible = BuscarCPUDisponible()
 						break
 					}
@@ -77,7 +78,7 @@ func PlanificadorCortoPlazo() {
 			switch Config.ReadyIngressAlgorithm {
 			case "FIFO":
 				aEjecutar = ColaReady.Obtener(0)
-			case "SJF-SD":
+			case "SJF":
 				aEjecutar, _ = ObtenerMasChico()
 			default:
 				logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
@@ -119,7 +120,7 @@ func ObtenerMasChico() (structs.PCB, float64) {
 	//3 mandar a ejecutar el mas chico
 	//4 iniciar el timer
 	//5 en base al ultimo timer reestimar todos los procesos en la cola de ready
-	pcbMasChico := ColaReady.Obtener(0)
+		pcbMasChico := ColaReady.Obtener(0)
 	estimadoMasChico, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
 
 	for i := range ColaReady.Longitud() {
@@ -130,6 +131,8 @@ func ObtenerMasChico() (structs.PCB, float64) {
 			estimadoMasChico, _ = TiempoEstimado.Obtener(pcbMasChico.PID)
 		}
 	}
+
+	logueador.Debug("Proceso mas chico: %d, Tiempo estimado: %f", pcbMasChico.PID, estimadoMasChico)
 
 	return pcbMasChico, estimadoMasChico
 }

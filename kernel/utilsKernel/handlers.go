@@ -115,7 +115,9 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	logueador.Info("(%d) Guardando contexto en PC: %d", contexto.PID, contexto.PC)
 
-	TiempoEstimado.Agregar(contexto.PID, EstimarRafaga(contexto.PID))
+	nuevaRafaga := EstimarRafaga(contexto.PID)
+	TiempoEstimado.Agregar(contexto.PID, nuevaRafaga)
+	logueador.Debug("Reestimado PID %d (Nuevo estimado: %f)",contexto.PID, nuevaRafaga)
 
 	// Desaloja las cpu que se estén usando.
 	CPUsOcupadas.BuscarYEliminar(contexto.PID)

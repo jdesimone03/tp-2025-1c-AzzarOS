@@ -86,23 +86,30 @@ func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 }
 
 func VerificarInicializacion() {
-	// Intentamos inicializar procesos en espera
-	for i := range ColaSuspReady.Longitud() {
-		pcb := ColaSuspReady.Obtener(i)
-		procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
-		if existe {
-			IntentarInicializarProceso(procesoEnEspera, ColaSuspReady)
-		}
-	}
-	if ColaSuspReady.Vacia() {
-		for i := range ColaNew.Longitud() {
-			pcb := ColaNew.Obtener(i)
-			procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
-			if existe {
-				IntentarInicializarProceso(procesoEnEspera, ColaNew)
-			}
-		}
-	}
+    // Iterar de atrás hacia adelante para evitar problemas con índices
+    for i := ColaSuspReady.Longitud() - 1; i >= 0; i-- {
+        if i >= ColaSuspReady.Longitud() {
+            continue // Saltar si el índice ya no es válido
+        }
+        pcb := ColaSuspReady.Obtener(i)
+        procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
+        if existe {
+            IntentarInicializarProceso(procesoEnEspera, ColaSuspReady)
+        }
+    }
+    
+    if ColaSuspReady.Vacia() {
+        for i := ColaNew.Longitud() - 1; i >= 0; i-- {
+            if i >= ColaNew.Longitud() {
+                continue // Saltar si el índice ya no es válido
+            }
+            pcb := ColaNew.Obtener(i)
+            procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
+            if existe {
+                IntentarInicializarProceso(procesoEnEspera, ColaNew)
+            }
+        }
+    }
 }
 
 func BuscarIODisponible(nombre string) (structs.InterfazIO, bool) {

@@ -26,7 +26,7 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 		// Si pasamos a estado bloqueado
 		if estadoNuevo == structs.EstadoBlocked {
 			// Iniciar timer de suspension
-			timer := time.AfterFunc(time.Duration(Config.SuspensionTime) * time.Millisecond, func() {
+			timer := time.AfterFunc(time.Duration(Config.SuspensionTime)*time.Millisecond, func() {
 				Suspender(pcb)
 			})
 
@@ -46,7 +46,7 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 
 		// Log obligatorio 3/8
 		logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
-		
+
 		return true
 	}
 	return false
@@ -64,11 +64,15 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()
+
 	pcb.MetricasConteo[structs.EstadoNew]++
 	pcb.MetricasTiempo[structs.EstadoNew] = time.Now().UnixMilli()
+
 	ColaNew.Agregar(pcb)
+
 	contadorProcesos++
-	TiempoEstimado.Agregar(pcb.PID,float64(Config.InitialEstimate))
+
+	TiempoEstimado.Agregar(pcb.PID, float64(Config.InitialEstimate))
 
 	// Log obligatorio 2/8
 	logueador.KernelCreacionDeProceso(pcb.PID)
@@ -157,13 +161,12 @@ func Suspender(pcb structs.PCB) {
 }
 
 // Función para cancelar el timer de suspensión
-func CancelarTimerSuspension(pid uint)  {
-    if timer, existe := TiempoEnColaBlocked.Obtener(pid); existe {
-        timer.Stop() // Retorna true si se canceló, false si ya había expirado
-        TiempoEnColaBlocked.Eliminar(pid)
-    }
+func CancelarTimerSuspension(pid uint) {
+	if timer, existe := TiempoEnColaBlocked.Obtener(pid); existe {
+		timer.Stop() // Retorna true si se canceló, false si ya había expirado
+		TiempoEnColaBlocked.Eliminar(pid)
+	}
 }
-
 
 func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
