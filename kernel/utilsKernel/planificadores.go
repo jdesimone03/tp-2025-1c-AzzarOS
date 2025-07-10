@@ -14,29 +14,34 @@ func PlanificadorLargoYMedianoPlazo() {
 
 	var procesoAEnviar structs.NuevoProceso
 	for {
+		// Esperar hasta que haya procesos disponibles
+		<-ChColasLargoMedioPlazo
+
 		// Obtener dinámicamente la cola y el PCB a procesar
 		cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
 
-		// TODO sustituir con 
-		if !hayProceso {
-			continue // Espera a que haya un proceso disponible
-		}
+		if hayProceso {
+			switch Config.SchedulerAlgorithm {
+			case "FIFO":
+				procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
+			case "PMCP":
+				procesoAEnviar = ObtenerProcesoMenorTamanio(cola)
+			default:
+				logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
+				return
+			}
 
-		switch Config.SchedulerAlgorithm {
-		case "FIFO":
-			procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
-		case "PMCP":
-			procesoAEnviar = ObtenerProcesoMenorTamanio(cola)
-		default:
-			logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
-			return
-		}
-
-		// Si NO esta en los procesos en espera
-		_, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
-		if !existe {
-			logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
 			IntentarInicializarProceso(procesoAEnviar, cola)
+		}
+
+		// Verificar si aún hay procesos para procesar
+		_, _, hayMasProcesos := ObtenerProximaColaProceso()
+		if hayMasProcesos {
+			// Señalizar que aún hay procesos para procesar
+			select {
+			case ChColasLargoMedioPlazo <- struct{}{}:
+			default: // No bloquear si el canal ya tiene una señal
+			}
 		}
 	}
 }
@@ -47,59 +52,91 @@ func PlanificadorCortoPlazo() {
 	// var estimado = float64(Config.InitialEstimate)
 	// var real int64
 	var aEjecutar structs.PCB
+	encontroVictima := false
 	for {
-		if ColaReady.Vacia() {
-			continue
-		}
+		<-ChColaReady
 
-		cpu, hayDisponible := BuscarCPUDisponible()
+		for !ColaReady.Vacia() {
+			<-ChCPUDisponible
+			cpu, hayDisponible := BuscarCPUDisponible()
 
-		if !hayDisponible && Config.ReadyIngressAlgorithm == "SRT" {
-			var estimadoMasChico float64
-			aEjecutar, estimadoMasChico = ObtenerMasChico()
+			if !hayDisponible {
+				if Config.ReadyIngressAlgorithm == "SRT" {
+					var estimadoMasChico float64
+					aEjecutar, estimadoMasChico = ObtenerMasChico()
 
-			for i := range ColaExecute.Longitud() {
-				pcb := ColaExecute.Obtener(i)
-				estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
-				if estimadoMasChico < estimadoActual {
-					// Manda a ejecutar el mas chico
-					ok := BuscarEInterrumpir(pcb.PID)
-					if ok {
-						// TODO asegurar que la cpu se desaloja antes de buscar nuevamente
-						// <- chContexto
-						cpu, hayDisponible = BuscarCPUDisponible()
-						break
+					encontroVictima = false
+
+					for i := range ColaExecute.Longitud() {
+						pcb := ColaExecute.Obtener(i)
+						estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
+						if estimadoMasChico < estimadoActual {
+							// Manda a ejecutar el mas chico
+							ok := BuscarEInterrumpir(pcb.PID)
+							if ok {
+								// TODO asegurar que la cpu se desaloja antes de buscar nuevamente
+								// <- chContexto
+								//ch := ChContextoGuardado.ObtenerChannel(pcb.PID, 1)
+								<-ChCPUDisponible
+								MoverPCB(pcb.PID, ColaExecute, ColaReady, structs.EstadoReady)
+								cpu, hayDisponible = BuscarCPUDisponible()
+								encontroVictima = true
+								//ChMemoriaLiberada.LimpiarChannel(pcb.PID)
+								break
+							}
+						}
 					}
+					if !encontroVictima {
+						break // Salir del bucle interno
+					}
+				} else {
+					break
 				}
 			}
+
+			if hayDisponible {
+				switch Config.ReadyIngressAlgorithm {
+				case "FIFO":
+					aEjecutar = ColaReady.Obtener(0)
+				case "SJF":
+					aEjecutar, _ = ObtenerMasChico()
+				case "SRT":
+					if !encontroVictima {
+						aEjecutar, _ = ObtenerMasChico()
+					}
+				default:
+					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
+					return
+				}
+				logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.ReadyIngressAlgorithm, aEjecutar.PID)
+
+				ejecucion := structs.EjecucionCPU{
+					PID: aEjecutar.PID,
+					PC:  aEjecutar.PC,
+				}
+
+				// Marca como ejecutando
+				//cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
+				CPUsOcupadas.Agregar(cpu.Nombre, ejecucion)
+				logueador.Info("Se ocupa la CPU %s con el proceso PID %d", cpu.Nombre, aEjecutar.PID)
+
+				// Envia el proceso
+				TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
+				MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
+				utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
+			}
+
+			if hayDisponible {
+				SeñalizarCPUDisponible()
+			}
 		}
 
-		if hayDisponible {
-			switch Config.ReadyIngressAlgorithm {
-			case "FIFO":
-				aEjecutar = ColaReady.Obtener(0)
-			case "SJF":
-				aEjecutar, _ = ObtenerMasChico()
-			default:
-				logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
-				return
+		if !ColaReady.Vacia() {
+			// Señalizar que aún hay procesos para procesar
+			select {
+			case ChColaReady <- struct{}{}:
+			default: // No bloquear si el canal ya tiene una señal
 			}
-			logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.ReadyIngressAlgorithm, aEjecutar.PID)
-
-			ejecucion := structs.EjecucionCPU{
-				PID: aEjecutar.PID,
-				PC:  aEjecutar.PC,
-			}
-
-			// Marca como ejecutando
-			//cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
-			CPUsOcupadas.Agregar(cpu.Nombre, ejecucion)
-			logueador.Info("Se ocupa la CPU %s con el proceso PID %d", cpu.Nombre, aEjecutar.PID)
-
-			// Envia el proceso
-			TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
-			MoverPCB(aEjecutar.PID, ColaReady, ColaExecute, structs.EstadoExec)
-			utils.EnviarMensaje(cpu.IP, cpu.Puerto, "dispatch", ejecucion)
 		}
 	}
 }
@@ -120,7 +157,7 @@ func ObtenerMasChico() (structs.PCB, float64) {
 	//3 mandar a ejecutar el mas chico
 	//4 iniciar el timer
 	//5 en base al ultimo timer reestimar todos los procesos en la cola de ready
-		pcbMasChico := ColaReady.Obtener(0)
+	pcbMasChico := ColaReady.Obtener(0)
 	estimadoMasChico, _ := TiempoEstimado.Obtener(pcbMasChico.PID)
 
 	for i := range ColaReady.Longitud() {
@@ -137,19 +174,24 @@ func ObtenerMasChico() (structs.PCB, float64) {
 	return pcbMasChico, estimadoMasChico
 }
 
-
 // Función para obtener dinámicamente la próxima cola a procesar
 func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
 	// Prioridad 1: Cola de suspendidos listos
 	if !ColaSuspReady.Vacia() {
 		firstPCB := ColaSuspReady.Obtener(0)
-		return ColaSuspReady, firstPCB, true
+		_, existe := ProcesosEnEspera.Obtener(firstPCB.PID)
+		if !existe {
+			return ColaSuspReady, firstPCB, true
+		}
 	}
 
 	// Prioridad 2: Cola de nuevos procesos
 	if !ColaNew.Vacia() {
 		firstPCB := ColaNew.Obtener(0)
-		return ColaNew, firstPCB, true
+		_, existe := ProcesosEnEspera.Obtener(firstPCB.PID)
+		if !existe {
+			return ColaNew, firstPCB, true
+		}
 	}
 
 	// No hay procesos disponibles

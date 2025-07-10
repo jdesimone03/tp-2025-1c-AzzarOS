@@ -34,7 +34,7 @@ func SyscallIO(pid uint, instruccion structs.IoInstruction) {
 		MoverPCB(pid, ColaExecute, ColaBlocked, structs.EstadoBlocked)
 
 		instancia, hayDisponible := BuscarIODisponible(nombre)
-		
+
 		if hayDisponible {
 			logueador.Debug("Disponible %s encontrada: %+v", nombre, instancia)
 			// Enviar al proceso a ejecutar el IO
@@ -86,30 +86,30 @@ func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 }
 
 func VerificarInicializacion() {
-    // Iterar de atrás hacia adelante para evitar problemas con índices
-    for i := ColaSuspReady.Longitud() - 1; i >= 0; i-- {
-        if i >= ColaSuspReady.Longitud() {
-            continue // Saltar si el índice ya no es válido
-        }
-        pcb := ColaSuspReady.Obtener(i)
-        procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
-        if existe {
-            IntentarInicializarProceso(procesoEnEspera, ColaSuspReady)
-        }
-    }
-    
-    if ColaSuspReady.Vacia() {
-        for i := ColaNew.Longitud() - 1; i >= 0; i-- {
-            if i >= ColaNew.Longitud() {
-                continue // Saltar si el índice ya no es válido
-            }
-            pcb := ColaNew.Obtener(i)
-            procesoEnEspera, existe := ProcesosEnEspera.Obtener(pcb.PID)
-            if existe {
-                IntentarInicializarProceso(procesoEnEspera, ColaNew)
-            }
-        }
-    }
+	// Iterar de atrás hacia adelante para evitar problemas con índices
+	for i := range ColaSuspReady.Longitud() {
+		if i >= ColaSuspReady.Longitud() {
+			break // Saltar si el índice ya no es válido
+		}
+		pcb := ColaSuspReady.Obtener(i)
+		_, existe := ProcesosEnEspera.Obtener(pcb.PID)
+		if existe {
+			ChMemoriaLiberada.Señalizar(pcb.PID, struct{}{})
+		}
+	}
+
+	if ColaSuspReady.Vacia() {
+		for i := range ColaNew.Longitud() {
+			if i >= ColaNew.Longitud() {
+				continue // Saltar si el índice ya no es válido
+			}
+			pcb := ColaNew.Obtener(i)
+			_, existe := ProcesosEnEspera.Obtener(pcb.PID)
+			if existe {
+				ChMemoriaLiberada.Señalizar(pcb.PID, struct{}{})
+			}
+		}
+	}
 }
 
 func BuscarIODisponible(nombre string) (structs.InterfazIO, bool) {
@@ -121,9 +121,9 @@ func BuscarIODisponible(nombre string) (structs.InterfazIO, bool) {
 
 		if ifaz.Nombre == nombre {
 			mxBusquedaIO.Lock()
-			
+
 			logueador.Debug("Exec de IO %s: %+v", nombre, ListaExecIO.Map[ifaz])
-			
+
 			lista, _ := ListaExecIO.Obtener(ifaz)
 			if len(lista) == 0 {
 				mxBusquedaIO.Unlock()

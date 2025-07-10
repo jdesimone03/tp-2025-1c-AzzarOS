@@ -43,6 +43,8 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 			InstanciasCPU.Agregar(instancia.CPU)
 			logueador.Info("Nueva instancia CPU: %+v", instancia)
 
+			SeñalizarCPUDisponible()
+
 		default:
 			logueador.Error("FATAL: %s no es un modulo valido.", tipo)
 			w.WriteHeader(http.StatusBadRequest)
@@ -121,6 +123,8 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	// Desaloja las cpu que se estén usando.
 	CPUsOcupadas.BuscarYEliminar(contexto.PID)
+	//ChContextoGuardado.Señalizar(contexto.PID, struct{}{})
+	SeñalizarCPUDisponible()
 
 	// Busca el proceso a guardar en la cola execute, o en la blocked o en la susp blocked
 	enExec := ColaExecute.Actualizar(contexto.PID, contexto.PC)

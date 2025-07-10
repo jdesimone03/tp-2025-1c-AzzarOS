@@ -23,6 +23,14 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 			pcb.MetricasTiempo[estadoNuevo] = time.Now().UnixMilli()
 		}
 
+		if estadoNuevo == structs.EstadoReady {
+			SeñalizarProcesoEnCortoPlazo()
+		}
+
+		if estadoNuevo == structs.EstadoNew || estadoNuevo == structs.EstadoSuspReady {
+			SeñalizarProcesoEnLargoMedioPlazo()
+		}
+
 		// Si pasamos a estado bloqueado
 		if estadoNuevo == structs.EstadoBlocked {
 			// Iniciar timer de suspension
@@ -69,6 +77,7 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 	pcb.MetricasTiempo[structs.EstadoNew] = time.Now().UnixMilli()
 
 	ColaNew.Agregar(pcb)
+	SeñalizarProcesoEnLargoMedioPlazo()
 
 	contadorProcesos++
 
@@ -76,6 +85,26 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 
 	// Log obligatorio 2/8
 	logueador.KernelCreacionDeProceso(pcb.PID)
+}
+
+func SeñalizarProcesoEnCortoPlazo() {
+	//ChColaReady <- struct{}{}
+	select {
+	case ChColaReady <- struct{}{}:
+	// Señal enviada exitosamente
+	default:
+		// El semáforo ya tiene una señal, no hacer nada
+	}
+}
+
+// Función para señalizar que hay procesos disponibles para largo/mediano plazo
+func SeñalizarProcesoEnLargoMedioPlazo() {
+	select {
+	case ChColasLargoMedioPlazo <- struct{}{}:
+		// Señal enviada exitosamente
+	default:
+		// El semáforo ya tiene una señal, no hacer nada
+	}
 }
 
 func CrearPCB() structs.PCB {
@@ -96,6 +125,7 @@ func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
 	}
 
 	CPUsOcupadas.BuscarYEliminar(pid)
+	SeñalizarCPUDisponible()
 	MoverPCB(pid, origen, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
 
 	pcb, _ := ColaExit.Buscar(pid)
@@ -127,6 +157,15 @@ func BuscarEInterrumpir(pid uint) bool {
 	}
 	logueador.Error("El PID %d no está ocupando a ninguna CPU.", pid)
 	return false
+}
+
+func SeñalizarCPUDisponible() {
+	select {
+	case ChCPUDisponible <- struct{}{}:
+		// Señal enviada exitosamente
+	default:
+		// El semáforo ya tiene una señal, no hacer nada
+	}
 }
 
 // ---------------------------- UTILS PLANIFICADOR ----------------------------//
@@ -169,15 +208,25 @@ func CancelarTimerSuspension(pid uint) {
 }
 
 func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
-	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
-	if respuesta == "OK" {
-		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
-		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
+	for {
+		logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", proceso.PID, proceso.Instrucciones, proceso.Tamanio)
+		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
+		if respuesta == "OK" {
+			utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
+			MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
 
-		ProcesosEnEspera.Eliminar(proceso.PID)
-	} else {
-		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
-		ProcesosEnEspera.Agregar(proceso.PID, proceso)
+			ProcesosEnEspera.Eliminar(proceso.PID)
+			ChMemoriaLiberada.LimpiarChannel(proceso.PID)
+			return
+		} else {
+			logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
+			ProcesosEnEspera.Agregar(proceso.PID, proceso)
+
+			ch := ChMemoriaLiberada.ObtenerChannel(proceso.PID, 1)
+
+			<-ch
+			continue
+		}
 	}
 }
 

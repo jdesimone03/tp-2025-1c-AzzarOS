@@ -261,6 +261,69 @@ func (sms *MapIOExec) EliminarPrimero(key InterfazIO) EjecucionIO {
 	return EjecucionIO{} // Devolver un valor vacío o un error si la clave no existe o el slice está vacío
 }
 
+// --------------------------------- MAP CHANNELS --------------------------------- //
+
+// Estructura genérica para manejar maps de channels
+type MapChannels[T any] struct {
+    channels map[uint]chan T
+    mutex    sync.RWMutex
+}
+
+func NewMapChannels[T any]() *MapChannels[T] {
+    return &MapChannels[T]{
+        channels: make(map[uint]chan T),
+    }
+}
+
+func (mc *MapChannels[T]) ObtenerChannel(pid uint, bufferSize int) chan T {
+    mc.mutex.Lock()
+    defer mc.mutex.Unlock()
+    
+    if ch, existe := mc.channels[pid]; existe {
+        return ch
+    }
+    
+    // Crear nuevo channel si no existe
+    ch := make(chan T, bufferSize)
+    mc.channels[pid] = ch
+    return ch
+}
+
+func (mc *MapChannels[T]) LimpiarChannel(pid uint) {
+    mc.mutex.Lock()
+    defer mc.mutex.Unlock()
+    
+    if ch, existe := mc.channels[pid]; existe {
+        close(ch)
+        delete(mc.channels, pid)
+    }
+}
+
+func (mc *MapChannels[T]) Señalizar(pid uint, valor T) bool {
+    mc.mutex.RLock()
+    ch, existe := mc.channels[pid]
+    mc.mutex.RUnlock()
+    
+    if !existe {
+        return false
+    }
+    
+    select {
+    case ch <- valor:
+        return true
+    default:
+        return false
+    }
+}
+
+func (mc *MapChannels[T]) Existe(pid uint) bool {
+    mc.mutex.RLock()
+    defer mc.mutex.RUnlock()
+    
+    _, existe := mc.channels[pid]
+    return existe
+}
+
 // --------------------------------- SLICES --------------------------------- //
 type SliceSeguro[T any] struct {
 	Cola  []T
