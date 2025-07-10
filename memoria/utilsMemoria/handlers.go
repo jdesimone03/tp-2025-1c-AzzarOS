@@ -255,38 +255,23 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
-
-	tam := r.URL.Query().Get("tam")
-	pid := r.URL.Query().Get("pid")
-	tamInt, err := strconv.Atoi(tam)
-
-	//time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
-
-	if err != nil {
-		logueador.Error("Error al convertir el tamaño: %e", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+func HandlerDeDesuspension(NuevoProceso structs.NuevoProceso) bool {
+	tamInt := int(NuevoProceso.Tamanio)
+	pid := strconv.Itoa(int(NuevoProceso.PID))
 	if !HayEspacioParaInicializar(tamInt) {
 		logueador.Error("No hay espacio para desuspender el proceso")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("No hay espacio para desuspender el proceso"))
-		return
+		return false
 	}
 
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
 		logueador.Error("Error al convertir PID a entero")
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return false
 	}
 
 	if !ExisteElPID(uint(pidInt)) {
 		logueador.Error("El PID %d no existe", pidInt)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return false
 	}
 
 	//time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
@@ -294,7 +279,7 @@ func HandlerDeDesuspension(w http.ResponseWriter, r *http.Request) {
 	IncrementarMetricaEn(uint(pidInt), "SubidasAmemoria") // Aumento la métrica de subidas a memoria principal del PID
 
 	logueador.Info("Swapout del proceso con PID: %s", pid)
-	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
+	return true 
 }
 
 func HandlerDeFinalizacion(w http.ResponseWriter, r *http.Request) {
@@ -457,23 +442,21 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ExisteElPID(data.PID) {
-		logueador.Error("El PID ya existe: %d", data.PID)
-		http.Error(w, "El PID ya existe", http.StatusBadRequest)
-		return
-	}
-
-	logueador.Info("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
-
-	// Creación de Estructuras
-	CargarPIDconInstrucciones(data.Instrucciones, int(data.PID))     // Carga las instrucciones del PID en el map
-	CrearMetricaDeProceso(data.PID)                         // Crea la metrica del proceso para ir guardando registro de las acciones
-	CrearTablaDePaginas(data.PID, int(data.Tamanio)) // Crea la tabla de paginas del PID
-	logueador.Info("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
-
-	// Log obligatorio 1/5
-	logueador.MemoriaCreacionDeProceso(data.PID, data.Tamanio)
-
+	if ExisteElPID(data.PID) { // Significa que lo queres desuspender 
+		resultado := HandlerDeDesuspension(*data)
+		if !resultado {
+			return 
+		} 
+	} else {
+		logueador.Info("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
+		CargarPIDconInstrucciones(data.Instrucciones, int(data.PID))     // Carga las instrucciones del PID en el map
+		CrearMetricaDeProceso(data.PID)                         // Crea la metrica del proceso para ir guardando registro de las acciones
+		CrearTablaDePaginas(data.PID, int(data.Tamanio)) // Crea la tabla de paginas del PID
+		logueador.Info("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
+		// Log obligatorio 1/5
+		logueador.MemoriaCreacionDeProceso(data.PID, data.Tamanio)
+		}
 	w.WriteHeader(http.StatusOK) // Envio el OK al kernel
 	w.Write([]byte("OK"))        // Envio el OK al kernel
+	
 }

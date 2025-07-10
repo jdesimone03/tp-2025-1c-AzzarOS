@@ -34,7 +34,6 @@ func main() {
 	http.HandleFunc("/write", utilsMemoria.HandlerWrite) // CPU -> MEMORIA
 	http.HandleFunc("/read", utilsMemoria.HandlerRead) // CPU -> MEMORIA
 	http.HandleFunc("/suspenderProceso", utilsMemoria.HandlerDeSuspension) // CPU -> MEMORIA
-	http.HandleFunc("/desuspenderProceso", utilsMemoria.HandlerDeDesuspension) // CPU -> MEMORIA
 	http.HandleFunc("/finalizarProceso", utilsMemoria.HandlerDeFinalizacion) // CPU -> MEMORIA
 	http.HandleFunc("/actualizarMP", utilsMemoria.HandlerEscribirDeCache) // CPU actualiza la MP con la caché 
 	http.HandleFunc("/config", utilsMemoria.HandlerConfig) // para que CPU sepa de la configuración de memoria
