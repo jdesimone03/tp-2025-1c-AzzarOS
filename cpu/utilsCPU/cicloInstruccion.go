@@ -6,6 +6,7 @@ import (
 	"utils"
 	"utils/logueador"
 	"utils/structs"
+	"sync/atomic"
 )
 
 // ---------------------------------- CICLO CPU ------------------------------------//
@@ -23,11 +24,11 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 		default:
 			ctxEjecucion.PC++
 		}
-		if InterruptFlag {
+		if atomic.LoadInt32(&InterruptFlag) == 1 {
 			// Atiende la interrupcion
 			logueador.Info("PID: %d - Interrumpido, Guarda contexto en PC: %d", ctxEjecucion.PID, ctxEjecucion.PC)
 			utils.EnviarMensaje(Config.IPKernel, Config.PortKernel, "guardar-contexto", ctxEjecucion)
-			InterruptFlag = false
+			atomic.StoreInt32(&InterruptFlag, 0)  // Reset atómico
 			return
 		}
 

@@ -9,7 +9,7 @@ import (
 	"utils/structs"
 )
 
-func PlanificadorLargoPlazo() {
+func PlanificadorLargoYMedianoPlazo() {
 	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
 	var procesoAEnviar structs.NuevoProceso
 	var firstPCB structs.PCB
@@ -59,7 +59,6 @@ func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.Co
 		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
 		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
 
-		NuevosProcesos.Eliminar(proceso.PID)
 		ProcesosEnEspera.Eliminar(proceso.PID)
 	} else {
 		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
@@ -124,64 +123,12 @@ func PlanificadorCortoPlazo() {
 	}
 }
 
-func PlanificadorMedianoPlazo() {
-	logueador.Info("Iniciando Planificador de Mediano Plazo.")
-
-	for {
-		/* if ColaBlocked.Vacia() {
-			slog.Debug("PlanificadorMedianoPlazo: Ejecutando ciclo de verificación de suspensión.")
-			continue
-		} */
-
-		// NOTA: Para un sistema robusto, el acceso concurrente a ColaBlocked y ProcesosEnTimer
-		// desde múltiples goroutines (otros planificadores, handlers) debería protegerse con mutex.
-		for i := 0; i < ColaBlocked.Longitud(); {
-			// Es crucial asegurar que el acceso a ColaBlocked[i] sea seguro si otras goroutines pueden modificarla.
-			// La nota sobre el mutex es muy importante aquí.
-			pcb := ColaBlocked.Obtener(i)
-			currentPid := pcb.PID
-			moved := false // Flag to track if the PCB was moved in this iteration
-
-			if timer, timerExists := TiempoEnColaBlocked.Obtener(currentPid); timerExists {
-				// Verificar si el timer ha expirado de forma no bloqueante.
-				select {
-				case <-timer.C: // El timer ha disparado.
-					logueador.Info("PlanificadorMedianoPlazo: Timer expirado para PID %d (en ColaBlocked).", currentPid)
-
-					// Aquí se asume que el PCB con currentPid todavía está en ColaBlocked y es el que queremos mover.
-					// MoverPCB buscará por PID.
-					respuestaMemoria := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "mover-a-swap", currentPid)
-					if respuestaMemoria != "OK" {
-						logueador.Error("PlanificadorMedianoPlazo: Error al mover el PCB con PID %d a swap: '%s'", currentPid, respuestaMemoria)
-						// Si no se pudo mover a swap, no se mueve el PCB y se deja en ColaBlocked.
-						break // No mover el PCB, continuar con el siguiente.
-					}
-
-					logueador.Info("PlanificadorMedianoPlazo: Respuesta de 'mover-a-swap' para PID %d: '%s'", currentPid, respuestaMemoria)
-
-					MoverPCB(currentPid, ColaBlocked, ColaSuspBlocked, structs.EstadoSuspBlocked)
-					TiempoEnColaBlocked.Eliminar(currentPid) // Eliminar el timer del mapa.
-					moved = true                             // PCB fue movido, no se debe incrementar i.
-				default:
-					// Timer existe pero no ha expirado. No hacer nada con este PCB respecto al timer.
-				}
-			}
-
-			if !moved {
-				i++ // Incrementar el índice solo si el PCB actual no fue movido.
-			}
-			// Si moved == true, i no se incrementa, y el bucle procesará el nuevo elemento en el índice actual i.
-		}
-	}
-}
-
 func IniciarPlanificadores() {
 	go PlanificadorCortoPlazo()
-	//go PlanificadorMedianoPlazo()
 	go func() {
 		logueador.Info("Esperando confirmación para iniciar el planificador de largo plazo...")
 		bufio.NewReader(os.Stdin).ReadBytes('\n') // espera al Enter
-		go PlanificadorLargoPlazo()
+		go PlanificadorLargoYMedianoPlazo()
 	}()
 }
 

@@ -6,7 +6,7 @@ import (
 )
 
 var Config config.ConfigCPU
-var InterruptFlag bool
+var InterruptFlag int32
 var chEjecucion = make(chan structs.EjecucionCPU)
 
 func init() {

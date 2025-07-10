@@ -1,11 +1,12 @@
 package utilsCPU
 
 import (
+	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"utils"
 	"utils/logueador"
 	"utils/structs"
-	"encoding/json"		
 )
 
 // ---------------------------- Handlers ----------------------------//
@@ -13,7 +14,7 @@ func RecibirInterrupcion(w http.ResponseWriter, r *http.Request) {
 
 	// Log obligatorio 2/11
 	logueador.InterrupcionRecibida()
-	InterruptFlag = true
+	atomic.StoreInt32(&InterruptFlag, 1)  // Escritura atómica
 
 	w.WriteHeader(http.StatusOK)
 }

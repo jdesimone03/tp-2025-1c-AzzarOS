@@ -30,7 +30,6 @@ var contadorProcesos uint = 0
 // ready_ingress_algorithm: CORTO plazo
 
 var NuevosProcesos = structs.NewMapSeguro[uint,structs.NuevoProceso]()
-var ProcesosActuales = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 var ProcesosEnEspera = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 
 var InstanciasCPU = structs.NewMapCPU()

@@ -58,7 +58,6 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 
 	//utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
 	NuevosProcesos.Agregar(proceso.PID, proceso)
-	ProcesosActuales.Agregar(proceso.PID, proceso)
 
 	// Crea el PCB y lo inserta en NEW
 	pcb := CrearPCB()

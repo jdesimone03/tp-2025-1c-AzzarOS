@@ -64,7 +64,7 @@ func SyscallDumpMemory(pid uint, instruccion structs.DumpMemoryInstruction) {
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "memoryDump", pid)
 	if respuesta != "OK" {
 		logueador.Error("Error al realizar el dump de memoria: %s", respuesta)
-		InstanciasCPU.Liberar(pid)
+		//InstanciasCPU.Liberar(pid)
 		MoverPCB(pid, ColaBlocked, ColaExit, structs.EstadoExit)
 		return
 	}
