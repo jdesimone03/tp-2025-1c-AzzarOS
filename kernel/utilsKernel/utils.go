@@ -9,6 +9,8 @@ import (
 	"utils/structs"
 )
 
+// ---------------------------- UTILS PROCESOS ----------------------------//
+
 // Mueve el pcb de una lista de procesos a otra EJ: mueve de NEW a READY y cambia al nuevo estado
 func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura, estadoNuevo string) bool {
 	pcb, indice := origen.Buscar(pid)
@@ -44,6 +46,7 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 
 		// Log obligatorio 3/8
 		logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
+		
 		return true
 	}
 	return false
@@ -81,27 +84,48 @@ func CrearPCB() structs.PCB {
 	}
 }
 
-func EstimarRafaga(pid uint) float64 {
-	estimadoAnterior, _ := TiempoEstimado.Obtener(pid)
-	tiempoEnExecute, _ := TiempoEnColaExecute.Obtener(pid)
-	realAnterior := time.Now().UnixMilli() - tiempoEnExecute
-	return float64(realAnterior)*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
-}
-
-func Interrumpir(nombreCpu string) {
-	cpu, existe := InstanciasCPU.Obtener(nombreCpu)
-	if !existe {
-		logueador.Error("No se pudo interrumpir %s ya que no existe en el sistema.", nombreCpu)
+func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "finalizarProceso", pid)
+	if respuesta != "OK" {
+		logueador.Error("Error al finalizar el proceso %d: %s", pid, respuesta)
 		return
 	}
 
+	CPUsOcupadas.BuscarYEliminar(pid)
+	MoverPCB(pid, origen, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
+
+	pcb, _ := ColaExit.Buscar(pid)
+
+	// Log obligatorio 8/8
+	logueador.MetricasDeEstado(pcb)
+
+	VerificarInicializacion()
+}
+
+// ---------------------------- UTILS CPU ----------------------------//
+
+func Interrumpir(cpu structs.InstanciaCPU) {
 	url := fmt.Sprintf("http://%s:%s/interrupt", cpu.IP, cpu.Puerto)
 	_, err := http.Get(url)
 
 	if err != nil {
-		logueador.Error("No se pudo interrumpir la CPU %s: %v", nombreCpu, err)
+		logueador.Error("No se pudo interrumpir la CPU %s: %v", cpu.Nombre, err)
 	}
 }
+
+func BuscarEInterrumpir(pid uint) bool {
+	nombreCPUADesalojar, existe := CPUsOcupadas.Buscar(pid)
+	if existe {
+		cpuADesalojar, _ := InstanciasCPU.Buscar(nombreCPUADesalojar)
+		Interrumpir(cpuADesalojar)
+		logueador.Info("Se interrumpió la CPU %s ocupada por el PID %d", nombreCPUADesalojar, pid)
+		return true
+	}
+	logueador.Error("El PID %d no está ocupando a ninguna CPU.", pid)
+	return false
+}
+
+// ---------------------------- UTILS PLANIFICADOR ----------------------------//
 
 func IniciarTimerSuspension(pid uint) {
 	// Crear nuevo timer
@@ -140,6 +164,21 @@ func CancelarTimerSuspension(pid uint)  {
     }
 }
 
+
+func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
+	if respuesta == "OK" {
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
+		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
+
+		ProcesosEnEspera.Eliminar(proceso.PID)
+	} else {
+		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
+		ProcesosEnEspera.Agregar(proceso.PID, proceso)
+	}
+}
+
+// ---------------------------- UTILS IO ----------------------------//
 
 func DispatchIO(ifaz structs.InterfazIO, aEjecutar structs.EjecucionIO) {
 	ListaExecIO.Agregar(ifaz, aEjecutar)

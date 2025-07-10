@@ -10,86 +10,34 @@ import (
 )
 
 func PlanificadorLargoYMedianoPlazo() {
-    logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
-    var procesoAEnviar structs.NuevoProceso
-    
-    for {
-        // Obtener dinámicamente la cola y el PCB a procesar
-        cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
-        
-        if !hayProceso {
-            continue // Espera a que haya un proceso disponible
-        }
+	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
 
-        switch Config.SchedulerAlgorithm {
-        case "FIFO":
-            procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
-        case "PMCP":
-            procesoAEnviar = ObtenerProcesoMenorTamanio(cola)
-        default:
-            logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
-            return
-        }
+	var procesoAEnviar structs.NuevoProceso
+	for {
+		// Obtener dinámicamente la cola y el PCB a procesar
+		cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
 
-        // Si NO esta en los procesos en espera
-        _, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
-        if !existe {
-            logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
-            IntentarInicializarProceso(procesoAEnviar, cola)
-        }
-    }
-}
+		// TODO sustituir con 
+		if !hayProceso {
+			continue // Espera a que haya un proceso disponible
+		}
 
-// Función para obtener dinámicamente la próxima cola a procesar
-func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
-    // Prioridad 1: Cola de suspendidos listos
-    if !ColaSuspReady.Vacia() {
-        firstPCB := ColaSuspReady.Obtener(0)
-        return ColaSuspReady, firstPCB, true
-    }
-    
-    // Prioridad 2: Cola de nuevos procesos
-    if !ColaNew.Vacia() {
-        firstPCB := ColaNew.Obtener(0)
-        return ColaNew, firstPCB, true
-    }
-    
-    // No hay procesos disponibles
-    return nil, structs.PCB{}, false
-}
+		switch Config.SchedulerAlgorithm {
+		case "FIFO":
+			procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
+		case "PMCP":
+			procesoAEnviar = ObtenerProcesoMenorTamanio(cola)
+		default:
+			logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
+			return
+		}
 
-// Función para obtener el proceso con menor tamaño de una cola específica
-func ObtenerProcesoMenorTamanio(cola *structs.ColaSegura) structs.NuevoProceso {
-    if cola.Vacia() {
-        return structs.NuevoProceso{}
-    }
-    
-    // Inicializar con el primer proceso de la cola
-    firstPCB := cola.Obtener(0)
-    procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
-    
-    // Iterar sobre todos los procesos en la cola para encontrar el menor
-    for i := 1; i < cola.Longitud(); i++ {
-        pcb := cola.Obtener(i)
-        nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
-        if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
-            procesoMinimo = nuevoProceso
-        }
-    }
-    
-    return procesoMinimo
-}
-
-func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
-	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
-	if respuesta == "OK" {
-		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
-		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
-
-		ProcesosEnEspera.Eliminar(proceso.PID)
-	} else {
-		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
-		ProcesosEnEspera.Agregar(proceso.PID, proceso)
+		// Si NO esta en los procesos en espera
+		_, existe := ProcesosEnEspera.Obtener(procesoAEnviar.PID)
+		if !existe {
+			logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", procesoAEnviar.PID, procesoAEnviar.Instrucciones, procesoAEnviar.Tamanio)
+			IntentarInicializarProceso(procesoAEnviar, cola)
+		}
 	}
 }
 
@@ -104,7 +52,7 @@ func PlanificadorCortoPlazo() {
 			continue
 		}
 
-		nombreCPU, hayDisponible := InstanciasCPU.BuscarCPUDisponible()
+		cpu, hayDisponible := BuscarCPUDisponible()
 
 		if !hayDisponible && Config.ReadyIngressAlgorithm == "SJF" {
 			var estimadoMasChico float64
@@ -115,10 +63,12 @@ func PlanificadorCortoPlazo() {
 				estimadoActual, _ := TiempoEstimado.Obtener(pcb.PID)
 				if estimadoMasChico < estimadoActual {
 					// Manda a ejecutar el mas chico
-					cpuADesalojar := InstanciasCPU.BuscarCPUPorPID(pcb.PID)
-					Interrumpir(cpuADesalojar)
-					nombreCPU, hayDisponible = InstanciasCPU.BuscarCPUDisponible()
-					break
+					ok := BuscarEInterrumpir(pcb.PID)
+					if ok {
+						// TODO asegurar que la cpu se desaloja antes de buscar nuevamente
+						cpu, hayDisponible = BuscarCPUDisponible()
+						break
+					}
 				}
 			}
 		}
@@ -133,6 +83,7 @@ func PlanificadorCortoPlazo() {
 				logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
 				return
 			}
+			logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.ReadyIngressAlgorithm, aEjecutar.PID)
 
 			ejecucion := structs.EjecucionCPU{
 				PID: aEjecutar.PID,
@@ -140,7 +91,9 @@ func PlanificadorCortoPlazo() {
 			}
 
 			// Marca como ejecutando
-			cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
+			//cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
+			CPUsOcupadas.Agregar(cpu.Nombre, ejecucion)
+			logueador.Info("Se ocupa la CPU %s con el proceso PID %d", cpu.Nombre, aEjecutar.PID)
 
 			// Envia el proceso
 			TiempoEnColaExecute.Agregar(aEjecutar.PID, time.Now().UnixMilli()) // Inicia el timer de ejecución, se para cuando se interrumpe
@@ -179,4 +132,63 @@ func ObtenerMasChico() (structs.PCB, float64) {
 	}
 
 	return pcbMasChico, estimadoMasChico
+}
+
+
+// Función para obtener dinámicamente la próxima cola a procesar
+func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
+	// Prioridad 1: Cola de suspendidos listos
+	if !ColaSuspReady.Vacia() {
+		firstPCB := ColaSuspReady.Obtener(0)
+		return ColaSuspReady, firstPCB, true
+	}
+
+	// Prioridad 2: Cola de nuevos procesos
+	if !ColaNew.Vacia() {
+		firstPCB := ColaNew.Obtener(0)
+		return ColaNew, firstPCB, true
+	}
+
+	// No hay procesos disponibles
+	return nil, structs.PCB{}, false
+}
+
+// Función para obtener el proceso con menor tamaño de una cola específica
+func ObtenerProcesoMenorTamanio(cola *structs.ColaSegura) structs.NuevoProceso {
+	if cola.Vacia() {
+		return structs.NuevoProceso{}
+	}
+
+	// Inicializar con el primer proceso de la cola
+	firstPCB := cola.Obtener(0)
+	procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
+
+	// Iterar sobre todos los procesos en la cola para encontrar el menor
+	for i := 1; i < cola.Longitud(); i++ {
+		pcb := cola.Obtener(i)
+		nuevoProceso, _ := NuevosProcesos.Obtener(pcb.PID)
+		if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
+			procesoMinimo = nuevoProceso
+		}
+	}
+
+	return procesoMinimo
+}
+
+func BuscarCPUDisponible() (structs.InstanciaCPU, bool) {
+	for i := range InstanciasCPU.Longitud() {
+		cpu := InstanciasCPU.Obtener(i)
+
+		mxBusquedaCPU.Lock()
+
+		_, existe := CPUsOcupadas.Obtener(cpu.Nombre)
+		if !existe {
+			logueador.Debug("CPU disponible: %s", cpu.Nombre)
+			mxBusquedaCPU.Unlock()
+			return cpu, true
+		}
+
+		mxBusquedaCPU.Unlock()
+	}
+	return structs.InstanciaCPU{}, false
 }

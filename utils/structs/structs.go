@@ -34,10 +34,9 @@ type Metricas struct {
 // --------------------------------- Estructuras de Instancias --------------------------------- //
 
 type InstanciaCPU struct {
+	Nombre	   string
 	IP         string
 	Puerto     string
-	Ejecutando bool
-	PID        uint
 }
 
 type InterfazIO struct {
@@ -147,81 +146,56 @@ func (ms *MapSeguro[K, V]) Eliminar(key K) {
 	delete(ms.Map, key)
 }
 
-// --------------------------------- MAP CPU --------------------------------- //
+// --------------------------------- MAP CPU EXEC --------------------------------- //
 
-type MapCPU MapSeguro[string, InstanciaCPU]
+type MapCPUExec MapSeguro[string, EjecucionCPU]
 
-func NewMapCPU() *MapCPU {
-	return &MapCPU{Map: make(map[string]InstanciaCPU)}
+func NewMapCPUExec() *MapCPUExec {
+	return &MapCPUExec{Map: make(map[string]EjecucionCPU)}
 }
 
-func (ms *MapCPU) Agregar(key string, value InstanciaCPU) {
+func (ms *MapCPUExec) Agregar(key string, value EjecucionCPU) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	ms.Map[key] = value
 }
 
-func (ms *MapCPU) Obtener(key string) (InstanciaCPU, bool) {
+func (ms *MapCPUExec) Obtener(key string) (EjecucionCPU, bool) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 	value, ok := ms.Map[key]
 	return value, ok
 }
 
-func (ms *MapCPU) Ocupar(nombre string, pid uint) InstanciaCPU {
+func (ms *MapCPUExec) Eliminar(key string) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-
-	cpu := ms.Map[nombre]
-	cpu.Ejecutando = true
-	cpu.PID = pid
-	ms.Map[nombre] = cpu
-
-	return cpu
+	delete(ms.Map, key)
 }
 
-func (ms *MapCPU) Liberar(pid uint) {
+func (ms *MapCPUExec) Buscar(pid uint) (string, bool) {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
 
-	nombreCPU := BuscarCPUPorPID(ms.Map, pid)
-	cpu := ms.Map[nombreCPU]
-	cpu.Ejecutando = false
-	ms.Map[nombreCPU] = cpu
-}
-
-func (ms *MapCPU) BuscarCPUDisponible() (string, bool) {
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
-
-	for nombre, cpu := range ms.Map {
-		if !cpu.Ejecutando {
-			return nombre, true
+	for k, v := range(ms.Map) {
+		if v.PID == pid {
+			return k, true
 		}
 	}
 	return "", false
 }
 
-func (ms *MapCPU) BuscarCPUPorPID(pid uint) string {
+func (ms *MapCPUExec) BuscarYEliminar(pid uint) bool {
 	ms.Mutex.Lock()
 	defer ms.Mutex.Unlock()
-	return BuscarCPUPorPID(ms.Map, pid)
-}
 
-func (ms *MapCPU) ObtenerPID(nombre string) uint {
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
-	return ms.Map[nombre].PID
-}
-
-// Funcion sin mutex para uso interno
-func BuscarCPUPorPID(ms map[string]InstanciaCPU, pid uint) string {
-	for nombre, cpu := range ms {
-		if cpu.PID == pid {
-			return nombre
+	for k, v := range(ms.Map) {
+		if v.PID == pid {
+			delete(ms.Map, k)
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
 // --------------------------------- MAP IO WAIT --------------------------------- //
@@ -292,6 +266,57 @@ type SliceSeguro[T any] struct {
 	Cola  []T
 	Mutex sync.Mutex
 }
+
+// --------------------------------- LISTA CPU --------------------------------- //
+
+type ListaCPU SliceSeguro[InstanciaCPU]
+
+func NewListaCPU() *ListaCPU {
+	return &ListaCPU{Cola: make([]InstanciaCPU, 0)}
+}
+
+func (lc *ListaCPU) Agregar(elemento InstanciaCPU) {
+	lc.Mutex.Lock()
+	defer lc.Mutex.Unlock()
+	lc.Cola = append(lc.Cola, elemento)
+}
+
+func (lc *ListaCPU) Obtener(indice int) InstanciaCPU {
+	lc.Mutex.Lock()
+	defer lc.Mutex.Unlock()
+	value := lc.Cola[indice]
+	return value
+}
+
+func (lc *ListaCPU) Eliminar(elemento InstanciaCPU) {
+	lc.Mutex.Lock()
+	defer lc.Mutex.Unlock()
+	for i, interfaz := range lc.Cola {
+		if interfaz == elemento {
+			lc.Cola = slices.Delete(lc.Cola, i, i+1)
+			return
+		}
+	}
+}
+
+func (lc *ListaCPU) Buscar(nombre string) (InstanciaCPU, bool) {
+	lc.Mutex.Lock()
+	defer lc.Mutex.Unlock()
+	for _, interfaz := range lc.Cola {
+		if interfaz.Nombre == nombre {
+			return interfaz, true
+		}
+	}
+	return InstanciaCPU{}, false
+}
+
+func (lc *ListaCPU) Longitud() int {
+	lc.Mutex.Lock()
+	defer lc.Mutex.Unlock()
+	return len(lc.Cola)
+}
+
+// --------------------------------- LISTA INTERFACES --------------------------------- //
 
 type ListaInterfaces SliceSeguro[InterfazIO]
 

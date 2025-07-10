@@ -35,16 +35,15 @@ func main() {
 	}
 
 	cpu := structs.InstanciaCPU{
+		Nombre:		identificador,
 		IP:         utilsCPU.Config.IPCPU,
 		Puerto:     utilsCPU.Config.PortCPU,
-		Ejecutando: false,
 	}
 
 	peticion := structs.HandshakeCPU{
 		Identificador: identificador,
 		CPU:           cpu,
 	}
-
 
 	utils.EnviarMensaje(utilsCPU.Config.IPKernel, utilsCPU.Config.PortKernel, "handshake/CPU", peticion)
 

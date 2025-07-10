@@ -1,6 +1,7 @@
 package utilsKernel
 
 import (
+	"sync"
 	"time"
 	"utils/config"
 	"utils/structs"
@@ -32,8 +33,12 @@ var contadorProcesos uint = 0
 var NuevosProcesos = structs.NewMapSeguro[uint,structs.NuevoProceso]()
 var ProcesosEnEspera = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 
-var InstanciasCPU = structs.NewMapCPU()
+var InstanciasCPU = structs.NewListaCPU()
+var CPUsOcupadas = structs.NewMapCPUExec()
 var Interfaces = structs.NewSliceSeguro[structs.InterfazIO]()
 
 var ListaExecIO = structs.NewMapIOExec()
 var ListaWaitIO = structs.NewMapIOWait()
+
+var mxBusquedaCPU sync.Mutex
+var mxBusquedaIO sync.Mutex

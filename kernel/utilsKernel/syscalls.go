@@ -7,29 +7,23 @@ import (
 )
 
 // ---------------------------- Syscalls ----------------------------//
-func BuscarDisponible(nombre string) (structs.InterfazIO, bool) {
-	for i := range Interfaces.Longitud() {
-		ifaz := Interfaces.Obtener(i)
-		if ifaz.Nombre == nombre {
-			lista, _ := ListaExecIO.Obtener(ifaz)
-			if len(lista) == 0 {
-				return ifaz, true
-			}
-		}
-	}
-	return structs.InterfazIO{}, false
-}
 
 // No ejecuta directamente sino que lo encola en el planificador. El planificador despues tiene que ejecutarse al momento de iniciar la IO
 func SyscallIO(pid uint, instruccion structs.IoInstruction) {
 
-	Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
+	ok := BuscarEInterrumpir(pid)
+	if !ok {
+		logueador.Error("Error al buscar e interrumpir la cpu con el PID %d", pid)
+		return
+	}
 
 	nombre := instruccion.NombreIfaz
 	tiempoMs := instruccion.SuspensionTime
 
-	_, existe := Interfaces.Buscar(nombre)
+	ifz, existe := Interfaces.Buscar(nombre)
 	if existe {
+
+		logueador.Debug("Interfaz %s encontrada: %+v", nombre, ifz)
 
 		ejecucion := structs.EjecucionIO{
 			PID:      pid,
@@ -39,25 +33,33 @@ func SyscallIO(pid uint, instruccion structs.IoInstruction) {
 		// Enviar proceso a BLOCKED
 		MoverPCB(pid, ColaExecute, ColaBlocked, structs.EstadoBlocked)
 
-		interfaz, hayDisponible := BuscarDisponible(nombre)
+		instancia, hayDisponible := BuscarIODisponible(nombre)
+		
 		if hayDisponible {
+			logueador.Debug("Disponible %s encontrada: %+v", nombre, instancia)
 			// Enviar al proceso a ejecutar el IO
-			DispatchIO(interfaz, ejecucion)
+			DispatchIO(instancia, ejecucion)
 		} else {
 			// Enviar al proceso a la lista de espera de la IO
-			ListaWaitIO.Agregar(interfaz.Nombre, ejecucion)
+			logueador.Debug("Envio PID %d a la lista de espera de la IO %s", pid, nombre)
+			ListaWaitIO.Agregar(nombre, ejecucion)
+			logueador.Debug("ListaWaitIO[%s] = %+v", nombre, ListaWaitIO.Map[nombre])
 		}
 	} else {
 		logueador.Error("La interfaz %s no existe en el sistema", nombre)
 
 		// Enviar proceso a EXIT
-		MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit)
+		FinalizarProceso(pid, ColaExecute)
 	}
 }
 
 func SyscallDumpMemory(pid uint, instruccion structs.DumpMemoryInstruction) {
 
-	Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
+	ok := BuscarEInterrumpir(pid)
+	if !ok {
+		logueador.Error("Error al buscar e interrumpir la cpu con el PID %d", pid)
+		return
+	}
 
 	MoverPCB(pid, ColaExecute, ColaBlocked, structs.EstadoBlocked)
 
@@ -65,7 +67,7 @@ func SyscallDumpMemory(pid uint, instruccion structs.DumpMemoryInstruction) {
 	if respuesta != "OK" {
 		logueador.Error("Error al realizar el dump de memoria: %s", respuesta)
 		//InstanciasCPU.Liberar(pid)
-		MoverPCB(pid, ColaBlocked, ColaExit, structs.EstadoExit)
+		FinalizarProceso(pid, ColaBlocked)
 		return
 	}
 
@@ -80,26 +82,7 @@ func SyscallInitProc(pid uint, instruccion structs.InitProcInstruction) {
 }
 
 func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
-	FinalizarProceso(pid)
-
-}
-
-func FinalizarProceso(pid uint) {
-	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "finalizarProceso", pid)
-	if respuesta != "OK" {
-		logueador.Error("Error al finalizar el proceso %d: %s", pid, respuesta)
-		return
-	}
-
-	InstanciasCPU.Liberar(pid)
-	MoverPCB(pid, ColaExecute, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
-
-	pcb, _ := ColaExit.Buscar(pid)
-
-	// Log obligatorio 8/8
-	logueador.MetricasDeEstado(pcb)
-
-	VerificarInicializacion()
+	FinalizarProceso(pid, ColaExecute)
 }
 
 func VerificarInicializacion() {
@@ -120,4 +103,29 @@ func VerificarInicializacion() {
 			}
 		}
 	}
+}
+
+func BuscarIODisponible(nombre string) (structs.InterfazIO, bool) {
+	logueador.Debug("Interfaces disponibles: %+v", Interfaces.Cola)
+	logueador.Debug("Espera de IO %s: %+v", nombre, ListaWaitIO.Map[nombre])
+
+	for i := range Interfaces.Longitud() {
+		ifaz := Interfaces.Obtener(i)
+
+		if ifaz.Nombre == nombre {
+			mxBusquedaIO.Lock()
+			
+			logueador.Debug("Exec de IO %s: %+v", nombre, ListaExecIO.Map[ifaz])
+			
+			lista, _ := ListaExecIO.Obtener(ifaz)
+			if len(lista) == 0 {
+				mxBusquedaIO.Unlock()
+				return ifaz, true
+			}
+
+			mxBusquedaIO.Unlock()
+		}
+	}
+	logueador.Debug("La IO %s no esta disponible", nombre)
+	return structs.InterfazIO{}, false
 }

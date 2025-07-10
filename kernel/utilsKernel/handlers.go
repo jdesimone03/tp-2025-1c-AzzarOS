@@ -3,6 +3,7 @@ package utilsKernel
 import (
 	"net/http"
 	"strconv"
+	"time"
 	"utils"
 	"utils/logueador"
 	"utils/structs"
@@ -39,7 +40,7 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 				return
 			}
 
-			InstanciasCPU.Agregar(instancia.Identificador, instancia.CPU)
+			InstanciasCPU.Agregar(instancia.CPU)
 			logueador.Info("Nueva instancia CPU: %+v", instancia)
 
 		default:
@@ -117,7 +118,7 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	TiempoEstimado.Agregar(contexto.PID, EstimarRafaga(contexto.PID))
 
 	// Desaloja las cpu que se estén usando.
-	InstanciasCPU.Liberar(contexto.PID)
+	CPUsOcupadas.BuscarYEliminar(contexto.PID)
 
 	// Busca el proceso a guardar en la cola execute, o en la blocked o en la susp blocked
 	enExec := ColaExecute.Actualizar(contexto.PID, contexto.PC)
@@ -132,6 +133,8 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// ---------------------------- IO ----------------------------//
+
 func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	ifaz, err := utils.DecodificarMensaje[structs.InterfazIO](r)
 	if err != nil {
@@ -145,8 +148,13 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
 		pid := ejecucion[0].PID
 		
-		Interrumpir(InstanciasCPU.BuscarCPUPorPID(pid))
-		MoverPCB(pid, ColaBlocked, ColaExit, structs.EstadoExit)
+		/* ok := BuscarEInterrumpir(pid)
+		if !ok {
+			logueador.Error("Error al buscar e interrumpir la cpu con el PID %d", pid)
+			return
+		} */
+
+		FinalizarProceso(pid, ColaBlocked)
 		
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
@@ -192,4 +200,11 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
+}
+
+func EstimarRafaga(pid uint) float64 {
+	estimadoAnterior, _ := TiempoEstimado.Obtener(pid)
+	tiempoEnExecute, _ := TiempoEnColaExecute.Obtener(pid)
+	realAnterior := time.Now().UnixMilli() - tiempoEnExecute
+	return float64(realAnterior)*Config.Alpha + (1-Config.Alpha)*estimadoAnterior
 }
