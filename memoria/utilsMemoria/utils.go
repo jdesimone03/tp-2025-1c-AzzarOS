@@ -107,7 +107,7 @@ func IncrementarMetricaEn(pid uint, campo string) {
 		return
 	}
 	Metricas[pid] = metrica
-	logueador.Info("Metrica: %s - Incrementada para el PID: %d - Valor actual: %+v", campo, pid, metrica)
+	logueador.Debug("Metrica: %s - Incrementada para el PID: %d - Valor actual: %+v", campo, pid, metrica)
 }
 
 func InformarMetricasDe(pid uint) {

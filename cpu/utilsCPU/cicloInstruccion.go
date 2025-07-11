@@ -15,6 +15,9 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 	for {
 		// Decodificamos la instruccion
 		instruccionCodificada := FetchAndDecode(&ctxEjecucion)
+		if instruccionCodificada == nil {
+			return
+		}
 		instruccionEjecutada := Execute(&ctxEjecucion, instruccionCodificada)
 		switch instruccionEjecutada {
 		case "GOTO":
@@ -39,6 +42,9 @@ func FetchAndDecode(ctxEjecucion *structs.EjecucionCPU) any {
 	// Log obligatorio 1/11
 	logueador.FetchInstruccion(ctxEjecucion.PID, ctxEjecucion.PC)
 	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "proximaInstruccion", ctxEjecucion)
+	if instruccion == "PID no existe" {
+		return nil
+	}
 	instruccionDecodificada := Decode(instruccion)
 	return instruccionDecodificada
 }

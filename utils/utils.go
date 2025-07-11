@@ -34,7 +34,7 @@ func EnviarMensaje(ip string, puerto string, endpoint string, mensaje any) strin
 	respuestaStr := string(respuesta)
 
 	// log.Printf("respuesta del servidor: %s", resp.Status)
-	logueador.Info("Respuesta de %s:%s/%s %v", ip, puerto, endpoint, respuestaStr)
+	logueador.Debug("Respuesta de %s:%s/%s %v", ip, puerto, endpoint, respuestaStr)
 	return respuestaStr
 }
 
