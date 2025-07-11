@@ -75,6 +75,7 @@ func PlanificadorCortoPlazo() {
 								//ch := ChContextoGuardado.ObtenerChannel(pcb.PID, 1)
 								<-ChCPUDisponible
 								MoverPCB(pcb.PID, ColaExecute, ColaReady, structs.EstadoReady)
+								logueador.DesalojoSRT(pcb.PID)
 								cpu, hayDisponible = BuscarCPUDisponible()
 								encontroVictima = true
 								//ChMemoriaLiberada.LimpiarChannel(pcb.PID)
