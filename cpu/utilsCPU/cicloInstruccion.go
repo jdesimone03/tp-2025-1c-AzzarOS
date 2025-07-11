@@ -88,10 +88,11 @@ func Read(pid uint, inst structs.ReadInstruction) {
 
 	// Verificar si la página esta en Cache
 	if EstaEnCache(pid, inst.Address) {
-		logueador.Info("La dirección %d ya está en la cache del PID %d", inst.Address, pid)
 		LeerDeCache(pid, inst.Address, inst.Size)
 		return
 	}
+
+	logueador.PaginaFaltanteEnCache(pid, inst.Address / ConfigMemoria.TamanioPagina) // Logueamos la pagina faltante en cache
 
 	direccionFisica := TraducirDireccion(pid, inst.Address) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {
@@ -133,7 +134,8 @@ func Write(pid uint, inst structs.WriteInstruction) {
 		EscribirEnCache(pid, inst.LogicAddress, inst.Data) // Escribimos en la caché
 		return
 	}
-	logueador.Info("Página no encontrada en caché, escribiendo en memoria")
+	
+	logueador.PaginaFaltanteEnCache(pid, inst.LogicAddress / ConfigMemoria.TamanioPagina)
 
 	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {

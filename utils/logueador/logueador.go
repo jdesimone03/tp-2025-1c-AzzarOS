@@ -254,7 +254,7 @@ func PaginaIngresadaEnCache(pid uint, numeroPagina int) {
 }
 
 // Log obligatorio 11/11
-func PaginaActualizadaDeCacheAMemoria(pid uint, numeroPagina int, frameEnMemoriaPrincipal int) {
+func PaginaActualizadaDeCacheAMemoria(pid uint, numeroPagina int, frameEnMemoriaPrincipal []byte) {
 	Info("## PID: %d - Memory Update - Pagina: %d - Frame: %d", pid, numeroPagina, frameEnMemoriaPrincipal)
 }
 

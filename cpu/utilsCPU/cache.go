@@ -75,7 +75,7 @@ func ObtenerPaginaDeCache(pid uint, nropagina int) int {
 
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
-			logueador.Info("Página encontrada en caché: PID %d, Página %d", pid, nropagina)
+			logueador.PaginaEncontradaEnCache(uint(pid), nropagina)
 			return i // Retorna la página y su índice en caché
 		}
 	}
@@ -89,7 +89,7 @@ func MandarDatosAMP(paginas structs.PaginaCache) {
 		logueador.Error("Error al enviar la pagina a memoria: %s", respuesta)
 		return
 	}
-	logueador.Info("Pagina enviada a la memoria correctamente")
+	logueador.PaginaActualizadaDeCacheAMemoria(uint(paginas.PID), paginas.NumeroPagina, paginas.Contenido)
 }
 
 func PaginasModificadasCache(pid uint) []structs.PaginaCache {
@@ -187,6 +187,7 @@ func PedirFrameAMemoria(pid uint, direccionLogica int, direccionFisica int) (str
 
 	logueador.Info("Frame recibido de memoria")
 	paginaCache := CreacionDePaginaCache(pid, nropagina, frame, direccionFisica / ConfigMemoria.TamanioPagina) // Creamos la pagina cache con el frame obtenido
+	logueador.ObtenerMarco(uint(pid), nropagina, direccionLogica / ConfigMemoria.TamanioPagina)
 
 	return paginaCache, nil
 }
@@ -218,7 +219,7 @@ func AgregarPaginaACache(pagina structs.PaginaCache) {
 		indiceLibre := IndiceLibreCache() // Obtenemos el indice libre de la cache
 		logueador.Info("Indice libre encontrado en Cache: %d", indiceLibre)
 		Cache.Paginas[indiceLibre] = pagina // Asignamos la pagina al indice libre
-		logueador.Info("Pagina agregada a la Cache") 
+		logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) // Logueamos la pagina ingresada en cache
 		return 
 	}
 }
@@ -231,7 +232,7 @@ func RemplazarPaginaEnCache(pagina structs.PaginaCache) {
 		MandarDatosAMP(Cache.Paginas[indiceVictima]) // Enviamos la pagina a memoria
 	}
 	Cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
-	logueador.Info("Pagina reemplazada en Cache") 
+	logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) 
 }
 
 
