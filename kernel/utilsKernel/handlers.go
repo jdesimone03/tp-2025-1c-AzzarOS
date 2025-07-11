@@ -119,7 +119,7 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	nuevaRafaga := EstimarRafaga(contexto.PID)
 	TiempoEstimado.Agregar(contexto.PID, nuevaRafaga)
-	logueador.Debug("Reestimado PID %d (Nuevo estimado: %f)",contexto.PID, nuevaRafaga)
+	logueador.Debug("Reestimado PID %d (Nuevo estimado: %f)", contexto.PID, nuevaRafaga)
 
 	// Desaloja las cpu que se estén usando.
 	CPUsOcupadas.BuscarYEliminar(contexto.PID)
@@ -141,6 +141,15 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------- IO ----------------------------//
 
+func FinalizarBloqueado(pid uint) {
+	_, indice := ColaBlocked.Buscar(pid)
+	if indice > -1 {
+		FinalizarProceso(pid, ColaBlocked)
+	} else {
+		FinalizarProceso(pid, ColaSuspBlocked)
+	}
+}
+
 func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	ifaz, err := utils.DecodificarMensaje[structs.InterfazIO](r)
 	if err != nil {
@@ -150,23 +159,29 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	}
 	logueador.Warn("Se recibió notificación de desconexión de IO: %s", ifaz.Nombre)
 
+	Interfaces.Eliminar(*ifaz)
+
+	// Buscamos si hay otra instancia
+	_, existe := Interfaces.Buscar(ifaz.Nombre)
+	if !existe {
+		// Se fija si pasamos a ready o susp. ready
+		for ListaWaitIO.NoVacia(ifaz.Nombre) {
+			exec := ListaWaitIO.EliminarPrimero(ifaz.Nombre)
+			pid := exec.PID
+			FinalizarBloqueado(pid)
+		}
+	}
+
 	// Borra cualquier proceso que este ejecutando
 	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
 		pid := ejecucion[0].PID
-		
-		/* ok := BuscarEInterrumpir(pid)
-		if !ok {
-			logueador.Error("Error al buscar e interrumpir la cpu con el PID %d", pid)
-			return
-		} */
 
-		FinalizarProceso(pid, ColaBlocked)
+		FinalizarBloqueado(pid)
 		
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
-	}
 
-	Interfaces.Eliminar(*ifaz)
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -188,7 +203,7 @@ func HandleIOEnd(w http.ResponseWriter, r *http.Request) {
 
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
-		
+
 		// Se fija si pasamos a ready o susp. ready
 		existe := MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
 		if !existe { // Si no está en la cola blocked, está en la cola susp. blocked

@@ -124,8 +124,10 @@ func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
 		return
 	}
 
-	CPUsOcupadas.BuscarYEliminar(pid)
-	SeñalizarCPUDisponible()
+	existe := CPUsOcupadas.BuscarYEliminar(pid)
+	if existe {
+		SeñalizarCPUDisponible()
+	}
 	MoverPCB(pid, origen, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
 
 	pcb, _ := ColaExit.Buscar(pid)
