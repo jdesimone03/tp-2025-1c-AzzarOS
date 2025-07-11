@@ -391,7 +391,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
-            "args": ["DISCO1", "${workspaceFolder}/io/config/6_test_GEN_1.json"],
+            "args": ["DISCO", "${workspaceFolder}/io/config/6_test_GEN_1.json"],
             "presentation": {
                 "hidden": true,
                 "group": "Test 6 - Configs",
@@ -404,7 +404,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
-            "args": ["DISCO2", "${workspaceFolder}/io/config/6_test_GEN_2.json"],
+            "args": ["DISCO", "${workspaceFolder}/io/config/6_test_GEN_2.json"],
             "presentation": {
                 "hidden": true,
                 "group": "Test 6 - Configs",
@@ -417,7 +417,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
-            "args": ["DISCO3", "${workspaceFolder}/io/config/6_test_GEN_3.json"],
+            "args": ["DISCO", "${workspaceFolder}/io/config/6_test_GEN_3.json"],
             "presentation": {
                 "hidden": true,
                 "group": "Test 6 - Configs",
@@ -430,7 +430,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/io/io.go",
-            "args": ["DISCO4", "${workspaceFolder}/io/config/6_test_GEN_4.json"],
+            "args": ["DISCO", "${workspaceFolder}/io/config/6_test_GEN_4.json"],
             "presentation": {
                 "hidden": true,
                 "group": "Test 6 - Configs",
