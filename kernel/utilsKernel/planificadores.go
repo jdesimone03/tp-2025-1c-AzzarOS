@@ -10,7 +10,7 @@ import (
 )
 
 func PlanificadorLargoYMedianoPlazo() {
-	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.SchedulerAlgorithm)
+	logueador.Info("Se cargara el siguiente algortimo para el planificador de largo plazo, %s", Config.ReadyIngressAlgorithm)
 
 	var procesoAEnviar structs.NuevoProceso
 	for {
@@ -43,7 +43,7 @@ func PlanificadorLargoYMedianoPlazo() {
 }
 
 func PlanificadorCortoPlazo() {
-	logueador.Info("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm)
+	logueador.Info("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.SchedulerAlgorithm)
 
 	var aEjecutar structs.PCB
 	encontroVictima := false

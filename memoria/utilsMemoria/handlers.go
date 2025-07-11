@@ -171,26 +171,6 @@ func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK")) // Envio un OK al kernel
 }
 
-func HandlerFetch(w http.ResponseWriter, r *http.Request) {
-
-	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
-
-	proceso, err := utils.DecodificarMensaje[structs.EjecucionCPU](r)
-	if err != nil {
-		logueador.Error("No se pudo decodificar el mensaje (%v)", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	linea := Procesos[proceso.PID][proceso.PC]
-
-	// Log obligatorio 3/5
-	logueador.ObtenerInstruccion(proceso.PID, proceso.PC, linea)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(linea))
-}
-
 func NuevoProceso(w http.ResponseWriter, r *http.Request) {
 	proceso, err := utils.DecodificarMensaje[structs.NuevoProceso](r)
 	if err != nil {

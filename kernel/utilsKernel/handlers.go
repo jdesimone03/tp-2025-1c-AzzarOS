@@ -171,7 +171,8 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Borra cualquier proceso que este ejecutando
-	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe {
+	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe && len(ejecucion) > 0 {
+		
 		pid := ejecucion[0].PID
 
 		FinalizarBloqueado(pid)
