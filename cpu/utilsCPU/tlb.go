@@ -77,11 +77,11 @@ func AccesoATLB(pid int, nropagina int) int {
 	
 	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
-		logueador.Info("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
+		logueador.TLBHit(uint(pid), nropagina)
 		ActualizarReferencia(indice) // Actualizamos la referencia al instante actual
 		return tlb.Entradas[indice].NumeroFrame // Si la página está en la TLB, devolvemos el frame y true
 	} else {
-		logueador.Info("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)
+		logueador.TLBMiss(uint(pid), nropagina)
 		return -1
 	}
 }
