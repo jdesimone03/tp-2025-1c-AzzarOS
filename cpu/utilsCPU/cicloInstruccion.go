@@ -164,6 +164,8 @@ func Write(pid uint, inst structs.WriteInstruction) {
 		}
 		AgregarPaginaACache(pagina)
 	}
+
+	logueador.EscrituraMemoria(pid, inst.LogicAddress, inst.Data) // Log obligatorio 4/11
 }
 
 // PROPUESTA FUNCION PARSEO DE COMANDOS
