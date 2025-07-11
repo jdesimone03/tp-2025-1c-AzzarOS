@@ -175,7 +175,16 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 		
 		pid := ejecucion[0].PID
 
-		FinalizarBloqueado(pid)
+		if _, indice := ColaExecute.Buscar(pid); indice > -1 {
+			// No hago nada
+		} else {
+			if _, indice := ColaReady.Buscar(pid); indice > -1 {
+				// Tampoco hago nada
+			} else {
+				FinalizarBloqueado(pid)
+			}
+		}
+
 		
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
