@@ -45,8 +45,6 @@ func PlanificadorLargoYMedianoPlazo() {
 func PlanificadorCortoPlazo() {
 	logueador.Info("Se cargara el siguiente algortimo para el planificador de corto plazo, %s", Config.ReadyIngressAlgorithm)
 
-	// var estimado = float64(Config.InitialEstimate)
-	// var real int64
 	var aEjecutar structs.PCB
 	encontroVictima := false
 	for {
@@ -70,15 +68,11 @@ func PlanificadorCortoPlazo() {
 							// Manda a ejecutar el mas chico
 							ok := BuscarEInterrumpir(pcb.PID)
 							if ok {
-								// TODO asegurar que la cpu se desaloja antes de buscar nuevamente
-								// <- chContexto
-								//ch := ChContextoGuardado.ObtenerChannel(pcb.PID, 1)
 								<-ChCPUDisponible
 								MoverPCB(pcb.PID, ColaExecute, ColaReady, structs.EstadoReady)
 								logueador.DesalojoSRT(pcb.PID)
 								cpu, hayDisponible = BuscarCPUDisponible()
 								encontroVictima = true
-								//ChMemoriaLiberada.LimpiarChannel(pcb.PID)
 								break
 							}
 						}
@@ -113,7 +107,6 @@ func PlanificadorCortoPlazo() {
 				}
 
 				// Marca como ejecutando
-				//cpu := InstanciasCPU.Ocupar(nombreCPU, aEjecutar.PID)
 				CPUsOcupadas.Agregar(cpu.Nombre, ejecucion)
 				logueador.Info("Se ocupa la CPU %s con el proceso PID %d", cpu.Nombre, aEjecutar.PID)
 

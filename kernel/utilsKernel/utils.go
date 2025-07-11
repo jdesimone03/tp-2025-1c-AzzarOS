@@ -39,7 +39,6 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 			})
 
 			TiempoEnColaBlocked.Agregar(pid, timer)
-			//IniciarTimerSuspension(pid)
 		}
 
 		// Si pasamos DE estado bloqueado
@@ -67,7 +66,6 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 		Tamanio:       tamanio,
 	}
 
-	//utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "nuevo-proceso", proceso)
 	NuevosProcesos.Agregar(proceso.PID, proceso)
 
 	// Crea el PCB y lo inserta en NEW
@@ -88,7 +86,6 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 }
 
 func SeñalizarProcesoEnCortoPlazo() {
-	//ChColaReady <- struct{}{}
 	select {
 	case ChColaReady <- struct{}{}:
 	// Señal enviada exitosamente

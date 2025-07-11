@@ -27,9 +27,6 @@ var TiempoEstimado = structs.NewMapSeguro[uint, float64]()
 
 var contadorProcesos uint = 0
 
-// scheduler_algorithm: LARGO plazo
-// ready_ingress_algorithm: CORTO plazo
-
 var NuevosProcesos = structs.NewMapSeguro[uint,structs.NuevoProceso]()
 var ProcesosEnEspera = structs.NewMapSeguro[uint, structs.NuevoProceso]()
 

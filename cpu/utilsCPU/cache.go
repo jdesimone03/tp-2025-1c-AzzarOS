@@ -11,18 +11,6 @@ import (
 )
 
 // --------------------------------------- Cache ---------------------------------------------
-
-/*
-Cosas para testear:
-- Agregado de pagina a cache => Testeado
-- Remplazo de pagina en cache:
-  - Con Algoritmo CLOCK 
-  - Con CLOCK - M 
-  - Con FIFO => en TLB Testeado
-  - Con LRU 
-- Verificacion de si una pagina fue modificada => Testeado
-- Envio de pagina a memoria
-*/
 var Cache structs.CacheStruct
 
 func InicializarCache() {

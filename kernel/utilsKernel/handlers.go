@@ -23,8 +23,6 @@ func HandleHandshake(tipo string) func(http.ResponseWriter, *http.Request) {
 
 			// Inicializa la interfaz y el planificador
 			Interfaces.Agregar(interfaz.Interfaz)
-			// go PlanificadorIO(interfaz.Nombre)
-			// MoverAExecIO(interfaz.Nombre)
 			if ListaWaitIO.NoVacia(interfaz.Interfaz.Nombre) {
 				aEjecutar := ListaWaitIO.EliminarPrimero(interfaz.Interfaz.Nombre)
 				DispatchIO(interfaz.Interfaz, aEjecutar)
