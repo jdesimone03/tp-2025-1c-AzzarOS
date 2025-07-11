@@ -130,6 +130,9 @@ func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
 	}
 	MoverPCB(pid, origen, ColaExit, structs.EstadoExit) // asumimos que liberar el pcb es moverlo a exit
 
+	// Log obligatorio 7/8
+	logueador.FinDeProceso(pid)
+
 	pcb, _ := ColaExit.Buscar(pid)
 
 	// Log obligatorio 8/8
