@@ -32,7 +32,7 @@ func SyscallIO(pid uint, instruccion structs.IoInstruction) {
 
 		// Enviar proceso a BLOCKED
 		MoverPCB(pid, ColaExecute, ColaBlocked, structs.EstadoBlocked)
-		
+
 		logueador.MotivoDeBloqueo(pid, nombre)
 
 		instancia, hayDisponible := BuscarIODisponible(nombre)
@@ -88,15 +88,19 @@ func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 
 func VerificarInicializacion() {
 	// Iterar de atrás hacia adelante para evitar problemas con índices
+	var procesoAEnviar structs.NuevoProceso
 	for i := range ColaSuspReady.Longitud() {
 		if i >= ColaSuspReady.Longitud() {
 			break // Saltar si el índice ya no es válido
 		}
 		pcb := ColaSuspReady.Obtener(i)
-		_, existe := ProcesosEnEspera.Obtener(pcb.PID)
-		if existe {
-			ChMemoriaLiberada.Señalizar(pcb.PID, struct{}{})
+		switch Config.ReadyIngressAlgorithm {
+		case "FIFO":
+			procesoAEnviar, _ = ProcesosEnEspera.Obtener(pcb.PID)
+		case "PMCP":
+			procesoAEnviar = ObtenerProcesoMenorTamanioEnEspera(ColaSuspReady)
 		}
+		ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
 	}
 
 	if ColaSuspReady.Vacia() {
@@ -105,10 +109,13 @@ func VerificarInicializacion() {
 				continue // Saltar si el índice ya no es válido
 			}
 			pcb := ColaNew.Obtener(i)
-			_, existe := ProcesosEnEspera.Obtener(pcb.PID)
-			if existe {
-				ChMemoriaLiberada.Señalizar(pcb.PID, struct{}{})
+			switch Config.ReadyIngressAlgorithm {
+			case "FIFO":
+				procesoAEnviar, _ = ProcesosEnEspera.Obtener(pcb.PID)
+			case "PMCP":
+				procesoAEnviar = ObtenerProcesoMenorTamanioEnEspera(ColaNew)
 			}
+			ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
 		}
 	}
 }

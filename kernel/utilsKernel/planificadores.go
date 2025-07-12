@@ -206,6 +206,30 @@ func ObtenerProcesoMenorTamanio(cola *structs.ColaSegura) structs.NuevoProceso {
 	return procesoMinimo
 }
 
+
+// Función para obtener el proceso con menor tamaño de una cola específica
+func ObtenerProcesoMenorTamanioEnEspera(cola *structs.ColaSegura) structs.NuevoProceso {
+	if cola.Vacia() {
+		return structs.NuevoProceso{}
+	}
+
+	// Inicializar con el primer proceso de la cola
+	firstPCB := cola.Obtener(0)
+	procesoMinimo, _ := ProcesosEnEspera.Obtener(firstPCB.PID)
+
+	// Iterar sobre todos los procesos en la cola para encontrar el menor
+	for i := 1; i < cola.Longitud(); i++ {
+		pcb := cola.Obtener(i)
+		nuevoProceso, _ := ProcesosEnEspera.Obtener(pcb.PID)
+		if nuevoProceso.Tamanio < procesoMinimo.Tamanio {
+			procesoMinimo = nuevoProceso
+		}
+	}
+
+	return procesoMinimo
+}
+
+
 func BuscarCPUDisponible() (structs.InstanciaCPU, bool) {
 	for i := range InstanciasCPU.Longitud() {
 		cpu := InstanciasCPU.Obtener(i)
