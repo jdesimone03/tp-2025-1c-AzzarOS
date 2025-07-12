@@ -87,36 +87,35 @@ func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 }
 
 func VerificarInicializacion() {
+	logueador.Debug("Intentando inicializar procesos")
 	// Iterar de atrás hacia adelante para evitar problemas con índices
-	var procesoAEnviar structs.NuevoProceso
-	for i := range ColaSuspReady.Longitud() {
-		if i >= ColaSuspReady.Longitud() {
-			break // Saltar si el índice ya no es válido
+	switch Config.ReadyIngressAlgorithm {
+	case "FIFO":
+		for i := range ColaSuspReady.Longitud() {
+			if i >= ColaSuspReady.Longitud() {
+				break // Saltar si el índice ya no es válido
+			}
+			pcb := ColaSuspReady.Obtener(i)
+			procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
+			if existe {
+				logueador.Debug("Proceso a enviar: %+v", procesoAEnviar)
+				ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
+			}
 		}
-		pcb := ColaSuspReady.Obtener(i)
-		switch Config.ReadyIngressAlgorithm {
-		case "FIFO":
-			procesoAEnviar, _ = ProcesosEnEspera.Obtener(pcb.PID)
-		case "PMCP":
-			procesoAEnviar = ObtenerProcesoMenorTamanioEnEspera(ColaSuspReady)
-		}
-		ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
-	}
-
-	if ColaSuspReady.Vacia() {
 		for i := range ColaNew.Longitud() {
 			if i >= ColaNew.Longitud() {
 				continue // Saltar si el índice ya no es válido
 			}
 			pcb := ColaNew.Obtener(i)
-			switch Config.ReadyIngressAlgorithm {
-			case "FIFO":
-				procesoAEnviar, _ = ProcesosEnEspera.Obtener(pcb.PID)
-			case "PMCP":
-				procesoAEnviar = ObtenerProcesoMenorTamanioEnEspera(ColaNew)
+			procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
+			if existe {
+				ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
 			}
-			ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
 		}
+	case "PMCP":
+		ObtenerProcesoMenorTamanioEnEspera(ColaSuspReady)
+		ObtenerProcesoMenorTamanioEnEspera(ColaNew)
+
 	}
 }
 

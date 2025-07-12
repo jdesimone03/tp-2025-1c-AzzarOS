@@ -146,6 +146,12 @@ func (ms *MapSeguro[K, V]) Eliminar(key K) {
 	delete(ms.Map, key)
 }
 
+func (ms *MapSeguro[K, V]) Copiar() map[K]V {
+	ms.Mutex.Lock()
+	defer ms.Mutex.Unlock()
+	return ms.Map
+}
+
 // --------------------------------- MAP CPU EXEC --------------------------------- //
 
 type MapCPUExec MapSeguro[string, EjecucionCPU]
@@ -487,6 +493,13 @@ func (cs *ColaSegura) Vacia() bool {
 	defer cs.Mutex.Unlock()
 	return !(len(cs.Cola) > 0)
 }
+
+func (cs *ColaSegura) Copiar() []PCB {
+	cs.Mutex.Lock()
+	defer cs.Mutex.Unlock()
+	return cs.Cola
+}
+
 
 // --------------------------------- Utilidades --------------------------------- //
 
