@@ -115,6 +115,11 @@ func CrearPCB() structs.PCB {
 }
 
 func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
+	if _, existe := origen.Buscar(pid); existe == -1 {
+		logueador.Error("El proceso %d no está en la cola de origen", pid)
+		return
+	}
+	
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "finalizarProceso", pid)
 	if respuesta != "OK" {
 		logueador.Error("Error al finalizar el proceso %d: %s", pid, respuesta)

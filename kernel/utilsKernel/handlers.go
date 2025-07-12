@@ -139,13 +139,15 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 // ---------------------------- IO ----------------------------//
 
-func FinalizarBloqueado(pid uint) {
-	_, indice := ColaBlocked.Buscar(pid)
-	if indice > -1 {
+func FinalizarBloqueado(pid uint) bool {
+	if _, indice := ColaBlocked.Buscar(pid); indice > -1 {
 		FinalizarProceso(pid, ColaBlocked)
-	} else {
+		return true
+	} else if _, indice := ColaSuspBlocked.Buscar(pid); indice > -1 {
 		FinalizarProceso(pid, ColaSuspBlocked)
+		return true
 	}
+	return false
 }
 
 func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
@@ -174,17 +176,8 @@ func HandleIODisconnect(w http.ResponseWriter, r *http.Request) {
 	if ejecucion, existe := ListaExecIO.Obtener(*ifaz); existe && len(ejecucion) > 0 {
 		
 		pid := ejecucion[0].PID
-
-		if _, indice := ColaExecute.Buscar(pid); indice > -1 {
-			// No hago nada
-		} else {
-			if _, indice := ColaReady.Buscar(pid); indice > -1 {
-				// Tampoco hago nada
-			} else {
-				FinalizarBloqueado(pid)
-			}
-		}
-
+		
+		FinalizarBloqueado(pid)
 		
 		// Borro el proceso de la lista de ejecución
 		ListaExecIO.EliminarPrimero(*ifaz)
