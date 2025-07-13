@@ -216,10 +216,13 @@ func Suspender(pcb structs.PCB) {
 }
 
 func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
+
 	logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", proceso.PID, proceso.Instrucciones, proceso.Tamanio)
+
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
 	if respuesta == "OK" {
 		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
+
 		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
 		ProcesosEnEspera.Eliminar(proceso.PID)
 	} else {

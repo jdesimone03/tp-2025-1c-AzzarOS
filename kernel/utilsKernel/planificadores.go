@@ -102,10 +102,10 @@ func PlanificadorCortoPlazo() {
 						aEjecutar, _ = ObtenerMasChico()
 					}
 				default:
-					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.ReadyIngressAlgorithm)
+					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.SchedulerAlgorithm)
 					return
 				}
-				logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.ReadyIngressAlgorithm, aEjecutar.PID)
+				logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.SchedulerAlgorithm, aEjecutar.PID)
 
 				ejecucion := structs.EjecucionCPU{
 					PID: aEjecutar.PID,
