@@ -456,6 +456,9 @@ func (cs *ColaSegura) Eliminar(indice int) {
 func (cs *ColaSegura) Obtener(indice int) PCB {
 	cs.Mutex.Lock()
 	defer cs.Mutex.Unlock()
+	if indice < 0 || indice >= len(cs.Cola) {
+		return PCB{}
+	}
 	return cs.Cola[indice]
 }
 

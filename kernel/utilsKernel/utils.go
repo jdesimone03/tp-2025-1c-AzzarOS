@@ -22,12 +22,17 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 		if estadoNuevo != structs.EstadoExit {
 			pcb.MetricasTiempo[estadoNuevo] = time.Now().UnixMilli()
 		}
-
+		
+		pcb.MetricasConteo[estadoNuevo]++
+		
+		destino.Agregar(pcb)
+		origen.Eliminar(indice)
+		
 		if estadoNuevo == structs.EstadoReady {
 			SeñalizarProcesoEnCortoPlazo()
 		}
-
-		if estadoNuevo == structs.EstadoNew || estadoNuevo == structs.EstadoSuspReady {
+		
+		if estadoNuevo == structs.EstadoSuspReady {
 			SeñalizarProcesoEnLargoMedioPlazo()
 		}
 
@@ -37,7 +42,7 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 			timer := time.AfterFunc(time.Duration(Config.SuspensionTime)*time.Millisecond, func() {
 				Suspender(pcb)
 			})
-
+			
 			TiempoEnColaBlocked.Agregar(pid, timer)
 		}
 
@@ -46,14 +51,9 @@ func MoverPCB(pid uint, origen *structs.ColaSegura, destino *structs.ColaSegura,
 			CancelarTimerSuspension(pid)
 		}
 
-		pcb.MetricasConteo[estadoNuevo]++
-
-		destino.Agregar(pcb)
-		origen.Eliminar(indice)
-
 		// Log obligatorio 3/8
 		logueador.CambioDeEstado(pid, estadoActual, estadoNuevo)
-
+		
 		return true
 	}
 	return false
@@ -88,9 +88,10 @@ func NuevoProceso(rutaArchInstrucciones string, tamanio int) {
 func SeñalizarProcesoEnCortoPlazo() {
 	select {
 	case ChColaReady <- struct{}{}:
-	// Señal enviada exitosamente
+		// Señal enviada exitosamente
+		logueador.Debug("Señal ChColaReady enviada exitosamente")
 	default:
-		// El semáforo ya tiene una señal, no hacer nada
+		logueador.Debug("El semáforo PCP ya tiene una señal, no hacer nada")
 	}
 }
 
@@ -98,9 +99,9 @@ func SeñalizarProcesoEnCortoPlazo() {
 func SeñalizarProcesoEnLargoMedioPlazo() {
 	select {
 	case ChColasLargoMedioPlazo <- struct{}{}:
-		// Señal enviada exitosamente
+		logueador.Debug("Señal Mediano y Largo plazo enviada exitosamente")
 	default:
-		// El semáforo ya tiene una señal, no hacer nada
+		logueador.Debug("El semáforo PLYMP ya tiene una señal, no hacer nada")
 	}
 }
 
@@ -119,7 +120,7 @@ func FinalizarProceso(pid uint, origen *structs.ColaSegura) {
 		logueador.Error("El proceso %d no está en la cola de origen", pid)
 		return
 	}
-	
+
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "finalizarProceso", pid)
 	if respuesta != "OK" {
 		logueador.Error("Error al finalizar el proceso %d: %s", pid, respuesta)
@@ -191,6 +192,14 @@ func IniciarTimerSuspension(pid uint) {
 	// La lógica de expiración y movimiento ahora es manejada por PlanificadorMedianoPlazo.
 }
 
+// Función para cancelar el timer de suspensión
+func CancelarTimerSuspension(pid uint) {
+	if timer, existe := TiempoEnColaBlocked.Obtener(pid); existe {
+		timer.Stop() // Retorna true si se canceló, false si ya había expirado
+		TiempoEnColaBlocked.Eliminar(pid)
+	}
+}
+
 // Esta funcion se programa cuando el pcb pasa a estado bloqueado
 func Suspender(pcb structs.PCB) {
 	if pcb.Estado == structs.EstadoBlocked {
@@ -206,33 +215,80 @@ func Suspender(pcb structs.PCB) {
 	}
 }
 
-// Función para cancelar el timer de suspensión
-func CancelarTimerSuspension(pid uint) {
-	if timer, existe := TiempoEnColaBlocked.Obtener(pid); existe {
-		timer.Stop() // Retorna true si se canceló, false si ya había expirado
-		TiempoEnColaBlocked.Eliminar(pid)
+func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
+	logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", proceso.PID, proceso.Instrucciones, proceso.Tamanio)
+	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
+	if respuesta == "OK" {
+		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
+		MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
+		ProcesosEnEspera.Eliminar(proceso.PID)
+	} else {
+		logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
+		ProcesosEnEspera.Agregar(proceso.PID, proceso)
 	}
 }
 
-func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.ColaSegura) {
-	for {
-		logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", proceso.PID, proceso.Instrucciones, proceso.Tamanio)
-		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
-		if respuesta == "OK" {
-			utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)
-			MoverPCB(proceso.PID, origen, ColaReady, structs.EstadoReady)
+func VerificarInicializacion() {
+	logueador.Debug("Intentando inicializar procesos")
+	// Iterar de atrás hacia adelante para evitar problemas con índices
+	switch Config.ReadyIngressAlgorithm {
+	case "FIFO":
+		VerificarFIFO(ColaSuspReady)
+		VerificarFIFO(ColaNew)
+	case "PMCP":
+		VerificarPMCP(ColaSuspReady)
+		VerificarPMCP(ColaNew)
+	}
+}
 
-			ProcesosEnEspera.Eliminar(proceso.PID)
-			ChMemoriaLiberada.LimpiarChannel(proceso.PID)
-			return
-		} else {
-			logueador.Warn("(%d) No hay espacio en memoria para enviar el proceso. Esperando a que la memoria se libere...", proceso.PID)
-			ProcesosEnEspera.Agregar(proceso.PID, proceso)
+func VerificarFIFO(cola *structs.ColaSegura) {
+	for i := range cola.Longitud() {
 
-			ch := ChMemoriaLiberada.ObtenerChannel(proceso.PID, 1)
+		if i >= cola.Longitud() {
+			continue // Saltar si el índice ya no es válido
+		}
 
-			<-ch
-			continue
+		pcb := cola.Obtener(i)
+		procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
+
+		if existe {
+			IntentarInicializarProceso(procesoAEnviar, cola)
+		}
+	}
+}
+
+func VerificarPMCP(cola *structs.ColaSegura) {
+	if !cola.Vacia() {
+
+		procesos := make([]structs.NuevoProceso, 0)
+
+		for i := range cola.Longitud() {
+			if i >= cola.Longitud() {
+				break // Saltar si el índice ya no es válido
+			}
+
+			pcb := cola.Obtener(i)
+			nuevoProceso, existe := ProcesosEnEspera.Obtener(pcb.PID)
+			if existe {
+				procesos = append(procesos, nuevoProceso)
+			}
+		}
+
+		OrdenarLista(&procesos)
+
+		for _, proc := range procesos {
+			IntentarInicializarProceso(proc, cola)
+		}
+	}
+}
+
+func OrdenarLista(lista *[]structs.NuevoProceso) {
+	// Ordenar por tamaño (bubble sort simple)
+	for i := 0; i < len(*lista); i++ {
+		for j := 0; j < len(*lista)-1-i; j++ {
+			if (*lista)[j].Tamanio > (*lista)[j+1].Tamanio {
+				(*lista)[j], (*lista)[j+1] = (*lista)[j+1], (*lista)[j]
+			}
 		}
 	}
 }

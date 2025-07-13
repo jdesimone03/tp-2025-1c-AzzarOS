@@ -3,7 +3,6 @@ package utilsKernel
 import (
 	"bufio"
 	"os"
-	"slices"
 	"time"
 	"utils"
 	"utils/logueador"
@@ -15,8 +14,13 @@ func PlanificadorLargoYMedianoPlazo() {
 
 	var procesoAEnviar structs.NuevoProceso
 	for {
-		// Esperar hasta que haya procesos disponibles
-		<-ChColasLargoMedioPlazo
+		// Debug: mostrar cantidad en el canal antes de leer
+        logueador.Debug("Canal ChColasLargoMedioPlazo tiene %d elementos", len(ChColasLargoMedioPlazo))
+        
+        // Esperar hasta que haya procesos disponibles
+        <-ChColasLargoMedioPlazo
+        
+        logueador.Debug("Canal ChColasLargoMedioPlazo después de leer tiene %d elementos", len(ChColasLargoMedioPlazo))
 
 		// Obtener dinámicamente la cola y el PCB a procesar
 		cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
@@ -26,13 +30,14 @@ func PlanificadorLargoYMedianoPlazo() {
 			case "FIFO":
 				procesoAEnviar, _ = NuevosProcesos.Obtener(firstPCB.PID)
 			case "PMCP":
-				procesoAEnviar, _ = ObtenerProcesoMenorTamanio(cola)
+				procesoAEnviar, _ = ObtenerProcesoMenorTamanio(firstPCB.PID, cola)
 			default:
 				logueador.Error("Algoritmo de planificacion de largo plazo no reconocido: %s", Config.SchedulerAlgorithm)
 				return
 			}
 
 			IntentarInicializarProceso(procesoAEnviar, cola)
+
 		}
 
 		// Verificar si aún hay procesos para procesar
@@ -164,8 +169,8 @@ func ObtenerMasChico() (structs.PCB, float64) {
 // Función para obtener dinámicamente la próxima cola a procesar
 func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
 	// Prioridad 1: Cola de suspendidos listos
-	if !ColaSuspReady.Vacia() {
-		firstPCB := ColaSuspReady.Obtener(0)
+	for i := range ColaSuspReady.Longitud() {
+		firstPCB := ColaSuspReady.Obtener(i)
 		_, existe := ProcesosEnEspera.Obtener(firstPCB.PID)
 		if !existe {
 			return ColaSuspReady, firstPCB, true
@@ -173,8 +178,8 @@ func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
 	}
 
 	// Prioridad 2: Cola de nuevos procesos
-	if !ColaNew.Vacia() {
-		firstPCB := ColaNew.Obtener(0)
+	for i := range ColaNew.Longitud() {
+		firstPCB := ColaNew.Obtener(i)
 		_, existe := ProcesosEnEspera.Obtener(firstPCB.PID)
 		if !existe {
 			return ColaNew, firstPCB, true
@@ -186,57 +191,21 @@ func ObtenerProximaColaProceso() (*structs.ColaSegura, structs.PCB, bool) {
 }
 
 // Función para obtener el proceso con menor tamaño de una cola específica
-func ObtenerProcesoMenorTamanioEnEspera(cola *structs.ColaSegura) {
-	if cola.Vacia() {
-		return
-	}
-
-	logueador.Debug("%+v", ProcesosEnEspera.Map)
-	aux := ProcesosEnEspera.Copiar()
-	auxCola := cola.Copiar()
-
-	// Iterar sobre todos los procesos en la cola para encontrar el menor
-	for {
-		// Inicializar con el primer proceso de la cola
-		firstPCB := auxCola[0]
-		procesoMinimo := aux[firstPCB.PID]
-
-		for i := range cola.Longitud() {
-			pcb := cola.Obtener(i)
-			nuevoProceso, existe := aux[pcb.PID]
-			if existe && nuevoProceso.Tamanio < procesoMinimo.Tamanio {
-				procesoMinimo = nuevoProceso
-			}
-		}
-		respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", procesoMinimo.Tamanio)
-		if respuesta == "OK" {
-			ChMemoriaLiberada.Señalizar(procesoMinimo.PID, struct{}{})
-			return
-		}
-		delete(aux, procesoMinimo.PID)
-		slices.Delete(auxCola, 0, 1) // Elimina el primer elemento de la cola
-		if len(aux) == 0 {
-			return
-		}
-		if len(auxCola) == 0 {
-			return
-		}
-	}
-}
-
-// Función para obtener el proceso con menor tamaño de una cola específica
-func ObtenerProcesoMenorTamanio(cola *structs.ColaSegura) (structs.NuevoProceso, bool) {
+func ObtenerProcesoMenorTamanio(firstPID uint, cola *structs.ColaSegura) (structs.NuevoProceso, bool) {
 	if cola.Vacia() {
 		return structs.NuevoProceso{}, false
 	}
 
 	// Inicializar con el primer proceso de la cola
-	firstPCB := cola.Obtener(0)
-	procesoMinimo, _ := NuevosProcesos.Obtener(firstPCB.PID)
+	procesoMinimo, _ := NuevosProcesos.Obtener(firstPID)
 
 	// Iterar sobre todos los procesos en la cola para encontrar el menor
 	for i := range cola.Longitud() {
 		pcb := cola.Obtener(i)
+		_, enEspera := ProcesosEnEspera.Obtener(pcb.PID)
+		if enEspera {
+			continue
+		}
 		nuevoProceso, existe := NuevosProcesos.Obtener(pcb.PID)
 		if existe && nuevoProceso.Tamanio < procesoMinimo.Tamanio {
 			procesoMinimo = nuevoProceso

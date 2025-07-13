@@ -86,39 +86,6 @@ func SyscallExit(pid uint, instruccion structs.ExitInstruction) {
 	FinalizarProceso(pid, ColaExecute)
 }
 
-func VerificarInicializacion() {
-	logueador.Debug("Intentando inicializar procesos")
-	// Iterar de atrás hacia adelante para evitar problemas con índices
-	switch Config.ReadyIngressAlgorithm {
-	case "FIFO":
-		for i := range ColaSuspReady.Longitud() {
-			if i >= ColaSuspReady.Longitud() {
-				break // Saltar si el índice ya no es válido
-			}
-			pcb := ColaSuspReady.Obtener(i)
-			procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
-			if existe {
-				logueador.Debug("Proceso a enviar: %+v", procesoAEnviar)
-				ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
-			}
-		}
-		for i := range ColaNew.Longitud() {
-			if i >= ColaNew.Longitud() {
-				continue // Saltar si el índice ya no es válido
-			}
-			pcb := ColaNew.Obtener(i)
-			procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
-			if existe {
-				ChMemoriaLiberada.Señalizar(procesoAEnviar.PID, struct{}{})
-			}
-		}
-	case "PMCP":
-		ObtenerProcesoMenorTamanioEnEspera(ColaSuspReady)
-		ObtenerProcesoMenorTamanioEnEspera(ColaNew)
-
-	}
-}
-
 func BuscarIODisponible(nombre string) (structs.InterfazIO, bool) {
 	logueador.Debug("Interfaces disponibles: %+v", Interfaces.Cola)
 	logueador.Debug("Espera de IO %s: %+v", nombre, ListaWaitIO.Map[nombre])
