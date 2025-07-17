@@ -151,7 +151,7 @@ func EscribirDumpEnArchivo(file *os.File, pid uint, frames []string) error {
 	if err != nil {
 		return fmt.Errorf("error al escribir en el archivo de dump: %w", err)
 	}
-	logueador.Info("Dump del PID %d guardado exitosamente en %s", pid, file.Name())
+	logueador.Debug("Dump del PID %d guardado exitosamente en %s", pid, file.Name())
 	return nil
 }
 

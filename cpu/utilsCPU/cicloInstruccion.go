@@ -40,6 +40,7 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 
 func FetchAndDecode(ctxEjecucion *structs.EjecucionCPU) any {
 	// Log obligatorio 1/11
+	MostrarContenidoCache()
 	logueador.FetchInstruccion(ctxEjecucion.PID, ctxEjecucion.PC)
 	instruccion := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "proximaInstruccion", ctxEjecucion)
 	if instruccion == "PID no existe" {
@@ -114,7 +115,7 @@ func Read(pid uint, inst structs.ReadInstruction) {
 
 	read := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "read", inst2)
 	if read == "" {
-		logueador.Info("Se leyó un string vacio")
+		logueador.Debug("Se leyó un string vacio")
 		return
 	}
 
@@ -124,7 +125,7 @@ func Read(pid uint, inst structs.ReadInstruction) {
 		logueador.Error("Error al pedir el frame a memoria: %v", err)
 		return
 	}
-	logueador.Info("Página leída de memoria: %v - Agregandola a caché", pagina)
+	logueador.Debug("Página leída de memoria: %v - Agregandola a caché", pagina)
 	AgregarPaginaACache(pagina)
 	}
 

@@ -42,7 +42,7 @@ func CreacionArchivoSWAP() {
 	if err != nil {
 		logueador.Error("Error al crear el archivo SWAP: %v", err)
 	}
-	logueador.Info("Archivo SWAP creado exitosamente en: %s", pathCorrecto)
+	logueador.Debug("Archivo SWAP creado exitosamente en: %s", pathCorrecto)
 	defer file.Close()
 }
 
@@ -60,7 +60,7 @@ func BuscarPaginasDeProceso(pid uint) []string {
 			Ocupadas[i] = -1 // Marcar el frame como libre
 		}
 	}
-	logueador.Info("Páginas encontradas para el proceso")
+	logueador.Debug("Páginas encontradas para el proceso")
 	return listaDePaginas
 }
 
@@ -116,14 +116,14 @@ func ProcesoASacarDeSwap(procesos []structs.ProcesoEnSwap, pid uint) (*structs.P
 			return &encontrado, procesos               // Retorna el proceso encontrado
 		}
 	}
-	logueador.Info("Proceso con PID %d no encontrado en SWAP", pid)
+	logueador.Debug("Proceso con PID %d no encontrado en SWAP", pid)
 	return nil, nil // Si no se encuentra, retorna nil
 }
 
 // Si hay espacio para inicializar => que entren las paginas del proceso en memoria principal
 func SwapOutProceso(pid uint) {
 
-	logueador.Info("Buscando proceso en SWAP")
+	logueador.Debug("Buscando proceso en SWAP")
 	procesoEnSwap := BuscarProcesoEnSwap(pid)
 	if procesoEnSwap == nil {
 		logueador.Warn("El proceso %d no se encuentra en el SWAP", pid)
@@ -153,5 +153,5 @@ func SwapInProceso(pid uint) {
 		Paginas: paginas,
 	}
 	EscribirProcesoEsSwap(procesoEnSwap)
-	logueador.Info("Proceso de PID: %d ha sido movido a SWAP", pid)
+	logueador.Debug("Proceso de PID: %d ha sido movido a SWAP", pid)
 }

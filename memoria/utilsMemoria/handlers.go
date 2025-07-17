@@ -28,10 +28,10 @@ func HandlerHayEspacio(w http.ResponseWriter, r *http.Request) {
 	if HayEspacioParaInicializar(*tam) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Hay espacio disponible"))
-		logueador.Info("Hay espacio disponible para %d bytes", tam)
+		logueador.Debug("Hay espacio disponible para %d bytes", tam)
 	} else {
 		w.WriteHeader(http.StatusNoContent)
-		logueador.Info("No hay espacio disponible para %d bytes", tam)
+		logueador.Debug("No hay espacio disponible para %d bytes", tam)
 	}
 }
 
@@ -119,7 +119,7 @@ func HandlerPedidoTDP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(tablaJSON)
 
-	logueador.Info("Tabla de páginas enviada para el PID: %d", pidInt)
+	logueador.Debug("Tabla de páginas enviada para el PID: %d", pidInt)
 }
 
 func HandlerConfig(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +147,7 @@ func HandlerConfig(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(configJSON)
-	logueador.Info("Configuración enviada")
+	logueador.Debug("Configuración enviada")
 }
 
 func HandlerEscribirDeCache(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logueador.Info("Existe el PID")
+	logueador.Debug("Existe el PID")
 	time.Sleep(time.Millisecond * time.Duration(Config.SwapDelay)) // Simula el tiempo de espera para la verificación de espacio
 
 	SwapInProceso(*pid)
@@ -407,7 +407,7 @@ func MandarInstruccion(instruccion string, w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(instruccionJSON)
-	logueador.Info("Instrucción enviada desde memoria - instruccion: %s", instruccion)
+	logueador.Debug("Instrucción enviada desde memoria - instruccion: %s", instruccion)
 }
 
 func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
@@ -427,11 +427,11 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		logueador.Info("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
+		logueador.Debug("Hay esapcio para inicializar el proceso con PID: %d", data.PID)
 		CargarPIDconInstrucciones(data.Instrucciones, int(data.PID)) // Carga las instrucciones del PID en el map
 		CrearMetricaDeProceso(data.PID)                              // Crea la metrica del proceso para ir guardando registro de las acciones
 		CrearTablaDePaginas(data.PID, int(data.Tamanio))             // Crea la tabla de paginas del PID
-		logueador.Info("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
+		logueador.Debug("Se han creado todas las estructuras necesarias para el PID: %d", data.PID)
 		// Log obligatorio 1/5
 		logueador.MemoriaCreacionDeProceso(data.PID, data.Tamanio)
 	}

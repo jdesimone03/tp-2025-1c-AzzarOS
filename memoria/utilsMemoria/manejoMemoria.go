@@ -102,7 +102,7 @@ func Write(pid uint, direccionFisica int, aEscribir string) error {
 		}
 	}
 
-	logueador.Info("Escribiendo en memoria")
+	logueador.Debug("Escribiendo en memoria")
 	copy(EspacioUsuario[direccionFisica:], []byte(aEscribir))
 
 	return nil
@@ -132,7 +132,7 @@ func LiberarMemoria(pid uint) {
 	for i := range Ocupadas {
 		if Ocupadas[i] == int(pid) {
 			Ocupadas[i] = -1 // Marca el frame como libre
-			logueador.Info("Liberando frame %d del proceso %d", i, pid)
+			logueador.Debug("Liberando frame %d del proceso %d", i, pid)
 		}
 	}
 }

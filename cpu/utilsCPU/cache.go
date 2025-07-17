@@ -13,6 +13,8 @@ import (
 // --------------------------------------- Cache ---------------------------------------------
 var Cache structs.CacheStruct
 
+
+
 func InicializarCache() {
 	paginas := make([]structs.PaginaCache, Config.CacheEntries) // Slice vacío, capacidad predefinida
 	
@@ -196,7 +198,7 @@ func IndiceLibreCache() int {
 func AgregarPaginaACache(pagina structs.PaginaCache) {
 
 	if !CacheHabilitado() {
-		logueador.Info("Cache no habilitada, no se puede agregar pagina a cache")
+		logueador.Debug("Cache no habilitada, no se puede agregar pagina a cache")
 		return // Cache no habilitada, no se puede agregar pagina a cache
 	}
 	
@@ -205,7 +207,7 @@ func AgregarPaginaACache(pagina structs.PaginaCache) {
 		return 
 	} else {
 		indiceLibre := IndiceLibreCache() // Obtenemos el indice libre de la cache
-		logueador.Info("Indice libre encontrado en Cache: %d", indiceLibre)
+		logueador.Debug("Indice libre encontrado en Cache: %d", indiceLibre)
 		Cache.Paginas[indiceLibre] = pagina // Asignamos la pagina al indice libre
 		logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) // Logueamos la pagina ingresada en cache
 		return 
@@ -219,6 +221,8 @@ func RemplazarPaginaEnCache(pagina structs.PaginaCache) {
 		logueador.Info("Pagina modificada, escribiendo en memoria")
 		MandarDatosAMP(Cache.Paginas[indiceVictima]) // Enviamos la pagina a memoria
 	}
+
+	logueador.Info("Reemplazando pagina en Cache: %d con la nueva pagina: %d", Cache.Paginas[indiceVictima].NumeroPagina, pagina.NumeroPagina)
 	Cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
 	logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) 
 }
@@ -337,4 +341,20 @@ func IndiceDeCacheVictima() int {
 	} else { // CLOCK - M
 		return BuscarVictimaClockM() // Llamamos a la funcion que busca la victima segun el algoritmo CLOCK-M
 	}
+}
+
+func MostrarContenidoCache() {
+	logueador.Debug("-------------------------------------------------------------------------------------")
+	logueador.Debug("Posición del puntero (Clock): %d", Cache.Clock)
+	logueador.Debug("Contenido de las entradas de la caché:")
+	for i, pagina := range Cache.Paginas {
+		if pagina.PID != -1 {
+			// No se muestra el contenido por ser muy grande
+			logueador.Debug("Entrada %2d: PID: %3d | Pág: %3d | Frame: %3d | Mod: %t | Uso: %t",
+				i, pagina.PID, pagina.NumeroPagina, pagina.NumeroFrame, pagina.BitModificado, pagina.BitDeUso)
+		} else {
+			logueador.Debug("Entrada %2d: [Libre]", i)
+		}
+	}
+	logueador.Debug("-------------------------------------------------------------------------------------")
 }

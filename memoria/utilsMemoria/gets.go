@@ -35,7 +35,7 @@ func MostrarMemoria(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w)
 	}
 
-	logueador.Info("Memoria enviada en formato texto legible")
+	logueador.Debug("Memoria enviada en formato texto legible")
 }
 
 func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +84,7 @@ func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(procesosJSON)
-	logueador.Info("Procesos en SWAP enviados")
+	logueador.Debug("Procesos en SWAP enviados")
 
 }
 
@@ -105,7 +105,7 @@ func HandlerMostrarMetricas(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(metricasJSON)
-	logueador.Info("Métricas enviadas")
+	logueador.Debug("Métricas enviadas")
 }
 
 func MostrarOcupadas(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +124,7 @@ func MostrarOcupadas(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(ocupadasJSON)
-	logueador.Info("Ocupadas enviadas")
+	logueador.Debug("Ocupadas enviadas")
 }
 
 func HandlerMostrarProcesoConInstrucciones(w http.ResponseWriter, r *http.Request) {
@@ -143,5 +143,5 @@ func HandlerMostrarProcesoConInstrucciones(w http.ResponseWriter, r *http.Reques
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(procesoConInstruccionesJSON)
-	logueador.Info("Lista de Procesos + PID enviada")
+	logueador.Debug("Lista de Procesos + PID enviada")
 }
