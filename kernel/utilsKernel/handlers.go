@@ -121,7 +121,6 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 
 	// Desaloja las cpu que se estén usando.
 	CPUsOcupadas.BuscarYEliminar(contexto.PID)
-	//ChContextoGuardado.Señalizar(contexto.PID, struct{}{})
 	SeñalizarCPUDisponible()
 
 	// Busca el proceso a guardar en la cola execute, o en la blocked o en la susp blocked
@@ -132,7 +131,6 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 			ColaSuspBlocked.Actualizar(contexto.PID, contexto.PC)
 		}
 	}
-	// horror
 
 	w.WriteHeader(http.StatusOK)
 }

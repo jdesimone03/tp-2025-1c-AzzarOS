@@ -14,13 +14,8 @@ func PlanificadorLargoYMedianoPlazo() {
 
 	var procesoAEnviar structs.NuevoProceso
 	for {
-		// Debug: mostrar cantidad en el canal antes de leer
-        logueador.Debug("Canal ChColasLargoMedioPlazo tiene %d elementos", len(ChColasLargoMedioPlazo))
-        
         // Esperar hasta que haya procesos disponibles
         <-ChColasLargoMedioPlazo
-        
-        logueador.Debug("Canal ChColasLargoMedioPlazo después de leer tiene %d elementos", len(ChColasLargoMedioPlazo))
 
 		// Obtener dinámicamente la cola y el PCB a procesar
 		cola, firstPCB, hayProceso := ObtenerProximaColaProceso()
@@ -37,9 +32,7 @@ func PlanificadorLargoYMedianoPlazo() {
 			}
 
 			IntentarInicializarProceso(procesoAEnviar, cola)
-
 		}
-
 		// Verificar si aún hay procesos para procesar
 		_, _, hayMasProcesos := ObtenerProximaColaProceso()
 		if hayMasProcesos {
@@ -105,7 +98,7 @@ func PlanificadorCortoPlazo() {
 					logueador.Error("Algoritmo de planificacion de corto plazo no reconocido: %s", Config.SchedulerAlgorithm)
 					return
 				}
-				logueador.Info("Por algoritmo %s se eligió al proceso %d", Config.SchedulerAlgorithm, aEjecutar.PID)
+				logueador.Debug("Por algoritmo %s se eligió al proceso %d", Config.SchedulerAlgorithm, aEjecutar.PID)
 
 				ejecucion := structs.EjecucionCPU{
 					PID: aEjecutar.PID,

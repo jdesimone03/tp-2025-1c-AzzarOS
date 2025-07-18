@@ -21,7 +21,7 @@ func Ejecucion(ctxEjecucion structs.EjecucionCPU) {
 		instruccionEjecutada := Execute(&ctxEjecucion, instruccionCodificada)
 		switch instruccionEjecutada {
 		case "GOTO":
-			// ctxEjecucion.PC = uint(instruccionCodificada.(structs.GotoInstruction).TargetAddress)
+			// No hacemos nada, ya que el GOTO cambia el PC en la funcion Execute
 		case "EXIT":
 			return
 		default:
