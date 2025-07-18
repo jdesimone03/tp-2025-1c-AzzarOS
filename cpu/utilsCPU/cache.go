@@ -112,7 +112,6 @@ func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 	DesalojarCache(modificadas)
 	DesalojoTlB(uint(pidInt)) // Desalojamos las entradas de TLB del PID
 	EliminarEntradasDeCache(uint(pidInt)) // Eliminamos las entradas de cache del PID
-	return 
 }
 
 func DesalojarCache(modificadas []structs.PaginaCache) {
@@ -120,7 +119,6 @@ func DesalojarCache(modificadas []structs.PaginaCache) {
 		contenido := modificadas[i].Contenido // Obtenemos el contenido de la pagina modificada
 		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "actualizarMP", contenido) // Enviamos el contenido a memoria)	
 	}
-	return
 }
 
 

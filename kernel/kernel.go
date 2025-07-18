@@ -50,7 +50,6 @@ func main() {
 	http.HandleFunc("/syscall/DUMP_MEMORY", utilsKernel.HandleSyscall("DUMP_MEMORY"))
 	http.HandleFunc("/syscall/EXIT", utilsKernel.HandleSyscall("EXIT"))
 
-	//http.HandleFunc("/FinEjecucion",utilsKernel.Algo())
 	http.HandleFunc("/guardar-contexto", utilsKernel.GuardarContexto)
 
 	// Manejo de IO

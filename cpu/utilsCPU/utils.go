@@ -38,10 +38,6 @@ func PedirConfigMemoria() error  {
 var ConfigMemoria *structs.ConfigMemoria
 
 
-func nroPagina(direccionLogica int, pagesize int) int {
-	return direccionLogica / pagesize
-}
-
 func desplazamiento(direccionLogica int, pagesize int) int {
 	return direccionLogica % pagesize
 }
