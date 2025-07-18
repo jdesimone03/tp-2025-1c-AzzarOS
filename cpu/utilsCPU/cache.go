@@ -8,6 +8,7 @@ import (
 	"utils/logueador"
 	"utils/structs"
 	"strconv"
+	"time"
 )
 
 // --------------------------------------- Cache ---------------------------------------------
@@ -127,7 +128,11 @@ func EliminarEntradasDeCache(pid uint) {
 	logueador.Info("Eliminando entradas de caché para el PID %d", pid)
 	for i := 0; i < len(Cache.Paginas); i++ {
 		if Cache.Paginas[i].PID == int(pid) { // Si el PID coincide, eliminamos la entrada
-			Cache.Paginas[i] = structs.PaginaCache{} // Reinicializamos la entrada
+			Cache.Paginas[i] = structs.PaginaCache{
+			NumeroPagina: -1,
+			NumeroFrame: -1,
+			PID: -1,
+			} // Reinicializamos la entrada
 			logueador.Info("Entrada de caché eliminada para el PID %d", pid)
 		}
 	}
@@ -208,6 +213,7 @@ func AgregarPaginaACache(pagina structs.PaginaCache) {
 	} else {
 		indiceLibre := IndiceLibreCache() // Obtenemos el indice libre de la cache
 		logueador.Debug("Indice libre encontrado en Cache: %d", indiceLibre)
+		time.Sleep(time.Duration(Config.CacheDelay))
 		Cache.Paginas[indiceLibre] = pagina // Asignamos la pagina al indice libre
 		logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) // Logueamos la pagina ingresada en cache
 		return 
@@ -223,6 +229,7 @@ func RemplazarPaginaEnCache(pagina structs.PaginaCache) {
 	}
 
 	logueador.Info("Reemplazando pagina en Cache: %d con la nueva pagina: %d", Cache.Paginas[indiceVictima].NumeroPagina, pagina.NumeroPagina)
+	time.Sleep(time.Duration(Config.CacheDelay)) 
 	Cache.Paginas[indiceVictima] = pagina // Reemplazamos la pagina victima por la nueva pagina
 	logueador.PaginaIngresadaEnCache(uint(pagina.PID), pagina.NumeroPagina) 
 }
@@ -239,6 +246,8 @@ func EscribirEnCache(pid uint, logicAdress int, data string) {
 
 	offset := logicAdress % ConfigMemoria.TamanioPagina
 	pagina := Cache.Paginas[indice].Contenido
+
+	time.Sleep(time.Duration(Config.CacheDelay))
 	
 	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
 	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
@@ -263,6 +272,7 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 		return nil 
 	}
 
+	time.Sleep(time.Duration(Config.CacheDelay))
 	pagina := Cache.Paginas[indice]
 	if pagina.BitPresencia && pagina.PID == int(pid) {
 		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en Cache
@@ -346,7 +356,6 @@ func IndiceDeCacheVictima() int {
 func MostrarContenidoCache() {
 	logueador.Debug("-------------------------------------------------------------------------------------")
 	logueador.Debug("Posición del puntero (Clock): %d", Cache.Clock)
-	logueador.Debug("Contenido de las entradas de la caché:")
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID != -1 {
 			// No se muestra el contenido por ser muy grande

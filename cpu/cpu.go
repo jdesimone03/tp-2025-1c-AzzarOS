@@ -50,7 +50,6 @@ func main() {
 	utilsCPU.InicializarCache()
 	utilsCPU.InicializarTLB()
 
-
 	utilsCPU.MostrarContenidoTLB()
 
 	http.HandleFunc("/dispatch", utilsCPU.RecibirEjecucion)

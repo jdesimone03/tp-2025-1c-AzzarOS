@@ -141,12 +141,14 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 			}
 		}) 
 		tlb.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
+		MostrarContenidoTLB()
 		return 
 	} else { // si no esta lleno, agrego la nueva entrada al final
 		indiceValido := EntradaTLBValida() // Buscamos un indice valido para agregar la nueva entrada
-		logueador.Info("Indice libre en TLB: %d", indiceValido)
+		logueador.Debug("Indice libre en TLB: %d", indiceValido)
 		tlb.Entradas[indiceValido] = nuevaEntrada // Asignamos la nueva entrada al indice valido
 		logueador.Info("Agregando entrada a TLB - PID: %d, Página: %d, Frame: %d", pid, nropagina, nroframe)
+		MostrarContenidoTLB()
 		return 
 	}
 }
@@ -166,9 +168,10 @@ func DesalojoTlB(pid uint) {
 }
 
 func MostrarContenidoTLB() {
-	logueador.Info("Contenido actual de la TLB:")
+	logueador.Info("-------------------- TLB CONTENIDO ------------------------------")
 	for i, entrada := range tlb.Entradas {
 		logueador.Info("Entrada %d: PID=%d, Pagina=%d, Frame=%d, Presente=%v, Llegada=%d, Referencia=%d",
 			i, entrada.PID, entrada.NumeroPagina, entrada.NumeroFrame, entrada.BitPresencia, entrada.Llegada, entrada.Referencia)
 	}
+	logueador.Info("------------------------------------------------------------------")
 }
