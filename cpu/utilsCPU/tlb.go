@@ -79,9 +79,11 @@ func AccesoATLB(pid int, nropagina int) int {
 	if bool { 
 		logueador.TLBHit(uint(pid), nropagina)
 		ActualizarReferencia(indice) // Actualizamos la referencia al instante actual
+		MostrarContenidoTLB()
 		return tlb.Entradas[indice].NumeroFrame // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		logueador.TLBMiss(uint(pid), nropagina)
+		MostrarContenidoTLB()
 		return -1
 	}
 }
@@ -141,14 +143,12 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 			}
 		}) 
 		tlb.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
-		MostrarContenidoTLB()
 		return 
 	} else { // si no esta lleno, agrego la nueva entrada al final
 		indiceValido := EntradaTLBValida() // Buscamos un indice valido para agregar la nueva entrada
 		logueador.Debug("Indice libre en TLB: %d", indiceValido)
 		tlb.Entradas[indiceValido] = nuevaEntrada // Asignamos la nueva entrada al indice valido
 		logueador.Info("Agregando entrada a TLB - PID: %d, Página: %d, Frame: %d", pid, nropagina, nroframe)
-		MostrarContenidoTLB()
 		return 
 	}
 }

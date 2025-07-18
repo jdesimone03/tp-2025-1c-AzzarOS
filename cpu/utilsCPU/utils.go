@@ -109,7 +109,7 @@ func MMU(pid uint, direccionLogica int) int {
 
 func TraducirDireccion(pid uint, direccion int) int {
 
-	logueador.Info("Traduciendo dirección lógica a física")
+	logueador.Debug("Traduciendo dirección lógica a física")
 	paginaLogica := direccion / ConfigMemoria.TamanioPagina 
 	offset := desplazamiento(direccion, ConfigMemoria.TamanioPagina) // desplazamiento dentro de la página
 

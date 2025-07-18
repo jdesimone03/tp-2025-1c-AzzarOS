@@ -99,8 +99,6 @@ func Read(pid uint, inst structs.ReadInstruction) {
 		return
 	}
 
-	logueador.PaginaFaltanteEnCache(pid, inst.Address / ConfigMemoria.TamanioPagina) // Logueamos la pagina faltante en cache
-
 	direccionFisica := TraducirDireccion(pid, inst.Address) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {
 		logueador.Info("Error al traducir la dirección lógica %d para el PID %d", inst.Address, pid)
@@ -141,8 +139,6 @@ func Write(pid uint, inst structs.WriteInstruction) {
 		EscribirEnCache(pid, inst.LogicAddress, inst.Data) // Escribimos en la caché
 		return
 	}
-	
-	logueador.PaginaFaltanteEnCache(pid, inst.LogicAddress / ConfigMemoria.TamanioPagina)
 
 	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {

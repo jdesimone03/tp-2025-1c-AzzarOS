@@ -5,9 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"utils/structs"
@@ -59,47 +57,21 @@ func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 	Info("Logger %s.log configurado", nombreArchivoLog)
 }
 
-// Función auxiliar mejorada para obtener información del caller
-func getCaller() string {
-    // Empezamos desde caller(2) y vamos subiendo en el stack
-    for i := 2; i < 10; i++ { // Limitamos a 10 niveles para evitar loops infinitos
-        _, file, line, ok := runtime.Caller(i)
-        if !ok {
-            break
-        }
-        
-        fileName := filepath.Base(file)
-        
-        // Si el archivo no es logueador.go, usamos este caller
-        if fileName != "logueador.go" {
-            return fmt.Sprintf("%s:%d", fileName, line)
-        }
-    }
-    
-    // Si todos los callers son logueador.go, usar el más cercano
-    _, file, line, _ := runtime.Caller(2)
-    return fmt.Sprintf("%s:%d", filepath.Base(file), line)
-}
-
 // ---------------------------- Funciones log ----------------------------//
 func Info(formato string, args ...any) {
-    caller := getCaller()
-    slog.Info(fmt.Sprintf(formato, args...), slog.String("caller", caller))
+    slog.Info(fmt.Sprintf(formato, args...))
 }
 
 func Error(formato string, args ...any) {
-    caller := getCaller()
-    slog.Error(fmt.Sprintf(formato, args...), slog.String("caller", caller))
+    slog.Error(fmt.Sprintf(formato, args...))
 }
 
 func Warn(formato string, args ...any) {
-    caller := getCaller()
-    slog.Warn(fmt.Sprintf(formato, args...), slog.String("caller", caller))
+    slog.Warn(fmt.Sprintf(formato, args...))
 }
 
 func Debug(formato string, args ...any) {
-    caller := getCaller()
-    slog.Debug(fmt.Sprintf(formato, args...), slog.String("caller", caller))
+    slog.Debug(fmt.Sprintf(formato, args...))
 }
 
 // ---------------------------- KERNEL ----------------------------//

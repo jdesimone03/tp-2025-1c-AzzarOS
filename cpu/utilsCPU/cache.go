@@ -19,7 +19,7 @@ var Cache structs.CacheStruct
 func InicializarCache() {
 	paginas := make([]structs.PaginaCache, Config.CacheEntries) // Slice vacío, capacidad predefinida
 	
-		for i := 0; i < Config.CacheEntries; i++ {
+		for i := range Config.CacheEntries {
 		paginas[i] = structs.PaginaCache{
 			NumeroPagina: -1,
 			NumeroFrame: -1,
@@ -50,9 +50,11 @@ func EstaEnCache(pid uint, direccionLogica int) bool {
 
 	for _, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == paginaLogica && pagina.BitPresencia {
+			logueador.PaginaEncontradaEnCache(uint(pid), paginaLogica)
 			return true // La página está en la caché
 		}
 	}
+	logueador.PaginaFaltanteEnCache(uint(pid), paginaLogica)
 	return false 
 }
 
@@ -66,7 +68,6 @@ func ObtenerPaginaDeCache(pid uint, nropagina int) int {
 
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
-			logueador.PaginaEncontradaEnCache(uint(pid), nropagina)
 			return i // Retorna la página y su índice en caché
 		}
 	}
@@ -123,7 +124,8 @@ func DesalojarCache(modificadas []structs.PaginaCache) {
 
 
 func EliminarEntradasDeCache(pid uint) {
-	logueador.Info("Eliminando entradas de caché para el PID %d", pid)
+	time.Sleep(time.Duration(Config.CacheDelay)) // Esperamos el tiempo de delay configurado
+	logueador.Debug("Eliminando entradas de caché para el PID %d", pid)
 	for i := 0; i < len(Cache.Paginas); i++ {
 		if Cache.Paginas[i].PID == int(pid) { // Si el PID coincide, eliminamos la entrada
 			Cache.Paginas[i] = structs.PaginaCache{
@@ -131,7 +133,7 @@ func EliminarEntradasDeCache(pid uint) {
 			NumeroFrame: -1,
 			PID: -1,
 			} // Reinicializamos la entrada
-			logueador.Info("Entrada de caché eliminada para el PID %d", pid)
+			logueador.Debug("Entrada de caché eliminada para el PID %d", pid)
 		}
 	}
 }
@@ -352,16 +354,21 @@ func IndiceDeCacheVictima() int {
 }
 
 func MostrarContenidoCache() {
-	logueador.Debug("-------------------------------------------------------------------------------------")
-	logueador.Debug("Posición del puntero (Clock): %d", Cache.Clock)
+	
+	if !CacheHabilitado(){
+        return 
+    }
+
+	logueador.Info("-------------------------------------------------------------------------------------")
+	logueador.Info("Posición del puntero (Clock): %d", Cache.Clock)
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID != -1 {
 			// No se muestra el contenido por ser muy grande
-			logueador.Debug("Entrada %2d: PID: %3d | Pág: %3d | Frame: %3d | Mod: %t | Uso: %t",
+			logueador.Info("Entrada %2d: PID: %3d | Pág: %3d | Frame: %3d | Mod: %t | Uso: %t",
 				i, pagina.PID, pagina.NumeroPagina, pagina.NumeroFrame, pagina.BitModificado, pagina.BitDeUso)
 		} else {
-			logueador.Debug("Entrada %2d: [Libre]", i)
+			logueador.Info("Entrada %2d: [Libre]", i)
 		}
 	}
-	logueador.Debug("-------------------------------------------------------------------------------------")
+	logueador.Info("-------------------------------------------------------------------------------------")
 }
