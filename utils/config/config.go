@@ -84,8 +84,6 @@ func CargarConfiguracion(filePath string, configVar any) {
 	if err := json.Unmarshal([]byte(expandedContent), configVar); err != nil {
 		panic(err)
 	}
-
-	// logueador.Info("Configuración cargada correctamente: %+v", configVar)
 }
 
 // ----------------------------------------------- UTILIDADES .ENV --------------------------------------------

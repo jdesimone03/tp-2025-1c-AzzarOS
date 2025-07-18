@@ -287,8 +287,8 @@ func VerificarPMCP(cola *structs.ColaSegura) {
 
 func OrdenarLista(lista *[]structs.NuevoProceso) {
 	// Ordenar por tamaño (bubble sort simple)
-	for i := 0; i < len(*lista); i++ {
-		for j := 0; j < len(*lista)-1-i; j++ {
+	for i := range *lista {
+		for j := range len(*lista)-1-i {
 			if (*lista)[j].Tamanio > (*lista)[j+1].Tamanio {
 				(*lista)[j], (*lista)[j+1] = (*lista)[j+1], (*lista)[j]
 			}

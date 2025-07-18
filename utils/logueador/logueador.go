@@ -55,14 +55,6 @@ func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 	slog.SetLogLoggerLevel(nivel)
 
 	log.SetFlags(log.Lmicroseconds)
-    /* 
-    // Crear el handler con el nivel configurado
-    handler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
-        Level: nivel,
-    })
-    
-    // Establecer como logger por defecto
-    slog.SetDefault(slog.New(handler)) */
 
 	Info("Logger %s.log configurado", nombreArchivoLog)
 }
