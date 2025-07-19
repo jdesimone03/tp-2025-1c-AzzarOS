@@ -1,0 +1,15 @@
+{
+    "ip_kernel": "${IP_KERNEL}",
+    "port_kernel": "${PORT_KERNEL}",
+    
+    "ip_memory": "${IP_MEMORY}",
+    "port_memory": "${PORT_MEMORY}",
+    
+    "scheduler_algorithm": "SJF",
+    "ready_ingress_algorithm": "FIFO",
+    "alpha": 1,
+    "initial_estimate": 1000,
+    "suspension_time": 120000,
+
+    "log_level": "${LOG_LEVEL_KERNEL}"
+}
