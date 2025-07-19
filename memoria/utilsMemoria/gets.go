@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"utils/logueador"
 	"utils/structs"
 )
@@ -47,7 +46,7 @@ func HandlerMostrarSWAP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	pathCorrecto := filepath.Base(Config.SwapfilePath)
+	pathCorrecto := Config.SwapfilePath
 	file, err := os.Open(pathCorrecto)
 	if err != nil {
 		logueador.Error("Error al abrir el archivo SWAP: %s", err)

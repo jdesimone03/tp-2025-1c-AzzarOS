@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"slices"
 	"utils/logueador"
 	"utils/structs"
@@ -15,7 +14,7 @@ func Tamanioframe() int {
 }
 
 func EscribirProcesoEsSwap(proceso structs.ProcesoEnSwap) {
-	pathCorrecto := filepath.Base(Config.SwapfilePath)
+	pathCorrecto := Config.SwapfilePath
 	file, err := os.OpenFile(pathCorrecto, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		logueador.Error("Error al abrir el archivo SWAP para escritura: %v", err)
@@ -83,7 +82,7 @@ func BuscarPaginasDeProceso(pid uint) []string {
 }
 
 func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
-	pathCorrecto := filepath.Base(Config.SwapfilePath)
+	pathCorrecto := Config.SwapfilePath
 	file, err := os.Open(pathCorrecto)
 	if err != nil {
 		logueador.Error("Error al abrir el archivo SWAP: %v", err)
