@@ -245,13 +245,8 @@ func VerificarInicializacion() {
 }
 
 func VerificarFIFO(cola *structs.ColaSegura) {
-	for i := range cola.Longitud() {
-
-		if i >= cola.Longitud() {
-			continue // Saltar si el índice ya no es válido
-		}
-
-		pcb := cola.Obtener(i)
+    if !cola.Vacia() {
+		pcb := cola.Obtener(0)
 		procesoAEnviar, existe := ProcesosEnEspera.Obtener(pcb.PID)
 
 		if existe {
