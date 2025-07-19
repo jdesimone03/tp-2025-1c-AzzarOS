@@ -51,27 +51,27 @@ func BuscarPaginasParaDump(pid uint) []string {
 
 	for i := range CantidadDeFrames() {
 		if Ocupadas[i] == int(pid) {
-			leido, err := Read(pid, i*Tamanioframe(), Tamanioframe())
+			contenido, err := BorrarContenidoDeFrame(pid, i, Tamanioframe())
 			if err != nil {
 				logueador.Error("Error al leer la página del proceso: %v", err)
 				continue
 			}
-			listaDePaginas = append(listaDePaginas, leido)
+			listaDePaginas = append(listaDePaginas,contenido)
 		}
 	}
-	logueador.Debug("Páginas encontradas para el proceso")
+	logueador.Debug("Páginas encontradas del proceso con pid %d", pid)
+	logueador.Info("Paginas a mandar a memory dump: %v", listaDePaginas)
 	return listaDePaginas
 }
 
 func BorrarContenidoDeFrame(pid uint, frame int, tamanio int) (string, error) {
-	contenido, err := Read(pid, frame*Tamanioframe(), Tamanioframe())
+	contenido, err := Read(pid, frame*Tamanioframe(), Tamanioframe()) // Lee todo el frame 
 	if err != nil {
 		logueador.Error("Error al leer el contenido del frame: %v", err)
 		return "", err
 	}
-
-	BorrarBytes(EspacioUsuario[frame*Tamanioframe():frame*Tamanioframe()+tamanio])
-	return contenido, nil
+	BorrarBytes(EspacioUsuario[frame*Tamanioframe():frame*Tamanioframe()+tamanio]) // Borra el contenido del frame
+	return contenido, nil // Retorna el contenido leído antes de borrarlo
 }
 
 func BorrarBytes(data []byte) {
@@ -186,6 +186,7 @@ func SwapInProceso(pid uint) {
 		PID:     pid,
 		Paginas: paginas,
 	}
+	logueador.Info("Mandando proceso a SWAP con paginas: %v", procesoEnSwap.Paginas)
 	EscribirProcesoEsSwap(procesoEnSwap)
 	logueador.Debug("Proceso de PID: %d ha sido movido a SWAP", pid)
 }
