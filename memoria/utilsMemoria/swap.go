@@ -51,7 +51,7 @@ func BuscarPaginasParaDump(pid uint) []string {
 
 	for i := range CantidadDeFrames() {
 		if Ocupadas[i] == int(pid) {
-			contenido, err := BorrarContenidoDeFrame(pid, i, Tamanioframe())
+			contenido, err := Read(pid, i*Tamanioframe(), Tamanioframe()) // Lee todo el frame 
 			if err != nil {
 				logueador.Error("Error al leer la página del proceso: %v", err)
 				continue
@@ -62,22 +62,6 @@ func BuscarPaginasParaDump(pid uint) []string {
 	logueador.Debug("Páginas encontradas del proceso con pid %d", pid)
 	logueador.Info("Paginas a mandar a memory dump: %v", listaDePaginas)
 	return listaDePaginas
-}
-
-func BorrarContenidoDeFrame(pid uint, frame int, tamanio int) (string, error) {
-	contenido, err := Read(pid, frame*Tamanioframe(), Tamanioframe()) // Lee todo el frame 
-	if err != nil {
-		logueador.Error("Error al leer el contenido del frame: %v", err)
-		return "", err
-	}
-	BorrarBytes(EspacioUsuario[frame*Tamanioframe():frame*Tamanioframe()+tamanio]) // Borra el contenido del frame
-	return contenido, nil // Retorna el contenido leído antes de borrarlo
-}
-
-func BorrarBytes(data []byte) {
-	for i := range data {
-			data[i] = 0
-		}
 }
 
 func BuscarPaginasDeProceso(pid uint) []string {

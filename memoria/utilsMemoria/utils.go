@@ -131,12 +131,14 @@ func CreacionArchivoDump(pid uint) (*os.File, error) {
 
 	err := os.MkdirAll(Config.DumpPath, 0755)
 	if err != nil {
+		logueador.Warn("No se pudo crear el directorio de dumps: %v", err)
 		return nil, fmt.Errorf("error al crear el directorio de dumps: %w", err)
 	}
-
 	pathCorrectoDump := Config.DumpPath
 	nombreArchivo := NombreDelArchivoDMP(strconv.Itoa(int(pid)))
 	rutaCompleta := filepath.Join(pathCorrectoDump, nombreArchivo)
+
+	logueador.Info("Se creo el archivo en el path: %s", rutaCompleta)
 
 	file, err := os.Create(rutaCompleta)
 	if err != nil {
