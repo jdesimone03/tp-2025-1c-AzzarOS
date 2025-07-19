@@ -8,3 +8,6 @@
 *.bin
 *.exe
 __debug_bin*
+
+# Dumps
+*.dmp

@@ -37,13 +37,47 @@ func EscribirProcesoEsSwap(proceso structs.ProcesoEnSwap) {
 }
 
 func CreacionArchivoSWAP() {
-	pathCorrecto := filepath.Base(Config.SwapfilePath)
+	pathCorrecto := Config.SwapfilePath
 	file, err := os.Create(pathCorrecto)
 	if err != nil {
 		logueador.Error("Error al crear el archivo SWAP: %v", err)
 	}
 	logueador.Debug("Archivo SWAP creado exitosamente en: %s", pathCorrecto)
 	defer file.Close()
+}
+
+func BuscarPaginasParaDump(pid uint) []string {
+	var listaDePaginas []string
+
+	for i := range CantidadDeFrames() {
+		if Ocupadas[i] == int(pid) {
+			leido, err := Read(pid, i*Tamanioframe(), Tamanioframe())
+			if err != nil {
+				logueador.Error("Error al leer la página del proceso: %v", err)
+				continue
+			}
+			listaDePaginas = append(listaDePaginas, leido)
+		}
+	}
+	logueador.Debug("Páginas encontradas para el proceso")
+	return listaDePaginas
+}
+
+func BorrarContenidoDeFrame(pid uint, frame int, tamanio int) (string, error) {
+	contenido, err := Read(pid, frame*Tamanioframe(), Tamanioframe())
+	if err != nil {
+		logueador.Error("Error al leer el contenido del frame: %v", err)
+		return "", err
+	}
+
+	BorrarBytes(EspacioUsuario[frame*Tamanioframe():frame*Tamanioframe()+tamanio])
+	return contenido, nil
+}
+
+func BorrarBytes(data []byte) {
+	for i := range data {
+			data[i] = 0
+		}
 }
 
 func BuscarPaginasDeProceso(pid uint) []string {

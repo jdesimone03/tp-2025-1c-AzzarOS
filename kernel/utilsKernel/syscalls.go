@@ -73,7 +73,11 @@ func SyscallDumpMemory(pid uint, instruccion structs.DumpMemoryInstruction) {
 	}
 
 	logueador.Info("Dump de memoria realizado correctamente para el proceso %d", pid)
-	MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
+	existe := MoverPCB(pid, ColaBlocked, ColaReady, structs.EstadoReady)
+	if !existe { // Si no está en la cola blocked, está en la cola susp. blocked
+		MoverPCB(pid, ColaSuspBlocked, ColaSuspReady, structs.EstadoSuspReady)
+	}
+
 }
 
 func SyscallInitProc(pid uint, instruccion structs.InitProcInstruction) {

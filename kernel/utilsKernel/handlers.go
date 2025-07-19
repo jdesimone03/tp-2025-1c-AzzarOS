@@ -60,7 +60,7 @@ func HandleSyscall(tipo string) func(http.ResponseWriter, *http.Request) {
 		pc, _ := strconv.ParseUint(rawPC, 10, 32)
 
 		// Actualiza el pid y pc del proceso
-		ColaExecute.Actualizar(uint(pid), uint(pc))
+		ColaExecute.Actualizar(uint(pid), uint(pc + 1))
 
 		// Log obligatorio 1/8
 		logueador.SyscallRecibida(uint(pid), tipo)
@@ -133,6 +133,7 @@ func GuardarContexto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+
 }
 
 // ---------------------------- IO ----------------------------//

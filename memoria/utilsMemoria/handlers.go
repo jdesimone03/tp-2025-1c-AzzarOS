@@ -353,7 +353,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
+	
 	time.Sleep(time.Millisecond * time.Duration(Config.MemoryDelay)) // Simula el tiempo de espera para la verificación de espacio
 	file, err := CreacionArchivoDump(*pid)
 	if err != nil {
@@ -361,7 +361,7 @@ func HandlerMEMORYDUMP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError) // En el handler del kernel, si el httpStatus es este, manda el proceso a EXIT
 		return
 	}
-	paginasDeProceso := BuscarPaginasDeProceso(*pid)    // Obtengo las paginas del proceso
+	paginasDeProceso := BuscarPaginasParaDump(*pid)    // Obtengo las paginas del proceso
 	EscribirDumpEnArchivo(file, *pid, paginasDeProceso) // Escribo las paginas en el archivo de dump
 
 	defer file.Close()
