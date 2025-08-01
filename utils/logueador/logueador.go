@@ -13,20 +13,28 @@ import (
 
 // ArchivoExiste verifica si un archivo ya existe en el directorio de trabajo
 func ArchivoExiste(nombreArchivo string) bool {
-    _, err := os.Stat(nombreArchivo + ".log")
-    return !os.IsNotExist(err)
+	_, err := os.Stat(nombreArchivo + ".log")
+	return !os.IsNotExist(err)
 }
 
 // CREA ARCHIVO .LOG
 func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
-	
-	nombreCompleto := nombreArchivoLog
+
+	// Crear el directorio logs si no existe
+    if _, err := os.Stat("logs"); os.IsNotExist(err) {
+        err := os.MkdirAll("logs", 0755)
+        if err != nil {
+            panic(err)
+        }
+    }
+
+	nombreCompleto := "logs/" + nombreArchivoLog
 	i := 1
 	for ArchivoExiste(nombreCompleto) {
-		nombreCompleto += "_" + strconv.Itoa(i)
+		nombreCompleto = "logs/" + nombreArchivoLog + "_" + strconv.Itoa(i)
 		i++
 	}
-		
+
 	logFile, err := os.OpenFile(nombreCompleto+".log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
@@ -36,19 +44,19 @@ func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 	log.SetOutput(logFile)
 
 	// Determinar el nivel de log
-    var nivel slog.Level
-    switch strings.ToUpper(nivelLog) {
-    case "DEBUG":
-        nivel = slog.LevelDebug
-    case "INFO":
-        nivel = slog.LevelInfo
-    case "WARN", "WARNING":
-        nivel = slog.LevelWarn
-    case "ERROR":
-        nivel = slog.LevelError
-    default:
-        nivel = slog.LevelInfo // Default
-    }
+	var nivel slog.Level
+	switch strings.ToUpper(nivelLog) {
+	case "DEBUG":
+		nivel = slog.LevelDebug
+	case "INFO":
+		nivel = slog.LevelInfo
+	case "WARN", "WARNING":
+		nivel = slog.LevelWarn
+	case "ERROR":
+		nivel = slog.LevelError
+	default:
+		nivel = slog.LevelInfo // Default
+	}
 
 	slog.SetLogLoggerLevel(nivel)
 
@@ -59,19 +67,19 @@ func ConfigurarLogger(nombreArchivoLog string, nivelLog string) {
 
 // ---------------------------- Funciones log ----------------------------//
 func Info(formato string, args ...any) {
-    slog.Info(fmt.Sprintf(formato, args...))
+	slog.Info(fmt.Sprintf(formato, args...))
 }
 
 func Error(formato string, args ...any) {
-    slog.Error(fmt.Sprintf(formato, args...))
+	slog.Error(fmt.Sprintf(formato, args...))
 }
 
 func Warn(formato string, args ...any) {
-    slog.Warn(fmt.Sprintf(formato, args...))
+	slog.Warn(fmt.Sprintf(formato, args...))
 }
 
 func Debug(formato string, args ...any) {
-    slog.Debug(fmt.Sprintf(formato, args...))
+	slog.Debug(fmt.Sprintf(formato, args...))
 }
 
 // ---------------------------- KERNEL ----------------------------//
