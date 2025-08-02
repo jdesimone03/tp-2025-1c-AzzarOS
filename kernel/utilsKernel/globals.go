@@ -39,6 +39,7 @@ var ListaWaitIO = structs.NewMapIOWait()
 
 var mxBusquedaCPU sync.Mutex
 var mxBusquedaIO sync.Mutex
+var mxInicializacion sync.Mutex
 
 var ChColaReady = make(chan struct{}, 1)
 var ChColasLargoMedioPlazo = make(chan struct{}, 1)

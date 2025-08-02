@@ -12,6 +12,7 @@ import (
 )
 
 func EnviarMensaje(ip string, puerto string, endpoint string, mensaje any) string {
+	logueador.Debug("Enviando mensaje a %s:%s/%s con el contenido: %+v", ip, puerto, endpoint, mensaje)
 	body, err := json.Marshal(mensaje)
 	if err != nil {
 		logueador.Error("No se pudo codificar el mensaje (%v)", err)

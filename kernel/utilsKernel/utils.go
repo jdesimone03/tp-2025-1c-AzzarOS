@@ -219,6 +219,8 @@ func IntentarInicializarProceso(proceso structs.NuevoProceso, origen *structs.Co
 
 	logueador.Info("Proceso a enviar - PID: %d, Archivo de Instrucciones: %s, Tamanio: %d", proceso.PID, proceso.Instrucciones, proceso.Tamanio)
 
+	mxInicializacion.Lock()
+	defer mxInicializacion.Unlock()
 	respuesta := utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "check-memoria", proceso.Tamanio)
 	if respuesta == "OK" {
 		utils.EnviarMensaje(Config.IPMemory, Config.PortMemory, "inicializarProceso", proceso)

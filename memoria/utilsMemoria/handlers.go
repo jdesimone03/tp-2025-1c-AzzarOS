@@ -238,6 +238,7 @@ func HandlerDeSuspension(w http.ResponseWriter, r *http.Request) {
 func HandlerDeDesuspension(NuevoProceso structs.NuevoProceso) bool {
 	tamInt := int(NuevoProceso.Tamanio)
 	pid := strconv.Itoa(int(NuevoProceso.PID))
+	logueador.Debug("Desuspendiendo: %+v", NuevoProceso)
 	if !HayEspacioParaInicializar(tamInt) {
 		logueador.Error("No hay espacio para desuspender el proceso")
 		return false
@@ -420,6 +421,8 @@ func HandlerDePedidoDeInicializacion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar el mensaje", http.StatusBadRequest)
 		return
 	}
+
+	logueador.Debug("Me llego un pedido de inicializacion: %+v", *data)
 
 	if ExisteElPID(data.PID) { // Significa que lo queres desuspender
 		resultado := HandlerDeDesuspension(*data)

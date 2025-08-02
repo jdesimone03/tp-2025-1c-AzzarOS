@@ -124,17 +124,17 @@ func BuscarProcesoEnSwap(pid uint) *structs.ProcesoEnSwap {
 }
 
 func ProcesoASacarDeSwap(procesos []structs.ProcesoEnSwap, pid uint) (*structs.ProcesoEnSwap, []structs.ProcesoEnSwap) {
-	// Buscar el proceso en la lista de procesos
-	for i, proceso := range procesos {
-		if proceso.PID == pid {
-			encontrado := proceso
-			logueador.Info("Proceso encontrado en SWAP: %+v", proceso)
-			procesos = slices.Delete(procesos, i, i+1) // Elimina el proceso encontrado de la lista
-			return &encontrado, procesos               // Retorna el proceso encontrado
-		}
-	}
-	logueador.Debug("Proceso con PID %d no encontrado en SWAP", pid)
-	return nil, nil // Si no se encuentra, retorna nil
+    // Buscar el proceso en la lista de procesos
+    for i := 0; i < len(procesos); i++ {
+        if procesos[i].PID == pid {
+            encontrado := procesos[i]
+            logueador.Info("Proceso encontrado en SWAP: %+v", procesos[i])
+            procesos = slices.Delete(procesos, i, i+1) // Elimina el proceso encontrado de la lista
+            return &encontrado, procesos               // Retorna el proceso encontrado
+        }
+    }
+    logueador.Debug("Proceso con PID %d no encontrado en SWAP", pid)
+    return nil, nil // Si no se encuentra, retorna nil
 }
 
 // Si hay espacio para inicializar => que entren las paginas del proceso en memoria principal

@@ -364,8 +364,8 @@ func MostrarContenidoCache() {
 	for i, pagina := range Cache.Paginas {
 		if pagina.PID != -1 {
 			// No se muestra el contenido por ser muy grande
-			logueador.Info("Entrada %2d: PID: %3d | Pág: %3d | Frame: %3d | Mod: %t | Uso: %t",
-				i, pagina.PID, pagina.NumeroPagina, pagina.NumeroFrame, pagina.BitModificado, pagina.BitDeUso)
+			logueador.Info("Entrada %2d: PID: %3d | Pág: %3d | Frame: %3d | Uso: %t | Mod: %t ",
+				i, pagina.PID, pagina.NumeroPagina, pagina.NumeroFrame, pagina.BitDeUso, pagina.BitModificado)
 		} else {
 			logueador.Info("Entrada %2d: [Libre]", i)
 		}

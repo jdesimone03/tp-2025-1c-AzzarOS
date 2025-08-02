@@ -48,7 +48,7 @@ case $TEST_NUM in
     2) 
         case $VARIANT in
             "fifo")
-                ARGS=("PLANI_LYM_PLAZO" "0" "$SCRIPT_DIR/config/2_test_PLYMP.json")
+                ARGS=("PLANI_LYM_PLAZO" "0" "$SCRIPT_DIR/config/2_test_PLYMP_FIFO.json")
                 ;;
             "pmcp")
                 ARGS=("PLANI_LYM_PLAZO" "0" "$SCRIPT_DIR/config/2_test_PLYMP_PMCP.json")
