@@ -4,7 +4,7 @@ _"Gopher se cree que es ejemplo..."_
 * [Documento de pruebas](https://docs.google.com/document/d/13XPliZvUBtYjaRfuVUGHWbYX8LBs8s3TDdaDa9MFr_I/edit?usp=sharing)
 
 ## Integrantes
-* [@jdesimone03](https://github.com/jdesimone03)
+* [@jotafabri](https://github.com/jotafabri)
 * [@SuperGriditOS](https://github.com/SuperGriditOS)
 * [@santirondini](https://github.com/santirondini)
 * [@GordoNobli](https://github.com/GordoNobli)
